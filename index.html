@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B.Nook</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://qsnsmmtudoiybxsrzllc.supabase.co">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              stone: {
+                850: '#292524',
+                950: '#0c0a09',
+              }
+            },
+            animation: {
+              'aurora': 'aurora 3s ease-in-out infinite',
+              'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+              'bounce-slow': 'bounce 3s infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+            },
+            keyframes: {
+              shimmer: {
+                '0%': { backgroundPosition: '-1000px 0' },
+                '100%': { backgroundPosition: '1000px 0' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Inter:wght@300;400;500;600&family=Fredoka:wght@400;600;700&display=swap');
+      
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      h1, h2, h3, h4, .serif {
+        font-family: 'Merriweather', serif;
+      }
+
+      /* Skeleton Effect */
+      .skeleton {
+        background: linear-gradient(90deg, #f5f5f4 25%, #e7e5e4 50%, #f5f5f4 75%);
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite linear;
+      }
+      .dark .skeleton {
+        background: linear-gradient(90deg, #1c1917 25%, #292524 50%, #1c1917 75%);
+        background-size: 1000px 100%;
+      }
+
+      /* Custom Animations */
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up {
+        animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-scale-in {
+        animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes slideInRight {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      .animate-slide-in-right {
+        animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+      }
+
+      /* Celebration Animations */
+      .celebrating .rounded-2xl,
+      .celebrating .rounded-xl,
+      .celebrating .rounded-lg,
+      .celebrating button,
+      .celebrating input,
+      .celebrating textarea {
+        animation: element-wave 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      @keyframes element-wave {
+        0% { transform: scale(1); border-color: inherit; }
+        40% { transform: scale(1.02); box-shadow: 0 0 15px rgba(120, 113, 108, 0.3); border-color: #8b5cf6; }
+        100% { transform: scale(1); border-color: inherit; }
+      }
+
+      /* Utility to hide before animation starts to prevent flash */
+      .opacity-0-start {
+        opacity: 0;
+      }
+      
+      /* Custom Scrollbar for dark mode aesthetics */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #d6d3d1;
+        border-radius: 20px;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #44403c;
+      }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.84.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

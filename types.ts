@@ -1,0 +1,97 @@
+
+export interface Annotation {
+  id: string;
+  quote: string;
+  comment: string;
+  color: string;
+  timestamp: number;
+}
+
+export interface Quote {
+  id: string;
+  text: string;
+  bookId?: string;
+  bookTitle: string;
+  page?: string;
+  color: string; 
+  timestamp: number;
+}
+
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl: string;
+  progress: number;
+  status: 'reading' | 'completed' | 'want_to_read';
+  myRating?: number;
+  isLendable?: boolean;
+  annotations?: Annotation[];
+  content?: string;
+  currentPage?: number;
+  totalPages?: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  handle?: string;
+  avatar: string;
+  bannerUrl?: string;
+  bio?: string;
+  location?: string;
+  joinedDate?: string;
+  booksReadThisYear: number;
+  totalBooksRead?: number;
+  streakDays?: number;
+}
+
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface Activity {
+  id: string;
+  user: User;
+  book: Book | null;
+  type: 'progress' | 'review' | 'note' | 'finished';
+  content?: string;
+  timestamp: string;
+  likes: number;
+  likedBy: string[];
+  comments: Comment[];
+}
+
+export interface Message {
+  id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface Chat {
+  id: string;
+  updatedAt: string;
+  participants: User[];
+  lastMessage: string;
+}
+
+// Added missing types for Studio and Discover components
+export type ImageSize = '1K' | '2K' | '4K';
+export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
+
+export interface MoodCategory {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+}
