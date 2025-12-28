@@ -54,6 +54,7 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
             };
 
             setMessages(prev => {
+              // Проверка на дубликат (на случай если Realtime сработает слишком быстро)
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
@@ -98,9 +99,12 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
   const handleSendMessage = async () => {
     if (!activeChatId || !newMessage.trim()) return;
     try {
-      const savedMsg = await db.sendMessage(activeChatId, user.id, newMessage);
-      setMessages(prev => [...prev, savedMsg]);
+      // Удалено: setMessages(prev => [...prev, savedMsg]);
+      // Теперь мы полагаемся исключительно на Realtime подписку для обновления списка сообщений.
+      await db.sendMessage(activeChatId, user.id, newMessage);
       setNewMessage('');
+      
+      // Обновляем только превью последнего сообщения в списке чатов
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, lastMessage: newMessage } : c));
     } catch (e) {
       console.error("Failed to send", e);
@@ -131,18 +135,12 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
     if (!chatToDelete) return;
     setIsDeletingChat(true);
     try {
-      // 1. Выполняем удаление в базе данных
       await db.deleteChat(chatToDelete);
-      
-      // 2. Если удаление успешно, обновляем локальное состояние
       setChats(prev => prev.filter(c => c.id !== chatToDelete));
-      
-      // 3. Если удален активный чат, сбрасываем его
       if (activeChatId === chatToDelete) {
         setActiveChatId(null);
         setMessages([]);
       }
-      
       setChatToDelete(null);
     } catch (e) {
       console.error("Error deleting chat:", e);
