@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
-import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Cpu } from 'lucide-react';
+import { Loader2, Wand2, BookOpenText, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Cpu } from 'lucide-react';
 
 interface OracleProps {
   books: Book[];
