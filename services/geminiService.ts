@@ -2,11 +2,15 @@
 import { GoogleGenAI } from "@google/genai";
 import { ImageSize, AspectRatio } from "../types";
 
-// Инициализируем клиент только в момент вызова, когда ключ уже точно выбран
+// Универсальный способ получения ключа
+const getApiKey = () => {
+  return process.env.API_KEY || (window as any).VITE_API_KEY;
+};
+
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("API Key not found. Please connect your API key.");
+    throw new Error("API Key not found. Please set API_KEY environment variable.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -16,15 +20,12 @@ export const generateSceneImage = async (
   size: ImageSize,
   aspectRatio: AspectRatio
 ): Promise<string> => {
-  const ai = getAiClient();
-  
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: {
-        parts: [
-          { text: prompt }
-        ]
+        parts: [{ text: prompt }]
       },
       config: {
         imageConfig: {
@@ -36,11 +37,10 @@ export const generateSceneImage = async (
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        const base64 = part.inlineData.data;
-        return `data:image/png;base64,${base64}`;
+        return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data returned from model.");
+    throw new Error("No image data returned.");
   } catch (error) {
     console.error("Image Generation Error:", error);
     throw error;
@@ -52,9 +52,8 @@ export const editBookImage = async (
   mimeType: string,
   prompt: string
 ): Promise<string> => {
-  const ai = getAiClient();
-
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -72,8 +71,7 @@ export const editBookImage = async (
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
-        const base64 = part.inlineData.data;
-        return `data:image/png;base64,${base64}`;
+        return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
     throw new Error("No edited image returned.");
@@ -84,20 +82,23 @@ export const editBookImage = async (
 };
 
 export const checkAndRequestApiKey = async (): Promise<boolean> => {
-  if (typeof window === 'undefined') return false;
+  // Если ключ уже есть в переменных окружения, доступ разрешен
+  if (getApiKey()) return true;
   
-  const aiStudio = window.aistudio;
-  if (!aiStudio) return !!process.env.API_KEY;
-
-  try {
-    const hasKey = await aiStudio.hasSelectedApiKey();
-    if (!hasKey) {
-      await aiStudio.openSelectKey();
-      return true; // Предполагаем успех после открытия диалога
+  // Если мы в среде AI Studio, пытаемся открыть диалог
+  if (typeof window !== 'undefined' && (window as any).aistudio) {
+    try {
+      const aiStudio = (window as any).aistudio;
+      const hasKey = await aiStudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await aiStudio.openSelectKey();
+        return true; 
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return true;
-  } catch (e) {
-    console.error("Error checking/requesting API key", e);
-    return false;
   }
+  
+  return false;
 };
