@@ -14,9 +14,8 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
-    { id: 'cafe', label: 'Кофейня', url: 'https://assets.mixkit.co/active_storage/sfx/1075/1075-preview.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
 ];
 
 interface ReaderProps {
@@ -41,7 +40,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [isZenMode, setIsZenMode] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(0.4);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
