@@ -1,12 +1,11 @@
 
 import React, { useState } from 'react';
-import { Book, User } from '../types';
+import { Book } from '../types';
 import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface OracleProps {
   books: Book[];
-  user: User;
 }
 
 interface Recommendation {
@@ -17,7 +16,7 @@ interface Recommendation {
   pages: number;
 }
 
-export const Oracle: React.FC<OracleProps> = ({ books, user }) => {
+export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -154,7 +153,6 @@ export const Oracle: React.FC<OracleProps> = ({ books, user }) => {
                     onClick={() => toggleFlip(i)}
                 >
                     <div className={`relative w-full h-full transition-all duration-700 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
-                        {/* Front Side */}
                         <div className="absolute inset-0 backface-hidden bg-white dark:bg-stone-900 p-10 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 shadow-xl flex flex-col justify-between group overflow-hidden">
                             <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl group-hover:bg-amber-500/10 transition-colors" />
                             
@@ -190,7 +188,6 @@ export const Oracle: React.FC<OracleProps> = ({ books, user }) => {
                             </div>
                         </div>
 
-                        {/* Back Side */}
                         <div className="absolute inset-0 backface-hidden rotate-y-180 bg-[#fdfaf6] dark:bg-stone-950 p-10 rounded-[2.5rem] border border-amber-100 dark:border-stone-800 shadow-2xl flex flex-col">
                             <div className="flex items-center justify-between mb-6 shrink-0">
                                 <BookOpenText size={24} className="text-amber-600" />

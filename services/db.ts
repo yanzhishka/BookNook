@@ -4,7 +4,6 @@ import { User, Book, Quote, Activity, Comment, Chat, Message } from '../types';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
 
-// Added UserData interface for admin management in Profile component
 export interface UserData {
   profile: User;
   email: string;
@@ -12,7 +11,6 @@ export interface UserData {
   password?: string;
 }
 
-// Fixed mapping to ensure property names match User interface (e.g., streakDays)
 const mapProfileToUser = (profile: any): User => ({
   id: profile.id,
   email: profile.email, 
@@ -27,7 +25,6 @@ const mapProfileToUser = (profile: any): User => ({
   streakDays: profile.streak_days || 0,
 });
 
-// Helper to map DB book to Application book
 const mapDbBookToBook = (b: any): Book => ({
   id: b.id,
   title: b.title,
@@ -91,8 +88,8 @@ export const db = {
   async logout() { await supabase.auth.signOut(); },
 
   async deleteChat(chatId: string): Promise<void> {
-    const { error: msgErr } = await supabase.from('messages').delete().eq('chat_id', chatId);
-    const { error: partErr } = await supabase.from('chat_participants').delete().eq('chat_id', chatId);
+    await supabase.from('messages').delete().eq('chat_id', chatId);
+    await supabase.from('chat_participants').delete().eq('chat_id', chatId);
     const { error: chatErr } = await supabase.from('chats').delete().eq('id', chatId);
     if (chatErr) throw new Error("Не удалось удалить чат");
   },
@@ -204,14 +201,16 @@ export const db = {
   },
 
   async toggleActivityLike(activityId: string, userId: string) {
-    const { data } = await supabase.from('activities').select('liked_by').eq('id', activityId).single();
+    const { data } = await supabase.from('activities').select('liked_by').eq('id', activityId).maybeSingle();
+    if (!data) return;
     let likes = data.liked_by || [];
     likes = likes.includes(userId) ? likes.filter((id: string) => id !== userId) : [...likes, userId];
     await supabase.from('activities').update({ liked_by: likes }).eq('id', activityId);
   },
 
   async addComment(activityId: string, comment: Comment) {
-    const { data } = await supabase.from('activities').select('comments').eq('id', activityId).single();
+    const { data } = await supabase.from('activities').select('comments').eq('id', activityId).maybeSingle();
+    if (!data) return;
     await supabase.from('activities').update({ comments: [...(data.comments || []), comment] }).eq('id', activityId);
   },
 

@@ -118,13 +118,13 @@ const App: React.FC = () => {
     <div className="h-screen w-full flex flex-col items-center justify-center bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 p-10 overflow-hidden">
       <div className="max-w-lg text-center animate-fade-in-up">
         <div className="mb-8 flex justify-center">
-            <Loader2 className="animate-spin text-brand-primary" size={40} />
+            <Loader2 className="animate-spin text-stone-900 dark:text-stone-100" size={40} />
         </div>
         <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-stone-600 dark:text-stone-300">
            {loadingQuote}
         </p>
         <div className="mt-12 h-1 w-24 bg-stone-200 dark:bg-stone-800 mx-auto rounded-full overflow-hidden">
-           <div className="h-full bg-brand-primary animate-[shimmer_2s_infinite_linear]" style={{ width: '40%' }}></div>
+           <div className="h-full bg-stone-900 dark:bg-stone-100 animate-[shimmer_2s_infinite_linear]" style={{ width: '40%' }}></div>
         </div>
       </div>
     </div>
@@ -154,8 +154,8 @@ const App: React.FC = () => {
               switch (activeTab) {
                 case 'home': return <Dashboard user={user} books={books} quotes={quotes} onNavigate={handleTabChange} />;
                 case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} />;
-                case 'library': return <Library books={books} setBooks={setBooks} quotes={quotes} setQuotes={setQuotes} user={user} />;
-                case 'oracle': return <Oracle books={books} user={user} />;
+                case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
+                case 'oracle': return <Oracle books={books} />;
                 case 'messages': return <Messages user={user} />;
                 case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} />;
                 default: return <Dashboard user={user} books={books} quotes={quotes} onNavigate={handleTabChange} />;

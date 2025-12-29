@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { Book, Quote, User } from '../types';
-import { Plus, BookOpen, FileText, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, AlertCircle, Info } from 'lucide-react';
+import { Book, User } from '../types';
+import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, AlertCircle, Info } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -12,8 +12,6 @@ const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 interface LibraryProps {
   books: Book[];
   setBooks: React.Dispatch<React.SetStateAction<Book[]>>;
-  quotes: Quote[];
-  setQuotes: React.Dispatch<React.SetStateAction<Quote[]>>;
   user: User;
 }
 
@@ -24,7 +22,7 @@ interface GutenbergBook {
   formats: { [key: string]: string };
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, setBooks, quotes, setQuotes, user }) => {
+export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -89,7 +87,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, quotes, setQu
       
       content = content.replace(/^\uFEFF/, '');
       
-      // Защита от слишком коротких текстов (ошибки прокси)
       if (content.length < 500) {
           throw new Error("Загруженный текст слишком мал. Скорее всего, сервер Gutenberg отклонил запрос. Попробуйте позже.");
       }
@@ -98,7 +95,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, quotes, setQu
       const author = gBook.authors.map(a => a.name).join(', ') || 'Неизвестный автор';
       
       const bookData: Book = {
-        id: '', // Will be assigned by DB
+        id: '', 
         title: gBook.title,
         author: author,
         coverUrl: gBook.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.cover.medium.jpg`,
@@ -286,7 +283,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, quotes, setQu
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => !isUploading && setShowAddModal(false)} />
               <div className="bg-[#110f0e] rounded-[2.5rem] w-full max-w-xl relative z-10 shadow-2xl animate-scale-in border border-stone-800 overflow-hidden">
-                  {/* Tabs */}
                   <div className="flex bg-[#1c1917]/50 border-b border-stone-800">
                       <button 
                         onClick={() => setAddMode('catalog')}

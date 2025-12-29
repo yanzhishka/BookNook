@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback, memo } from 'react';
 import { Activity, User, Book, Comment } from '../types';
-import { MessageSquare, Heart, BookOpen, Trophy, TrendingUp, Loader2, Send, PenTool, ChevronDown, Lock, Trash2, X, Sparkles, Quote as QuoteIcon } from 'lucide-react';
+import { MessageSquare, Heart, BookOpen, Trophy, Loader2, Send, PenTool, Trash2, Quote as QuoteIcon } from 'lucide-react';
 import { db, ADMIN_EMAIL } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -12,8 +12,7 @@ interface FeedProps {
     onPostCreated?: () => void;
 }
 
-// Optimized individual activity item
-const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, onDelete, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget }: any) => {
+const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget }: any) => {
     const isLiked = activity.likedBy.includes(user.id);
     const showComments = activeCommentId === activity.id;
     const canDelete = isAdmin || activity.user.id === user.id;
@@ -122,10 +121,6 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
   const [activities, setActivities] = useState<Activity[]>([]);
   const [leaderboard, setLeaderboard] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
-  const [fullLeaderboard, setFullLeaderboard] = useState<User[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   
   const isGuest = user.id === 'guest';
   const isAdmin = user.handle === ADMIN_EMAIL;
@@ -258,7 +253,6 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
         <div className="bg-white dark:bg-stone-900 rounded-[2.5rem] p-8 shadow-sm border border-stone-100 dark:border-stone-800 animate-fade-in-up mb-10 relative overflow-hidden group">
             {isGuest && (
                 <div className="absolute inset-0 bg-white/70 dark:bg-stone-900/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center text-center p-8">
-                    <Lock size={40} className="text-stone-400 mb-4" />
                     <button onClick={onRequireLogin} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-10 py-3.5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-all">
                         Войти
                     </button>
@@ -371,12 +365,6 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
                     </div>
                 ))}
             </div>
-            <button 
-                onClick={() => setShowLeaderboardModal(true)}
-                className="w-full py-4 bg-stone-50 dark:bg-stone-800 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all border border-dashed border-stone-200 dark:border-stone-700"
-            >
-                Весь рейтинг
-            </button>
         </div>
       </div>
     </div>

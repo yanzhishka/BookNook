@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Book } from '../types';
-import { MapPin, Calendar, Edit3, Save, BookOpen, Award, Flame, Camera, X, ShieldAlert, Trash2, Lock } from 'lucide-react';
+import { MapPin, Calendar, Edit3, Save, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, Lock } from 'lucide-react';
 import { db, UserData } from '../services/db';
 
 interface ProfileProps {
@@ -22,20 +22,16 @@ const ADMIN_EMAIL = 'nme030609@gmail.com';
 export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) => {
   const [isEditing, setIsEditing] = useState(false);
   
-  // Form State
   const [editName, setEditName] = useState(user.name);
   const [editBio, setEditBio] = useState(user.bio || '');
   const [editLocation, setEditLocation] = useState(user.location || '');
 
-  // Admin State
   const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const isAdmin = user.handle === ADMIN_EMAIL;
 
-  // File Input Refs
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate Real Stats
   const completedBooksCount = books.filter(b => b.status === 'completed').length;
   const realTotalRead = completedBooksCount; 
   const yearlyGoal = 20;
@@ -63,8 +59,8 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
       location: editLocation
     };
     
-    onUpdateUser(updatedUser); // Immediate UI update
-    await db.updateUserProfile(updatedUser); // Persist
+    onUpdateUser(updatedUser); 
+    await db.updateUserProfile(updatedUser); 
     setIsEditing(false);
   };
 
@@ -98,7 +94,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      {/* Banner Image */}
       <div className="relative w-full h-64 rounded-3xl overflow-hidden shadow-sm mb-16 group bg-stone-200 dark:bg-stone-800">
         <img src={user.bannerUrl} alt="Cover" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -122,9 +117,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
         )}
       </div>
 
-      {/* Profile Header */}
       <div className="px-6 relative">
-        {/* Avatar */}
         <div className="absolute -top-24 left-6 sm:left-10">
           <div className="relative group">
             <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-stone-900 shadow-lg overflow-hidden bg-white dark:bg-stone-800">
@@ -150,7 +143,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex justify-end mb-6">
             {isEditing ? (
                 <div className="flex gap-3">
@@ -179,7 +171,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
             )}
         </div>
 
-        {/* User Info */}
         <div className="mt-4 sm:ml-48 mb-10">
             {isEditing ? (
                 <div className="space-y-4 max-w-lg animate-fade-in-up">
@@ -243,7 +234,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
             )}
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
             <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800 flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
                 <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center">
@@ -274,7 +264,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
             </div>
         </div>
 
-        {/* Achievements Section */}
         <div className="mb-10">
             <h3 className="font-serif font-bold text-2xl text-stone-800 dark:text-stone-100 mb-6">Achievements</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -295,7 +284,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
             </div>
         </div>
 
-        {/* ADMIN PANEL */}
         {isAdmin && (
              <div className="mb-20 animate-fade-in-up border-t-2 border-stone-100 dark:border-stone-800 pt-10">
                  <div className="flex items-center gap-3 mb-6">
