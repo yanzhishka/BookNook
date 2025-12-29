@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User, Activity } from '../types';
 import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer } from 'lucide-react';
@@ -14,8 +13,8 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
 ];
 
 interface ReaderProps {
