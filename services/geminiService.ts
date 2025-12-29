@@ -2,12 +2,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { ImageSize, AspectRatio } from "../types";
 
-// Fix: Obtaining API key exclusively from process.env.API_KEY as per guidelines
+// Инициализируем клиент только в момент вызова, когда ключ уже точно выбран
 const getAiClient = () => {
   const apiKey = process.env.API_KEY;
-  
   if (!apiKey) {
-    throw new Error("API Key not found. Please connect your API key via the Studio.");
+    throw new Error("API Key not found. Please connect your API key.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -17,7 +16,6 @@ export const generateSceneImage = async (
   size: ImageSize,
   aspectRatio: AspectRatio
 ): Promise<string> => {
-  // Fix: Create instance right before API call
   const ai = getAiClient();
   
   try {
@@ -36,7 +34,6 @@ export const generateSceneImage = async (
       }
     });
 
-    // Fix: Iterating through parts to find the image part
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         const base64 = part.inlineData.data;
@@ -55,7 +52,6 @@ export const editBookImage = async (
   mimeType: string,
   prompt: string
 ): Promise<string> => {
-  // Fix: Create instance right before API call
   const ai = getAiClient();
 
   try {
@@ -74,7 +70,6 @@ export const editBookImage = async (
       }
     });
 
-    // Fix: Iterating through parts to find the image part
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         const base64 = part.inlineData.data;
@@ -88,7 +83,6 @@ export const editBookImage = async (
   }
 };
 
-// Fix: Updated checkAndRequestApiKey to use process.env.API_KEY and follow Veo guidelines
 export const checkAndRequestApiKey = async (): Promise<boolean> => {
   if (typeof window === 'undefined') return false;
   
@@ -99,8 +93,7 @@ export const checkAndRequestApiKey = async (): Promise<boolean> => {
     const hasKey = await aiStudio.hasSelectedApiKey();
     if (!hasKey) {
       await aiStudio.openSelectKey();
-      // Fix: Assume key selection was successful after triggering openSelectKey()
-      return true;
+      return true; // Предполагаем успех после открытия диалога
     }
     return true;
   } catch (e) {

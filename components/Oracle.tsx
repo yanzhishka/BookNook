@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
-import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Lock } from 'lucide-react';
 
 interface OracleProps {
   books: Book[];
@@ -21,6 +21,30 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  const [hasKey, setHasKey] = useState<boolean>(false);
+  const [checkingKey, setCheckingKey] = useState<boolean>(true);
+
+  // Проверка наличия ключа при монтировании
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio) {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        setHasKey(!!process.env.API_KEY);
+      }
+      setCheckingKey(false);
+    };
+    checkKey();
+  }, []);
+
+  const handleConnectKey = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setHasKey(true); // После открытия окна считаем, что ключ будет доступен
+    }
+  };
 
   const toggleFlip = (index: number) => {
     setFlippedIndices(prev => 
@@ -30,19 +54,26 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
 
   const getRecommendations = async () => {
     if (!prompt.trim()) return;
+    
+    // Если ключа нет, просим пользователя его выбрать
+    if (!process.env.API_KEY) {
+        await handleConnectKey();
+        return; 
+    }
+
     setLoading(true);
     setError(null);
     setRecommendations([]);
     setFlippedIndices([]);
 
     const myBooksContext = books.length > 0 
-      ? `Пользователь уже читал или интересуется следующими книгами: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}. Не предлагай их снова.` 
+      ? `Пользователь уже читал: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}.` 
       : '';
 
-    const userMessage = `Подбери 6 уникальных книг для читателя с запросом: "${prompt}". ${myBooksContext}`;
+    const userMessage = `Подбери 6 книг на русском для запроса: "${prompt}". ${myBooksContext}`;
 
     try {
-      // Прямой вызов Groq API
+      // ИСПОЛЬЗУЕМ GROQ API
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -54,13 +85,8 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
           messages: [
             { 
                 role: "system", 
-                content: `Ты — великий литературный оракул. Твоя задача — подбирать книги, которые изменят жизнь читателя. 
-                Отвечай ТОЛЬКО в формате JSON. Массив объектов с полями: 
-                "title" (название), 
-                "author" (автор), 
-                "description" (захватывающее описание 5-6 предложений на русском), 
-                "vibe" (метафоричное описание атмосферы на русском), 
-                "pages" (число страниц).` 
+                content: `Ты — великий литературный оракул. Отвечай ТОЛЬКО в формате JSON (массив объектов). 
+                Поля: title, author, description (5 предложений), vibe (метафора), pages (число).` 
             },
             { role: "user", content: userMessage }
           ],
@@ -71,22 +97,21 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
 
       if (!response.ok) {
         if (response.status === 401) {
-            throw new Error("Невалидный API ключ. Убедитесь, что ваш ключ Groq правильно настроен в окружении.");
+            setHasKey(false);
+            throw new Error("Невалидный API ключ. Пожалуйста, выберите рабочий ключ в настройках.");
         }
-        throw new Error("Оракул временно недоступен. Попробуйте позже.");
+        throw new Error("Оракул временно недоступен.");
       }
 
       const data = await response.json();
       const content = data.choices[0].message.content;
-      
-      // Парсинг ответа Llama
       const parsed = JSON.parse(content);
       const finalData = Array.isArray(parsed) ? parsed : (parsed.recommendations || parsed.books || Object.values(parsed)[0]);
       
       if (Array.isArray(finalData)) {
         setRecommendations(finalData.slice(0, 6));
       } else {
-        throw new Error("Неверный формат ответа от Оракула");
+        throw new Error("Неверный формат ответа.");
       }
     } catch (err: any) {
       console.error(err);
@@ -95,6 +120,35 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
       setLoading(false);
     }
   };
+
+  if (checkingKey) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin text-amber-500 mb-4" size={32} />
+        <p className="text-stone-400 font-bold uppercase tracking-widest text-[10px]">Проверка доступа...</p>
+      </div>
+    );
+  }
+
+  if (!hasKey) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 px-6 text-center animate-fade-in-up">
+        <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl">
+          <Lock size={40} />
+        </div>
+        <h2 className="text-3xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-4">Оракул спит</h2>
+        <p className="text-stone-500 dark:text-stone-400 mb-10 leading-relaxed">
+          Чтобы пробудить способности Оракула (Llama-3 через Groq), необходимо подключить ваш API ключ.
+        </p>
+        <button 
+          onClick={handleConnectKey}
+          className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-2xl flex items-center gap-3 mx-auto"
+        >
+          <Zap size={18} /> Подключить ключ
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto pb-20 px-4">
@@ -116,7 +170,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
           Литературный <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-rose-500 to-orange-500">Оракул</span>
         </h2>
         <p className="text-stone-500 dark:text-stone-400 text-lg max-w-2xl mx-auto leading-relaxed">
-          Раскройте свои желания. Нажмите на карточку, чтобы заглянуть внутрь каждой истории.
+          На базе Llama-3.3. Нажмите на карточку, чтобы заглянуть внутрь каждой истории.
         </p>
       </div>
 
@@ -148,6 +202,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
           <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-3xl mb-12 animate-shake border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-3">
               <AlertCircle size={20} />
               <span>{error}</span>
+              <button onClick={handleConnectKey} className="ml-4 underline font-bold">Подключить ключ</button>
           </div>
       )}
 
