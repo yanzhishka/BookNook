@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
-import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap } from 'lucide-react';
+import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
+import { checkAndRequestApiKey } from '../services/geminiService';
 
 interface OracleProps {
   books: Book[];
@@ -22,6 +23,27 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  const [hasAccess, setHasAccess] = useState<boolean>(false);
+  const [checkingAccess, setCheckingAccess] = useState<boolean>(true);
+
+  // Проверка доступа к API при загрузке
+  useEffect(() => {
+    const init = async () => {
+      // Проверяем, есть ли уже ключ в процессе или через интерфейс
+      const allowed = await checkAndRequestApiKey();
+      setHasAccess(allowed);
+      setCheckingAccess(false);
+    };
+    init();
+  }, []);
+
+  const requestAccess = async () => {
+    setCheckingAccess(true);
+    const allowed = await checkAndRequestApiKey();
+    setHasAccess(allowed);
+    setCheckingAccess(false);
+  };
 
   const toggleFlip = (index: number) => {
     setFlippedIndices(prev => 
@@ -31,6 +53,16 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
 
   const getRecommendations = async () => {
     if (!prompt.trim()) return;
+    
+    // Повторная проверка ключа непосредственно перед вызовом
+    if (!process.env.API_KEY) {
+      const allowed = await checkAndRequestApiKey();
+      if (!allowed) {
+        setError("Пожалуйста, выберите API ключ для работы Оракула.");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     setRecommendations([]);
@@ -43,7 +75,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
     const systemInstruction = `Ты — великий литературный оракул. Подбери ровно 6 книг на основе запроса пользователя. ${myBooksContext}`;
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
@@ -79,11 +111,48 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
       }
     } catch (err: any) {
       console.error(err);
-      setError("Оракул временно недоступен. Мы восстанавливаем связь со звездами. Пожалуйста, попробуйте еще раз.");
+      if (err.message?.includes("API key") || err.message?.includes("401")) {
+          setError("Ошибка API ключа. Пожалуйста, переподключите его.");
+          setHasAccess(false);
+      } else {
+          setError("Оракул временно недоступен. Попробуйте еще раз позже.");
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin text-amber-500 mb-4" size={40} />
+        <p className="text-stone-400 font-bold uppercase tracking-widest text-xs">Связываемся со звездами...</p>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] max-w-2xl mx-auto text-center p-8 animate-fade-in-up">
+        <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full flex items-center justify-center mb-8 shadow-xl">
+           <Compass size={48} className="animate-pulse" />
+        </div>
+        <h2 className="text-4xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-4">Пробудите Оракула</h2>
+        <p className="text-stone-500 dark:text-stone-400 mb-10 text-lg leading-relaxed">
+          Для того чтобы Оракул мог заглянуть в будущее ваших чтений, необходимо подключить API ключ Google Gemini.
+        </p>
+        <button 
+          onClick={requestAccess}
+          className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-12 py-4 rounded-2xl text-sm font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-2xl"
+        >
+          Подключить ключ
+        </button>
+        <p className="mt-8 text-xs text-stone-400">
+            Используется модель Gemini 3 Flash для мгновенных ответов.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto pb-20 px-4">
@@ -134,8 +203,9 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
       </div>
 
       {error && (
-          <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-3xl mb-12 animate-shake border border-red-100 dark:border-red-900/30">
-              {error}
+          <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-3xl mb-12 animate-shake border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-3">
+              <AlertCircle size={20} />
+              <span>{error}</span>
           </div>
       )}
 
