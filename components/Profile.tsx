@@ -344,7 +344,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                         <p className="text-xs font-medium opacity-60 mt-8 relative z-10">Вы читаете каждый день. Так держать!</p>
                     </div>
                     <div className="p-8 bg-white dark:bg-stone-900 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 shadow-sm flex flex-col justify-between group overflow-hidden relative">
-                         <Star size={100} className="absolute -bottom-8 -right-8 text-stone-50 dark:text-stone-800 group-hover:rotate-12 transition-transform duration-1000" />
                          <div className="relative z-10">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Прочитано</h4>
                             <p className="text-5xl font-black text-stone-900 dark:text-white">{completedBooks.length}</p>

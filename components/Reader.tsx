@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User, Activity } from '../types';
-import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Sparkles, Timer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer } from 'lucide-react';
 import { db } from '../services/db';
-import { generateSceneImage } from '../services/geminiService';
 
 const CHARS_PER_PAGE = 2500;
 
@@ -15,10 +14,10 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://www.soundjay.com/nature/rain-01.mp3' },
-    { id: 'cafe', label: 'Кофейня', url: 'https://www.soundjay.com/misc/sounds/coffee-shop-1.mp3' },
-    { id: 'library', label: 'Библиотека', url: 'https://www.soundjay.com/misc/sounds/ambience-library-1.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://www.soundjay.com/nature/sounds/forest-wind-1.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' }, // Placeholder for reliable stream
+    { id: 'cafe', label: 'Кофейня', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+    { id: 'library', label: 'Библиотека', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
 ];
 
 interface ReaderProps {
@@ -41,13 +40,11 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
 
   // Focus Mode State
   const [isZenMode, setIsZenMode] = useState(false);
-  const [zenBackground, setZenBackground] = useState<string | null>(null);
-  const [isGeneratingBg, setIsGeneratingBg] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [stopwatchTime, setStopwatchTime] = useState(0);
+  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
 
   // Time tracking state
   const lastSyncTime = useRef<number>(Date.now());
@@ -67,7 +64,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     await db.updateUserProfile(updatedUser);
   }, [user]);
 
-  // Track time
+  // Track total app reading time
   useEffect(() => {
     const timer = setInterval(() => {
         syncReadingTime();
@@ -79,45 +76,32 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     };
   }, [syncReadingTime]);
 
-  // Pomodoro Timer
+  // Session Stopwatch Logic
   useEffect(() => {
     let interval: any;
-    if (isTimerRunning && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    } else if (timeLeft === 0) {
-      setIsTimerRunning(false);
-      alert("Время вышло! Пора сделать перерыв.");
+    if (isStopwatchRunning) {
+      interval = setInterval(() => {
+        setStopwatchTime(prev => prev + 1);
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isTimerRunning, timeLeft]);
+  }, [isStopwatchRunning]);
 
-  // Ambient Sounds
+  // Ambient Sounds Logic
   useEffect(() => {
+    if (!audioRef.current) return;
+    
     if (activeSound) {
         const sound = AMBIENT_SOUNDS.find(s => s.id === activeSound);
         if (sound) {
-            if (audioRef.current) {
-                audioRef.current.src = sound.url;
-                audioRef.current.play().catch(() => {});
-            }
+            audioRef.current.src = sound.url;
+            audioRef.current.play().catch(e => console.warn("Autoplay blocked or URL error", e));
         }
     } else {
-        audioRef.current?.pause();
+        audioRef.current.pause();
+        audioRef.current.src = "";
     }
   }, [activeSound]);
-
-  const generateMoodBackground = async () => {
-    setIsGeneratingBg(true);
-    try {
-        const prompt = `Immersive atmospheric background for the book "${book.title}" by ${book.author}. Style: minimalist, aesthetic, poetic, no text, soft colors, cinematic lighting, 4k.`;
-        const img = await generateSceneImage(prompt, '1K', '16:9');
-        setZenBackground(img);
-    } catch (e) {
-        console.error("Mood generation failed", e);
-    } finally {
-        setIsGeneratingBg(false);
-    }
-  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -212,17 +196,9 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   };
 
   return (
-    <div className={`fixed inset-0 z-50 transition-all duration-700 overflow-hidden flex flex-col ${isZenMode ? 'bg-black' : 'bg-[#FDFCFB] dark:bg-[#0C0A09]'}`}>
+    <div className={`fixed inset-0 z-50 transition-all duration-700 overflow-hidden flex flex-col ${isZenMode ? 'bg-stone-950' : 'bg-[#FDFCFB] dark:bg-[#0C0A09]'}`}>
       <audio ref={audioRef} loop />
       
-      {/* Zen Background */}
-      {isZenMode && zenBackground && (
-          <div className="absolute inset-0 opacity-40 transition-opacity duration-1000 animate-fade-in pointer-events-none">
-              <img src={zenBackground} className="w-full h-full object-cover blur-[2px]" alt="" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60"></div>
-          </div>
-      )}
-
       <header className={`h-16 px-6 border-b transition-all duration-500 flex items-center justify-between z-10 bg-inherit ${isZenMode ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0 border-stone-200 dark:border-stone-800'}`}>
         <div className="flex items-center gap-6">
           <button onClick={onClose} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors">
@@ -235,7 +211,10 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
         </div>
         <div className="flex items-center gap-3">
              <button 
-                onClick={() => setIsZenMode(true)}
+                onClick={() => {
+                  setIsZenMode(true);
+                  setIsStopwatchRunning(true);
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 rounded-xl hover:scale-105 transition-all text-xs font-black uppercase tracking-widest border border-stone-200 dark:border-stone-800"
              >
                  <Maximize2 size={16} /> Zen Mode
@@ -354,9 +333,13 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
 
         {/* Floating Zen Controls */}
         {isZenMode && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-stone-900/40 backdrop-blur-xl border border-white/10 p-2 rounded-3xl animate-fade-in-up z-[60]">
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-stone-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-3xl animate-fade-in-up z-[60] shadow-2xl">
                 <button 
-                    onClick={() => setIsZenMode(false)}
+                    onClick={() => {
+                      setIsZenMode(false);
+                      setIsStopwatchRunning(false);
+                      setActiveSound(null);
+                    }}
                     className="p-3 text-white/60 hover:text-white transition-all hover:bg-white/10 rounded-2xl"
                     title="Выйти из Zen-режима"
                 >
@@ -373,31 +356,22 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
                         {activeSound ? <Volume2 size={20} /> : <VolumeX size={20} />}
                     </button>
                     {showSoundMenu && (
-                        <div className="absolute bottom-16 left-0 bg-stone-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 w-48 shadow-2xl animate-scale-in">
-                            <button onClick={() => {setActiveSound(null); setShowSoundMenu(false);}} className="w-full text-left p-2 hover:bg-white/10 rounded-lg text-xs text-white/60 flex items-center gap-2"><VolumeX size={14} /> Без звука</button>
+                        <div className="absolute bottom-16 left-0 bg-stone-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 w-48 shadow-2xl animate-scale-in">
+                            <button onClick={() => {setActiveSound(null); setShowSoundMenu(false);}} className="w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs text-white/60 flex items-center gap-2"><VolumeX size={14} /> Без звука</button>
                             {AMBIENT_SOUNDS.map(s => (
-                                <button key={s.id} onClick={() => {setActiveSound(s.id); setShowSoundMenu(false);}} className={`w-full text-left p-2 hover:bg-white/10 rounded-lg text-xs flex items-center gap-2 ${activeSound === s.id ? 'text-amber-400' : 'text-white/80'}`}><Music size={14} /> {s.label}</button>
+                                <button key={s.id} onClick={() => {setActiveSound(s.id); setShowSoundMenu(false);}} className={`w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs flex items-center gap-2 ${activeSound === s.id ? 'text-amber-400' : 'text-white/80'}`}><Music size={14} /> {s.label}</button>
                             ))}
                         </div>
                     )}
                 </div>
 
-                <button 
-                    onClick={generateMoodBackground}
-                    disabled={isGeneratingBg}
-                    className={`p-3 transition-all rounded-2xl ${zenBackground ? 'text-emerald-400 bg-emerald-400/10' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                    title="AI Атмосфера"
-                >
-                    {isGeneratingBg ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-                </button>
-
                 <div className="w-px h-6 bg-white/10 mx-1"></div>
 
-                <div className="flex items-center gap-3 px-4 text-white font-mono text-sm">
-                    <button onClick={() => setIsTimerRunning(!isTimerRunning)} className={`transition-all ${isTimerRunning ? 'text-rose-500' : 'text-white/40'}`}>
+                <div className="flex items-center gap-3 px-4 text-white font-mono text-sm min-w-[100px] justify-center">
+                    <button onClick={() => setIsStopwatchRunning(!isStopwatchRunning)} className={`transition-all ${isStopwatchRunning ? 'text-rose-500 animate-pulse' : 'text-white/40'}`}>
                         <Timer size={18} />
                     </button>
-                    <span className="tabular-nums">{formatTime(timeLeft)}</span>
+                    <span className="tabular-nums font-bold tracking-wider">{formatTime(stopwatchTime)}</span>
                 </div>
             </div>
         )}
