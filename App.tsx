@@ -152,13 +152,13 @@ const App: React.FC = () => {
         >
             {(() => {
               switch (activeTab) {
-                case 'home': return <Dashboard user={user} books={books} quotes={quotes} onNavigate={handleTabChange} />;
+                case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                 case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} />;
                 case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
                 case 'oracle': return <Oracle books={books} />;
                 case 'messages': return <Messages user={user} />;
                 case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} />;
-                default: return <Dashboard user={user} books={books} quotes={quotes} onNavigate={handleTabChange} />;
+                default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
               }
             })()}
         </Layout>

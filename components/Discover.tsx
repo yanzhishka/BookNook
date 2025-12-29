@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { MoodCategory, Book, User } from '../types';
-import { CloudRain, Sun, Moon, Coffee, Zap, BookMarked, Compass, Sparkles, Check, Plus } from 'lucide-react';
+import { Compass, Sparkles, Check, Plus } from 'lucide-react';
 import { db } from '../services/db';
 
 interface DiscoverProps {
@@ -19,7 +19,6 @@ const MOODS: MoodCategory[] = [
   { id: 'hope', label: 'Hopeful', emoji: '☀️', color: 'from-yellow-100 to-lime-100 text-yellow-900 dark:from-yellow-900/40 dark:to-lime-900/20 dark:text-yellow-100', description: 'Uplifting tales of triumph and joy.' },
 ];
 
-// Curated recommendations for each mood
 const RECOMMENDATIONS: Record<string, Partial<Book>[]> = {
     cozy: [
         { title: "The House in the Cerulean Sea", author: "TJ Klune", coverUrl: "https://picsum.photos/seed/cerulean/300/450" },
@@ -67,14 +66,11 @@ export const Discover: React.FC<DiscoverProps> = ({ books, setBooks, user }) => 
         coverUrl: bookData.coverUrl || 'https://picsum.photos/200/300',
         progress: 0,
         status: 'want_to_read',
-        isLendable: false,
         myRating: 0
     };
 
-    // Optimistic update
     setBooks(prev => [...prev, newBook]);
 
-    // Persist
     try {
         const savedBook = await db.addBook(newBook, user.id);
         setBooks(prev => prev.map(b => b.id === tempId ? savedBook : b));
@@ -99,7 +95,6 @@ export const Discover: React.FC<DiscoverProps> = ({ books, setBooks, user }) => 
         </p>
       </div>
 
-      {/* Mood Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-16 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
         {MOODS.map((mood) => (
           <button
@@ -111,22 +106,16 @@ export const Discover: React.FC<DiscoverProps> = ({ books, setBooks, user }) => 
                 : 'hover:-translate-y-1 hover:shadow-xl'
             }`}
           >
-            {/* Dynamic Gradient Background */}
             <div className={`absolute inset-0 bg-gradient-to-br ${mood.color} opacity-80 dark:opacity-40 transition-opacity duration-300`} />
-            
-            {/* Content */}
             <div className="relative z-10 flex flex-col items-center">
                 <span className="text-4xl mb-2 filter drop-shadow-md transform group-hover:scale-125 transition-transform duration-300">{mood.emoji}</span>
                 <span className="font-bold text-lg tracking-wide">{mood.label}</span>
             </div>
-
-            {/* Shine Effect */}
             <div className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000 ease-in-out" />
           </button>
         ))}
       </div>
 
-      {/* Recommendations Area */}
       <div className="min-h-[400px] transition-all duration-500">
         {selectedMood ? (
            <div className="animate-fade-in-up">

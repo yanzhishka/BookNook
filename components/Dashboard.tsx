@@ -1,13 +1,12 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Book, Quote, Activity } from '../types';
-import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Clock3, Flame } from 'lucide-react';
+import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame } from 'lucide-react';
 import { db } from '../services/db';
 
 interface DashboardProps {
   user: User;
   books: Book[];
-  quotes: Quote[];
   onNavigate: (tab: string) => void;
 }
 
@@ -21,7 +20,7 @@ const QUOTE_LIBRARY = [
   { text: "Книги — это зеркала: в них видишь только то, что уже есть у тебя в душе.", source: "Карлос Руис Сафон" }
 ];
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, books, quotes, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate }) => {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [greeting, setGreeting] = useState('');
