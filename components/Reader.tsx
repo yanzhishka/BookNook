@@ -14,10 +14,10 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' }, // Placeholder for reliable stream
-    { id: 'cafe', label: 'Кофейня', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-    { id: 'library', label: 'Библиотека', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d10077363.mp3?filename=rain-on-window-ambient-116568.mp3' },
+    { id: 'cafe', label: 'Кофейня', url: 'https://cdn.pixabay.com/download/audio/2021/11/25/audio_9185117397.mp3?filename=coffee-shop-ambience-9257.mp3' },
+    { id: 'library', label: 'Библиотека', url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_247a8a1f81.mp3?filename=library-ambience-background-sound-21016.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_606b23d91c.mp3?filename=forest-wind-and-birds-6881.mp3' },
 ];
 
 interface ReaderProps {
@@ -89,17 +89,24 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
 
   // Ambient Sounds Logic
   useEffect(() => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     
     if (activeSound) {
         const sound = AMBIENT_SOUNDS.find(s => s.id === activeSound);
         if (sound) {
-            audioRef.current.src = sound.url;
-            audioRef.current.play().catch(e => console.warn("Autoplay blocked or URL error", e));
+            audio.src = sound.url;
+            audio.load();
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(e => {
+                console.warn("Autoplay was prevented or audio failed", e);
+              });
+            }
         }
     } else {
-        audioRef.current.pause();
-        audioRef.current.src = "";
+        audio.pause();
+        audio.src = "";
     }
   }, [activeSound]);
 

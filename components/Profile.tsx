@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book, UserArchetype } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Lock, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { db, UserData } from '../services/db';
 import { analyzeReadingArchetype } from '../services/geminiService';
 
