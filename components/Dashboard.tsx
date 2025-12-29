@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { User, Book, Quote, Activity } from '../types';
+import { User, Book, Activity } from '../types';
 import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame } from 'lucide-react';
 import { db } from '../services/db';
 

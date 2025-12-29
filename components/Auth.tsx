@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { BookOpen, ArrowRight, Loader2, AlertCircle, User, CheckCircle } from 'lucide-react';
 import { db } from '../services/db';
-import { User as UserType, Book, Quote } from '../types';
+import { User as UserType, Book } from '../types';
 
 interface AuthProps {
-  onLogin: (user: UserType, books: Book[], quotes: Quote[]) => void;
+  onLogin: (user: UserType, books: Book[]) => void;
   onGuestLogin: () => void;
 }
 
@@ -42,7 +42,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
         const session = await db.getSession();
         
         if (session) {
-            onLogin(session.user, session.books, session.quotes);
+            onLogin(session.user, session.books);
         } else {
             // 3. If no session, it means Email Confirm is ON
             setIsRegistering(false); // Switch to sign in view
@@ -51,7 +51,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
         }
       } else {
         const data = await db.login(email, password);
-        onLogin(data.user, data.books, data.quotes);
+        onLogin(data.user, data.books);
       }
     } catch (err: any) {
       console.error(err);

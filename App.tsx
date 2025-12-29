@@ -10,7 +10,7 @@ import { Messages } from './components/Messages';
 import { Auth } from './components/Auth';
 import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
-import { User, Book, Quote } from './types';
+import { User, Book } from './types';
 import { db } from './services/db';
 import { Loader2 } from 'lucide-react';
 
@@ -54,7 +54,6 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   const [user, setUser] = useState<User | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const loadingQuote = useMemo(() => {
@@ -76,7 +75,6 @@ const App: React.FC = () => {
         if (session) {
           setUser(session.user);
           setBooks(session.books);
-          setQuotes(session.quotes);
           setIsAuthenticated(true);
         }
       } catch (e) {
@@ -87,13 +85,13 @@ const App: React.FC = () => {
     })();
   }, []);
 
-  const handleLogin = useCallback((u: User, b: Book[], q: Quote[]) => {
-    setUser(u); setBooks(b); setQuotes(q);
+  const handleLogin = useCallback((u: User, b: Book[]) => {
+    setUser(u); setBooks(b);
     setIsAuthenticated(true); setIsGuest(false);
   }, []);
 
   const handleGuestLogin = useCallback(() => {
-    setUser(GUEST_USER); setBooks([]); setQuotes([]);
+    setUser(GUEST_USER); setBooks([]);
     setIsAuthenticated(true); setIsGuest(true);
     setActiveTab('feed'); 
   }, []);
@@ -101,7 +99,7 @@ const App: React.FC = () => {
   const handleLogout = useCallback(async () => {
     if (!isGuest) await db.logout();
     setIsAuthenticated(false); setUser(null); setIsGuest(false);
-    setBooks([]); setQuotes([]); 
+    setBooks([]); 
     setActiveTab('home');
     localStorage.removeItem(STORAGE_KEY);
   }, [isGuest]);
