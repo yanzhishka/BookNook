@@ -14,10 +14,10 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://www.soundjay.com/nature/rain-01.mp3' },
-    { id: 'cafe', label: 'Кофейня', url: 'https://www.soundjay.com/misc/sounds/coffee-shop-1.mp3' },
-    { id: 'library', label: 'Библиотека', url: 'https://www.soundjay.com/misc/sounds/ambience-library-1.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://www.soundjay.com/nature/sounds/forest-wind-1.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
+    { id: 'cafe', label: 'Кофейня', url: 'https://assets.mixkit.co/active_storage/sfx/1075/1075-preview.mp3' },
+    { id: 'library', label: 'Библиотека', url: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
 ];
 
 interface ReaderProps {
@@ -42,6 +42,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [isZenMode, setIsZenMode] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
+  const [volume, setVolume] = useState(0.5);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
@@ -86,6 +87,13 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     }
     return () => clearInterval(interval);
   }, [isStopwatchRunning]);
+
+  // Update volume
+  useEffect(() => {
+    if (audioRef.current) {
+        audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
   // Ambient Sounds Logic
   useEffect(() => {
@@ -363,11 +371,28 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
                         {activeSound ? <Volume2 size={20} /> : <VolumeX size={20} />}
                     </button>
                     {showSoundMenu && (
-                        <div className="absolute bottom-16 left-0 bg-stone-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 w-48 shadow-2xl animate-scale-in">
-                            <button onClick={() => {setActiveSound(null); setShowSoundMenu(false);}} className="w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs text-white/60 flex items-center gap-2"><VolumeX size={14} /> Без звука</button>
-                            {AMBIENT_SOUNDS.map(s => (
-                                <button key={s.id} onClick={() => {setActiveSound(s.id); setShowSoundMenu(false);}} className={`w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs flex items-center gap-2 ${activeSound === s.id ? 'text-amber-400' : 'text-white/80'}`}><Music size={14} /> {s.label}</button>
-                            ))}
+                        <div className="absolute bottom-16 left-0 bg-stone-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 w-64 shadow-2xl animate-scale-in space-y-4">
+                            <div className="space-y-2">
+                                <button onClick={() => {setActiveSound(null); setShowSoundMenu(false);}} className="w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs text-white/60 flex items-center gap-2"><VolumeX size={14} /> Без звука</button>
+                                {AMBIENT_SOUNDS.map(s => (
+                                    <button key={s.id} onClick={() => {setActiveSound(s.id); setShowSoundMenu(false);}} className={`w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs flex items-center gap-2 ${activeSound === s.id ? 'text-amber-400' : 'text-white/80'}`}><Music size={14} /> {s.label}</button>
+                                ))}
+                            </div>
+                            <div className="pt-2 border-t border-white/10">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">Громкость</span>
+                                    <span className="text-[10px] font-bold text-white/60">{Math.round(volume * 100)}%</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.01" 
+                                    value={volume} 
+                                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
