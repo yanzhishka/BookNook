@@ -27,6 +27,21 @@ const mapProfileToUser = (profile: any): User => ({
   streakDays: profile.streak_days || 0,
 });
 
+// Helper to map DB book to Application book
+const mapDbBookToBook = (b: any): Book => ({
+  id: b.id,
+  title: b.title,
+  author: b.author,
+  coverUrl: b.cover_url,
+  progress: b.progress || 0,
+  status: b.status || 'want_to_read',
+  myRating: b.my_rating || 0,
+  content: b.content,
+  currentPage: b.current_page || 1,
+  totalPages: b.total_pages || 1,
+  annotations: b.annotations || []
+});
+
 export const db = {
   async getSession(): Promise<{ user: User, books: Book[], quotes: Quote[] } | null> {
     const { data: { session } } = await supabase.auth.getSession();
@@ -44,14 +59,7 @@ export const db = {
 
     return {
       user,
-      books: (books || []).map((b: any) => ({
-        ...b,
-        coverUrl: b.cover_url,
-        myRating: b.my_rating,
-        currentPage: b.current_page || 1,
-        totalPages: b.total_pages || 1,
-        annotations: []
-      })),
+      books: (books || []).map(mapDbBookToBook),
       quotes: (quotes || []).map((q: any) => ({
         ...q,
         bookId: q.book_id,
@@ -83,35 +91,10 @@ export const db = {
   async logout() { await supabase.auth.signOut(); },
 
   async deleteChat(chatId: string): Promise<void> {
-    // 1. Удаляем сообщения (зависимая таблица)
-    const { error: msgErr } = await supabase
-      .from('messages')
-      .delete()
-      .eq('chat_id', chatId);
-    if (msgErr) {
-      console.error("Error deleting messages:", msgErr);
-      throw new Error("Не удалось удалить сообщения чата");
-    }
-
-    // 2. Удаляем участников (зависимая таблица)
-    const { error: partErr } = await supabase
-      .from('chat_participants')
-      .delete()
-      .eq('chat_id', chatId);
-    if (partErr) {
-      console.error("Error deleting participants:", partErr);
-      throw new Error("Не удалось удалить участников чата");
-    }
-
-    // 3. Удаляем сам чат
-    const { error: chatErr } = await supabase
-      .from('chats')
-      .delete()
-      .eq('id', chatId);
-    if (chatErr) {
-      console.error("Error deleting chat record:", chatErr);
-      throw new Error("Не удалось удалить запись чата");
-    }
+    const { error: msgErr } = await supabase.from('messages').delete().eq('chat_id', chatId);
+    const { error: partErr } = await supabase.from('chat_participants').delete().eq('chat_id', chatId);
+    const { error: chatErr } = await supabase.from('chats').delete().eq('id', chatId);
+    if (chatErr) throw new Error("Не удалось удалить чат");
   },
 
   async getChats(userId: string): Promise<Chat[]> {
@@ -197,7 +180,7 @@ export const db = {
     return (data || []).map((item: any) => ({
       id: item.id,
       user: mapProfileToUser(item.profiles),
-      book: item.books ? { ...item.books, coverUrl: item.books.cover_url, annotations: [] } : null,
+      book: item.books ? mapDbBookToBook(item.books) : null,
       type: item.type,
       content: item.content,
       timestamp: new Date(item.created_at).toLocaleDateString(),
@@ -233,13 +216,6 @@ export const db = {
   },
 
   async deleteActivity(id: string) { await supabase.from('activities').delete().eq('id', id); },
-  
-  async deleteComment(activityId: string, commentId: string) {
-    const { data } = await supabase.from('activities').select('comments').eq('id', activityId).single();
-    await supabase.from('activities').update({ 
-      comments: (data.comments || []).filter((c: any) => c.id !== commentId) 
-    }).eq('id', activityId);
-  },
 
   async getLeaderboard(limit: number = 5): Promise<User[]> {
     const { data: profiles } = await supabase.from('profiles').select('*');
@@ -270,7 +246,7 @@ export const db = {
     };
     const { data, error } = await supabase.from('books').insert([payload]).select().single();
     if (error) throw error;
-    return { ...data, coverUrl: data.cover_url, myRating: data.my_rating, annotations: [] };
+    return mapDbBookToBook(data);
   },
 
   async updateBook(book: Book) {
@@ -278,7 +254,8 @@ export const db = {
       progress: book.progress, 
       status: book.status, 
       my_rating: book.myRating, 
-      current_page: book.currentPage 
+      current_page: book.currentPage,
+      total_pages: book.totalPages
     }).eq('id', book.id);
   },
 

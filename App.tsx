@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { Feed } from './components/Feed';
 import { Library } from './components/Library';
@@ -12,18 +12,31 @@ import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
 import { User, Book, Quote } from './types';
 import { db } from './services/db';
-import { Loader2, BookOpen } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const GUEST_USER: User = {
   id: 'guest',
   name: 'Гость',
   handle: '@guest',
-  avatar: 'https://ui-avatars.com/api/?name=Guest&background=random',
-  bio: 'Просмотр в режиме гостя.',
+  avatar: 'https://ui-avatars.com/api/?name=G&background=b45309&color=fff',
+  bio: 'Любитель книг и тихих вечеров.',
   booksReadThisYear: 0,
   joinedDate: new Date().toLocaleDateString(),
   streakDays: 0
 };
+
+const LITERARY_QUOTES = [
+  "«Свобода — это возможность сказать, что дважды два — четыре»",
+  "«Мир — это книга, и те, кто не путешествует, читают лишь одну страницу»",
+  "«Книги — это зеркала: в них видишь только то, что уже есть у тебя в душе»",
+  "«Я всегда воображал, что Рай будет своего рода библиотекой»",
+  "«Человек, который не читает книг, не имеет преимуществ перед тем, кто не умеет читать»",
+  "«Если ты не знаешь, куда идешь, любая дорога приведет тебя туда»",
+  "«Судьба — это не результат обстоятельств, а результат выбора»",
+  "«Все великие книги похожи тем, что они правдивее, чем сама жизнь»",
+  "«Мы читаем, чтобы знать, что мы не одиноки»",
+  "«Книга — это устройство, способное разжечь воображение»"
+];
 
 const STORAGE_KEY = 'bnook_active_tab';
 
@@ -43,6 +56,10 @@ const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  const loadingQuote = useMemo(() => {
+    return LITERARY_QUOTES[Math.floor(Math.random() * LITERARY_QUOTES.length)];
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -65,16 +82,10 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Session init failed", e);
       } finally {
-        setIsLoading(false);
+        setTimeout(() => setIsLoading(false), 2000);
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (isGuest && activeTab !== 'feed') {
-      setActiveTab('feed');
-    }
-  }, [isGuest]);
 
   const handleLogin = useCallback((u: User, b: Book[], q: Quote[]) => {
     setUser(u); setBooks(b); setQuotes(q);
@@ -104,15 +115,16 @@ const App: React.FC = () => {
   }, [isGuest]);
 
   if (isLoading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-950">
-      <div className="relative">
-        <div className="w-16 h-16 bg-stone-900 dark:bg-stone-100 rounded-2xl flex items-center justify-center animate-bounce-slow shadow-2xl rotate-3">
-          <BookOpen className="text-white dark:text-stone-900" size={32} />
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 p-10 overflow-hidden">
+      <div className="max-w-lg text-center animate-fade-in-up">
+        <div className="mb-8 flex justify-center">
+            <Loader2 className="animate-spin text-brand-primary" size={40} />
         </div>
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex gap-1">
-          <div className="w-1.5 h-1.5 bg-stone-300 dark:bg-stone-700 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-1.5 h-1.5 bg-stone-300 dark:bg-stone-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-1.5 h-1.5 bg-stone-300 dark:bg-stone-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-stone-600 dark:text-stone-300">
+           {loadingQuote}
+        </p>
+        <div className="mt-12 h-1 w-24 bg-stone-200 dark:bg-stone-800 mx-auto rounded-full overflow-hidden">
+           <div className="h-full bg-brand-primary animate-[shimmer_2s_infinite_linear]" style={{ width: '40%' }}></div>
         </div>
       </div>
     </div>

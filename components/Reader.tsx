@@ -170,7 +170,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
               </button>
               
               <div className="flex flex-col items-center">
-                  <div className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Страница {currentPage} / {book.totalPages}</div>
+                  <div className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Страница {currentPage} / {book.totalPages || 1}</div>
                   <div className="w-48 h-1 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
                       <div className="h-full bg-stone-400 transition-all duration-300" style={{ width: `${(currentPage / (book.totalPages || 1)) * 100}%` }} />
                   </div>
