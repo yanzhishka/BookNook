@@ -14,10 +14,10 @@ const ANNOTATION_COLORS = [
 ];
 
 const AMBIENT_SOUNDS = [
-    { id: 'rain', label: 'Дождь', url: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d10077363.mp3?filename=rain-on-window-ambient-116568.mp3' },
-    { id: 'cafe', label: 'Кофейня', url: 'https://cdn.pixabay.com/download/audio/2021/11/25/audio_9185117397.mp3?filename=coffee-shop-ambience-9257.mp3' },
-    { id: 'library', label: 'Библиотека', url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_247a8a1f81.mp3?filename=library-ambience-background-sound-21016.mp3' },
-    { id: 'forest', label: 'Лес', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_606b23d91c.mp3?filename=forest-wind-and-birds-6881.mp3' },
+    { id: 'rain', label: 'Дождь', url: 'https://www.soundjay.com/nature/rain-01.mp3' },
+    { id: 'cafe', label: 'Кофейня', url: 'https://www.soundjay.com/misc/sounds/coffee-shop-1.mp3' },
+    { id: 'library', label: 'Библиотека', url: 'https://www.soundjay.com/misc/sounds/ambience-library-1.mp3' },
+    { id: 'forest', label: 'Лес', url: 'https://www.soundjay.com/nature/sounds/forest-wind-1.mp3' },
 ];
 
 interface ReaderProps {
