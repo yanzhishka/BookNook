@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
-import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Server, Cpu } from 'lucide-react';
+import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Cpu } from 'lucide-react';
 
 interface OracleProps {
   books: Book[];
@@ -104,7 +104,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
           Для работы Оракула через Groq необходимо добавить переменную <code>GROQ_API_KEY</code> в настройки вашего проекта на Vercel.
         </p>
         <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl text-xs font-mono text-stone-500 text-left overflow-x-auto">
-          Vercel Dashboard > Settings > Environment Variables > GROQ_API_KEY
+          Vercel Dashboard &gt; Settings &gt; Environment Variables &gt; GROQ_API_KEY
         </div>
       </div>
     );
