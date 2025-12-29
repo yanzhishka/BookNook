@@ -7,7 +7,13 @@ import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
 const CHARS_PER_PAGE = 2500;
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+// Список доступных прокси для обхода блокировок (ротация)
+const PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest=',
+];
 
 interface LibraryProps {
   books: Book[];
@@ -53,43 +59,60 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     setErrorMessage(null);
     try {
       const response = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Сервер каталога временно недоступен");
       const data = await response.json();
       setSearchResults(data.results.slice(0, 10));
-    } catch (e) {
-      setErrorMessage("Не удалось загрузить каталог. Проверьте соединение.");
+    } catch (e: any) {
+      setErrorMessage(e.message || "Не удалось загрузить каталог. Проверьте соединение.");
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const tryFetchText = async (id: number, formatUrls: string[]): Promise<string> => {
+    // Собираем все возможные URL для текста
+    const urlsToTry = [
+      ...formatUrls,
+      `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`,
+      `https://www.gutenberg.org/files/${id}/${id}-0.txt`,
+      `https://www.gutenberg.org/files/${id}/${id}.txt`
+    ];
+
+    // Уникализируем и фильтруем
+    const uniqueUrls = Array.from(new Set(urlsToTry)).filter(u => u && u.includes('.txt'));
+
+    for (const proxy of PROXIES) {
+      for (const targetUrl of uniqueUrls) {
+        try {
+          const finalUrl = `${proxy}${encodeURIComponent(targetUrl)}`;
+          const response = await fetch(finalUrl, { signal: AbortSignal.timeout(10000) });
+          
+          if (response.ok) {
+            const text = await response.text();
+            // Проверка: Gutenberg иногда возвращает HTML страницу с ошибкой вместо TXT
+            if (text.length > 1000 && !text.trim().startsWith('<!DOCTYPE') && !text.trim().startsWith('<html')) {
+              return text.replace(/^\uFEFF/, '');
+            }
+          }
+        } catch (err) {
+          console.warn(`Proxy ${proxy} failed for ${targetUrl}, trying next...`);
+          continue;
+        }
+      }
+    }
+    throw new Error("Все попытки загрузки через прокси провалились. Сервер Gutenberg блокирует автоматический доступ. Попробуйте позже или загрузите файл вручную.");
   };
 
   const addFromCatalog = async (gBook: GutenbergBook) => {
     setIsUploading(true);
     setErrorMessage(null);
     try {
-      let textUrl = Object.entries(gBook.formats).find(([key]) => key.toLowerCase().includes('text/plain'))?.[1];
+      // Ищем текстовые форматы в объекте книги
+      const formats = Object.entries(gBook.formats)
+        .filter(([key]) => key.toLowerCase().includes('text/plain'))
+        .map(([_, url]) => url);
 
-      if (!textUrl) {
-        textUrl = `https://www.gutenberg.org/files/${gBook.id}/${gBook.id}-0.txt`;
-      }
-
-      const finalUrl = `${CORS_PROXY}${encodeURIComponent(textUrl)}`;
-      const response = await fetch(finalUrl);
-      
-      let content = '';
-      if (!response.ok) {
-        const fallbackUrl = `${CORS_PROXY}${encodeURIComponent(`https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.txt`)}`;
-        const fallbackResponse = await fetch(fallbackUrl);
-        if (!fallbackResponse.ok) throw new Error("Текст книги недоступен. Попробуйте другой вариант.");
-        content = await fallbackResponse.text();
-      } else {
-        content = await response.text();
-      }
-      
-      content = content.replace(/^\uFEFF/, '');
-      
-      if (content.length < 500) {
-          throw new Error("Загруженный текст слишком мал. Скорее всего, сервер Gutenberg отклонил запрос. Попробуйте позже.");
-      }
+      const content = await tryFetchText(gBook.id, formats);
 
       const totalPages = Math.max(1, Math.ceil(content.length / CHARS_PER_PAGE));
       const author = gBook.authors.map(a => a.name).join(', ') || 'Неизвестный автор';
@@ -113,7 +136,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       setShowAddModal(false);
       resetSearch();
     } catch (e: any) {
-      setErrorMessage(e.message === 'Failed to fetch' ? 'Ошибка сети: сервер блокирует доступ. Попробуйте другой прокси или подождите.' : e.message);
+      setErrorMessage(e.message);
     } finally {
       setIsUploading(false);
     }
@@ -127,13 +150,15 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'text/plain') {
+    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt'))) {
       const reader = new FileReader();
       reader.onload = (event) => {
         setFileContent(event.target?.result as string);
         setFileName(file.name);
       };
       reader.readAsText(file);
+    } else if (file) {
+      setErrorMessage("Пожалуйста, выберите файл в формате .txt");
     }
   };
 

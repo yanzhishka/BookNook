@@ -236,12 +236,12 @@ export const db = {
       title: book.title, 
       author: book.author, 
       cover_url: book.coverUrl, 
-      progress: book.progress, 
+      progress: Number(book.progress) || 0, 
       status: book.status, 
-      my_rating: book.myRating, 
+      my_rating: Number(book.myRating) || 0, 
       content: book.content, 
-      current_page: book.currentPage, 
-      total_pages: book.totalPages 
+      current_page: Number(book.currentPage) || 1, 
+      total_pages: Number(book.totalPages) || 1 
     };
     const { data, error } = await supabase.from('books').insert([payload]).select().single();
     if (error) throw error;
@@ -250,11 +250,11 @@ export const db = {
 
   async updateBook(book: Book) {
     await supabase.from('books').update({ 
-      progress: book.progress, 
+      progress: Number(book.progress) || 0, 
       status: book.status, 
-      my_rating: book.myRating, 
-      current_page: book.currentPage,
-      total_pages: book.totalPages
+      my_rating: Number(book.myRating) || 0, 
+      current_page: Number(book.currentPage) || 1,
+      total_pages: Number(book.totalPages) || 1
     }).eq('id', book.id);
   },
 
