@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book } from '../types';
-import { MapPin, Calendar, Edit3, Save, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, Lock, BarChart3, Star, History, Target } from 'lucide-react';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Target } from 'lucide-react';
 import { db, UserData } from '../services/db';
 
 interface ProfileProps {

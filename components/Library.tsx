@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Book, User } from '../types';
-import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, AlertCircle, Info, Filter, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -41,7 +41,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GutenbergBook[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
 
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
@@ -80,7 +79,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const searchClassics = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    setHasSearched(true);
     setErrorMessage(null);
     try {
       const response = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(searchQuery)}`);
@@ -158,7 +156,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const resetSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
-    setHasSearched(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
