@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Book, Activity } from '../types';
-import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame } from 'lucide-react';
+import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame, Target, Trophy } from 'lucide-react';
 import { db } from '../services/db';
 
 interface DashboardProps {
@@ -187,19 +187,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-3 bg-stone-900 dark:bg-stone-950 p-8 rounded-[3rem] text-white flex flex-col justify-between items-center text-center shadow-lg group border border-stone-800 dark:border-stone-900">
-             <div className="relative w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 overflow-hidden">
-                <div className="absolute inset-0 bg-orange-500/10 blur-xl"></div>
-                <Flame size={28} className="text-orange-500 animate-bounce relative z-10" />
-             </div>
-             <div>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2">Серия чтения</h4>
-                <p className="text-5xl font-black mb-1 tracking-tighter">{user.streakDays || 0}</p>
-                <p className="text-xs font-bold opacity-60 uppercase tracking-widest">Дней подряд</p>
-             </div>
-             <div className="mt-8 pt-6 border-t border-white/5 w-full flex justify-between items-center text-[10px] font-black uppercase opacity-30">
-                <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span className="opacity-100 text-orange-400">Пт</span><span>Сб</span><span>Вс</span>
-             </div>
+        <div className="lg:col-span-3 space-y-6">
+            <div className="bg-stone-900 dark:bg-stone-950 p-8 rounded-[3rem] text-white flex flex-col justify-between items-center text-center shadow-lg group border border-stone-800 dark:border-stone-900">
+                <div className="relative w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 overflow-hidden">
+                    <div className="absolute inset-0 bg-orange-500/10 blur-xl"></div>
+                    <Flame size={28} className="text-orange-500 animate-bounce relative z-10" />
+                </div>
+                <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2">Серия чтения</h4>
+                    <p className="text-5xl font-black mb-1 tracking-tighter">{user.streakDays || 0}</p>
+                    <p className="text-xs font-bold opacity-60 uppercase tracking-widest">Дней подряд</p>
+                </div>
+                <div className="mt-8 pt-6 border-t border-white/5 w-full flex justify-between items-center text-[10px] font-black uppercase opacity-30">
+                    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span className="opacity-100 text-orange-400">Пт</span><span>Сб</span><span>Вс</span>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-stone-900 p-8 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm overflow-hidden relative group">
+                 <div className="absolute top-0 right-0 p-4 text-stone-50 dark:text-stone-800/50 -rotate-12 group-hover:scale-125 transition-transform duration-1000">
+                    <Target size={100} />
+                 </div>
+                 <div className="relative z-10">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 flex items-center gap-2">
+                        <Trophy size={14} className="text-amber-500" /> Цель недели
+                    </h4>
+                    <p className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg leading-tight mb-4">Прочитать 150 страниц</p>
+                    <div className="w-full bg-stone-100 dark:bg-stone-800 h-1.5 rounded-full overflow-hidden">
+                        <div className="h-full bg-stone-900 dark:bg-white" style={{ width: '65%' }}></div>
+                    </div>
+                 </div>
+            </div>
         </div>
 
         <div className="lg:col-span-6 bg-white dark:bg-stone-900 p-10 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm flex flex-col min-h-[300px]">
@@ -229,8 +246,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
                         <div key={act.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors group" style={{ animationDelay: `${i * 100}ms` }}>
                             <img src={act.user.avatar} loading="lazy" className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-stone-700" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-black text-stone-800 dark:text-stone-100 truncate">{act.user.name}</p>
-                                <p className="text-[10px] text-stone-400 line-clamp-1">{act.content || 'Начал новую книгу'}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs font-black text-stone-800 dark:text-stone-100 truncate">{act.user.name}</p>
+                                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${act.type === 'note' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>{act.type}</span>
+                                </div>
+                                <p className="text-[10px] text-stone-400 line-clamp-1 italic">{act.content || 'Начал новую книгу'}</p>
                             </div>
                             <span className="text-[9px] font-black text-stone-300 uppercase shrink-0">{act.timestamp}</span>
                         </div>

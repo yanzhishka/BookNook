@@ -1,7 +1,7 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book } from '../types';
-import { MapPin, Calendar, Edit3, Save, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, Lock } from 'lucide-react';
+import { MapPin, Calendar, Edit3, Save, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, Lock, BarChart3, Star, History, Target } from 'lucide-react';
 import { db, UserData } from '../services/db';
 
 interface ProfileProps {
@@ -11,15 +11,16 @@ interface ProfileProps {
 }
 
 const ACHIEVEMENTS = [
-  { id: 1, icon: '🐛', title: 'Bookworm', desc: 'Read 10 books', unlocked: true },
-  { id: 2, icon: '🔥', title: 'On Fire', desc: '7 day streak', unlocked: true },
-  { id: 3, icon: '✍️', title: 'Critic', desc: 'Wrote 5 reviews', unlocked: true },
-  { id: 4, icon: '🏰', title: 'Fantasy Fan', desc: 'Read 5 fantasy books', unlocked: false },
+  { id: 1, icon: '🐛', title: 'Книжный червь', desc: 'Прочитано 10 книг', unlocked: true },
+  { id: 2, icon: '🔥', title: 'В ударе', desc: 'Серия 7 дней', unlocked: true },
+  { id: 3, icon: '✍️', title: 'Критик', desc: 'Написано 5 рецензий', unlocked: true },
+  { id: 4, icon: '🏰', title: 'Фанатик фэнтези', desc: 'Прочитано 5 книг фэнтези', unlocked: false },
 ];
 
 const ADMIN_EMAIL = 'nme030609@gmail.com';
 
 export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'stats' | 'achievements'>('info');
   const [isEditing, setIsEditing] = useState(false);
   
   const [editName, setEditName] = useState(user.name);
@@ -32,9 +33,20 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  const completedBooksCount = books.filter(b => b.status === 'completed').length;
-  const realTotalRead = completedBooksCount; 
-  const yearlyGoal = 20;
+  const completedBooks = useMemo(() => books.filter(b => b.status === 'completed'), [books]);
+  const totalPagesRead = useMemo(() => books.reduce((acc, b) => acc + (b.currentPage || 0), 0), [books]);
+  
+  // Fake weekly stats for visualization
+  const weeklyStats = [
+    { day: 'Пн', pages: 42 },
+    { day: 'Вт', pages: 12 },
+    { day: 'Ср', pages: 85 },
+    { day: 'Чт', pages: 30 },
+    { day: 'Пт', pages: 56 },
+    { day: 'Сб', pages: 110 },
+    { day: 'Вс', pages: 74 },
+  ];
+  const maxPages = Math.max(...weeklyStats.map(s => s.pages));
 
   useEffect(() => {
       if (isAdmin) {
@@ -82,272 +94,273 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
   };
 
   const handleDeleteUser = async (id: string) => {
-      if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      if (confirm("Вы уверены? Это действие нельзя отменить.")) {
           try {
               await db.deleteUser(id);
               setAllUsers(prev => prev.filter(u => u.id !== id));
           } catch (e) {
-              alert("Failed to delete user");
+              alert("Ошибка при удалении.");
           }
       }
   };
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      <div className="relative w-full h-64 rounded-3xl overflow-hidden shadow-sm mb-16 group bg-stone-200 dark:bg-stone-800">
-        <img src={user.bannerUrl} alt="Cover" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+      {/* Hero Section */}
+      <div className="relative w-full h-64 rounded-[3rem] overflow-hidden shadow-2xl mb-24 group bg-stone-200 dark:bg-stone-800">
+        <img src={user.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
         {isEditing && (
-            <>
-                <button 
-                    onClick={() => bannerInputRef.current?.click()}
-                    className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/30 transition-all cursor-pointer z-10"
-                >
-                    <Camera size={16} />
-                    <span>Change Cover</span>
-                </button>
-                <input 
-                    type="file" 
-                    ref={bannerInputRef} 
-                    hidden 
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, 'bannerUrl')}
-                />
-            </>
+            <button 
+                onClick={() => bannerInputRef.current?.click()}
+                className="absolute bottom-6 right-6 bg-white/20 backdrop-blur-xl text-white px-6 py-2.5 rounded-2xl flex items-center gap-2 hover:bg-white/40 transition-all cursor-pointer z-10 border border-white/30"
+            >
+                <Camera size={18} />
+                <span className="text-sm font-bold">Изменить обложку</span>
+            </button>
         )}
-      </div>
-
-      <div className="px-6 relative">
-        <div className="absolute -top-24 left-6 sm:left-10">
-          <div className="relative group">
-            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-stone-900 shadow-lg overflow-hidden bg-white dark:bg-stone-800">
+        <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={(e) => handleImageUpload(e, 'bannerUrl')} />
+        
+        {/* Avatar positioned over the overlap */}
+        <div className="absolute -bottom-16 left-10">
+          <div className="relative group/avatar">
+            <div className="w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800 transition-transform hover:scale-105 duration-500">
                 <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
             </div>
             {isEditing && (
-                <>
-                    <div 
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                    >
-                        <Camera className="text-white" />
-                    </div>
-                    <input 
-                        type="file" 
-                        ref={avatarInputRef} 
-                        hidden 
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, 'avatar')}
-                    />
-                </>
+                <div 
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="absolute inset-0 rounded-[2.5rem] bg-black/40 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer z-10 backdrop-blur-sm"
+                >
+                    <Camera className="text-white" size={32} />
+                </div>
             )}
+            <input type="file" ref={avatarInputRef} hidden accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
           </div>
         </div>
+      </div>
 
-        <div className="flex justify-end mb-6">
-            {isEditing ? (
-                <div className="flex gap-3">
-                    <button 
-                        onClick={() => setIsEditing(false)}
-                        className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleSave}
-                        className="px-6 py-2 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-medium hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors flex items-center gap-2 shadow-lg"
-                    >
-                        <Save size={18} />
-                        Save Profile
-                    </button>
-                </div>
-            ) : (
-                <button 
-                    onClick={() => setIsEditing(true)}
-                    className="px-6 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 font-medium hover:bg-white dark:hover:bg-stone-800 hover:shadow-md hover:border-stone-300 dark:hover:border-stone-600 transition-all flex items-center gap-2 bg-white/50 dark:bg-stone-800/50 backdrop-blur-sm"
-                >
-                    <Edit3 size={18} />
-                    Edit Profile
-                </button>
-            )}
-        </div>
-
-        <div className="mt-4 sm:ml-48 mb-10">
-            {isEditing ? (
-                <div className="space-y-4 max-w-lg animate-fade-in-up">
-                    <div>
-                        <label className="text-xs font-bold text-stone-400 uppercase">Name</label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        {/* Left Column: Info */}
+        <div className="lg:col-span-8">
+            <div className="flex justify-between items-start mb-10">
+                <div>
+                    {isEditing ? (
                         <input 
                             value={editName} 
                             onChange={(e) => setEditName(e.target.value)}
-                            className="w-full text-3xl font-serif font-bold text-stone-900 dark:text-stone-100 bg-transparent border-b-2 border-stone-200 dark:border-stone-700 focus:border-stone-800 dark:focus:border-stone-200 outline-none pb-1"
+                            className="text-4xl font-serif font-black text-stone-900 dark:text-stone-100 bg-transparent border-b-2 border-stone-200 dark:border-stone-700 outline-none pb-2 mb-4 w-full"
                         />
+                    ) : (
+                        <h1 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2 tracking-tighter flex items-center gap-4">
+                            {user.name}
+                            {isAdmin && <ShieldAlert className="text-rose-500" size={24} />}
+                        </h1>
+                    )}
+                    <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-xs">{user.handle}</p>
+                </div>
+                
+                {isEditing ? (
+                    <div className="flex gap-3">
+                        <button onClick={() => setIsEditing(false)} className="px-6 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 font-bold text-sm">Отмена</button>
+                        <button onClick={handleSave} className="px-8 py-3 rounded-2xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-black text-sm shadow-xl">Сохранить</button>
                     </div>
-                    <div>
-                        <label className="text-xs font-bold text-stone-400 uppercase">Bio</label>
-                        <textarea 
-                            value={editBio} 
-                            onChange={(e) => setEditBio(e.target.value)}
-                            className="w-full text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800 p-3 rounded-xl border border-stone-200 dark:border-stone-700 focus:ring-2 focus:ring-stone-200 dark:focus:ring-stone-600 outline-none resize-none"
-                            rows={3}
-                        />
-                    </div>
-                     <div>
-                        <label className="text-xs font-bold text-stone-400 uppercase">Location</label>
-                        <input 
-                            value={editLocation} 
-                            onChange={(e) => setEditLocation(e.target.value)}
-                            className="w-full text-stone-600 dark:text-stone-300 bg-transparent border-b border-stone-200 dark:border-stone-700 focus:border-stone-800 dark:focus:border-stone-200 outline-none py-1"
-                        />
+                ) : (
+                    <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all"><Edit3 size={20}/></button>
+                )}
+            </div>
+
+            {isEditing ? (
+                <div className="space-y-6 mb-12">
+                    <textarea 
+                        value={editBio} 
+                        onChange={(e) => setEditBio(e.target.value)}
+                        className="w-full text-lg text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 p-6 rounded-[2rem] outline-none focus:ring-2 ring-stone-200 dark:ring-stone-800 transition-all min-h-[150px] resize-none"
+                        placeholder="Расскажите о себе..."
+                    />
+                    <div className="flex items-center gap-4 bg-stone-100 dark:bg-stone-900 px-6 py-4 rounded-2xl">
+                        <MapPin size={20} className="text-stone-400" />
+                        <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Ваш город" className="bg-transparent outline-none flex-1 text-stone-800 dark:text-stone-100" />
                     </div>
                 </div>
             ) : (
-                <div className="animate-fade-in-up">
-                    <h1 className="text-4xl font-serif font-bold text-stone-900 dark:text-stone-100 mb-1 flex items-center gap-3">
-                        {user.name} 
-                        {(user.streakDays || 0) > 0 && (
-                            <span className="text-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-full flex items-center gap-1 font-sans font-bold border border-orange-200 dark:border-orange-800" title="Current Streak">
-                                <Flame size={14} fill="currentColor" /> {user.streakDays}
-                            </span>
-                        )}
-                        {isAdmin && (
-                            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-md font-sans font-bold border border-red-200 dark:border-red-800 flex items-center gap-1">
-                                <ShieldAlert size={12} /> Admin
-                            </span>
-                        )}
-                    </h1>
-                    <p className="text-stone-400 font-medium mb-4">{user.handle}</p>
-                    <p className="text-stone-700 dark:text-stone-300 text-lg leading-relaxed max-w-2xl mb-4">{user.bio}</p>
-                    
-                    <div className="flex flex-wrap gap-6 text-sm text-stone-500 dark:text-stone-400">
-                        {user.location && (
-                            <div className="flex items-center gap-1.5">
-                                <MapPin size={16} />
-                                {user.location}
+                <div className="space-y-8 mb-12">
+                    <p className="text-xl text-stone-600 dark:text-stone-300 leading-relaxed font-medium">{user.bio || 'У этого книжного странника пока нет описания.'}</p>
+                    <div className="flex flex-wrap gap-8 text-sm font-black text-stone-400 uppercase tracking-widest">
+                        {user.location && <div className="flex items-center gap-3"><MapPin size={18} className="text-amber-500" /> {user.location}</div>}
+                        <div className="flex items-center gap-3"><Calendar size={18} className="text-blue-500" /> С {user.joinedDate}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex border-b border-stone-100 dark:border-stone-800 mb-10 gap-8">
+                {[
+                    { id: 'info', label: 'Обзор', icon: History },
+                    { id: 'stats', label: 'Статистика', icon: BarChart3 },
+                    { id: 'achievements', label: 'Достижения', icon: Award }
+                ].map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`pb-4 px-2 text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative ${activeTab === tab.id ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400'}`}
+                    >
+                        <tab.icon size={16} /> {tab.label}
+                        {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-stone-900 dark:bg-stone-100 rounded-full animate-scale-in" />}
+                    </button>
+                ))}
+            </div>
+
+            {activeTab === 'info' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                    <div className="p-8 bg-stone-900 dark:bg-stone-950 rounded-[2.5rem] text-white flex flex-col justify-between group overflow-hidden relative border border-stone-800">
+                        <Flame size={100} className="absolute -bottom-8 -right-8 opacity-10 group-hover:scale-125 transition-transform duration-1000" />
+                        <div className="relative z-10">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Текущая серия</h4>
+                            <p className="text-5xl font-black">{user.streakDays || 0} Дней</p>
+                        </div>
+                        <p className="text-xs font-medium opacity-60 mt-8 relative z-10">Вы читаете каждый день. Так держать!</p>
+                    </div>
+                    <div className="p-8 bg-white dark:bg-stone-900 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 shadow-sm flex flex-col justify-between group overflow-hidden relative">
+                         <Star size={100} className="absolute -bottom-8 -right-8 text-stone-50 dark:text-stone-800 group-hover:rotate-12 transition-transform duration-1000" />
+                         <div className="relative z-10">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Прочитано</h4>
+                            <p className="text-5xl font-black text-stone-900 dark:text-white">{completedBooks.length}</p>
+                         </div>
+                         <p className="text-xs font-medium text-stone-500 mt-8 relative z-10">Завершено книг за этот год.</p>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'stats' && (
+                <div className="animate-fade-in-up space-y-8">
+                    <div className="p-10 bg-white dark:bg-stone-900 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm">
+                        <div className="flex justify-between items-end mb-10">
+                            <div>
+                                <h4 className="text-xl font-serif font-black text-stone-900 dark:text-stone-100 mb-1">Активность</h4>
+                                <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">Страниц за неделю</p>
                             </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                            <Calendar size={16} />
-                            Joined {user.joinedDate}
+                            <div className="text-right">
+                                <p className="text-3xl font-black text-stone-900 dark:text-stone-100">{totalPagesRead}</p>
+                                <p className="text-[10px] text-stone-400 font-black uppercase tracking-widest">Всего страниц</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-end justify-between gap-2 h-40">
+                            {weeklyStats.map((stat, i) => (
+                                <div key={stat.day} className="flex-1 flex flex-col items-center gap-3 group">
+                                    <div className="w-full relative flex flex-col items-center">
+                                        <div 
+                                            className="w-full bg-stone-100 dark:bg-stone-800 rounded-t-xl hover:bg-stone-900 dark:hover:bg-amber-500 transition-all duration-500 cursor-help"
+                                            style={{ 
+                                                height: `${(stat.pages / maxPages) * 100}%`,
+                                                minHeight: '4px',
+                                                animationDelay: `${i * 100}ms`
+                                            }}
+                                        >
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-[10px] px-2 py-1 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {stat.pages}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-black text-stone-400 uppercase">{stat.day}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-8 bg-stone-50 dark:bg-stone-950 rounded-[2.5rem] border border-stone-100 dark:border-stone-800">
+                             <Target className="text-rose-500 mb-6" size={24} />
+                             <h5 className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg mb-2">Цель на год</h5>
+                             <div className="flex justify-between items-end mb-4">
+                                <span className="text-3xl font-black text-stone-900 dark:text-white">{Math.round((completedBooks.length / 20) * 100)}%</span>
+                                <span className="text-xs font-bold text-stone-400">{completedBooks.length} / 20 книг</span>
+                             </div>
+                             <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-rose-500" style={{ width: `${(completedBooks.length / 20) * 100}%` }} />
+                             </div>
+                        </div>
+                        <div className="p-8 bg-stone-50 dark:bg-stone-950 rounded-[2.5rem] border border-stone-100 dark:border-stone-800">
+                             <History className="text-blue-500 mb-6" size={24} />
+                             <h5 className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg mb-2">Рекорды</h5>
+                             <div className="space-y-4">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-stone-500">Макс. страниц / день</span>
+                                    <span className="font-bold text-stone-800 dark:text-stone-200">110</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-stone-500">Лучшая серия</span>
+                                    <span className="font-bold text-stone-800 dark:text-stone-200">14 дн.</span>
+                                </div>
+                             </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {activeTab === 'achievements' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in-up">
+                    {ACHIEVEMENTS.map((ach) => (
+                        <div 
+                            key={ach.id} 
+                            className={`p-8 rounded-[2.5rem] border transition-all duration-500 flex gap-6 items-center group ${
+                                ach.unlocked 
+                                ? 'bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-xl' 
+                                : 'bg-stone-50/50 dark:bg-stone-900/30 border-dashed border-stone-200 dark:border-stone-800 opacity-60 grayscale'
+                            }`}
+                        >
+                            <div className="text-5xl shrink-0 filter group-hover:scale-110 transition-transform">{ach.icon}</div>
+                            <div>
+                                <h4 className="font-serif font-bold text-lg text-stone-800 dark:text-stone-100 leading-tight mb-1">{ach.title}</h4>
+                                <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">{ach.desc}</p>
+                                {ach.unlocked && <span className="inline-block mt-3 text-[9px] font-black uppercase tracking-widest text-emerald-500 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">Разблокировано</span>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800 flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
-                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center">
-                    <BookOpen size={24} />
-                </div>
-                <div>
-                    <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">Total Books</p>
-                    <p className="text-2xl font-bold text-stone-800 dark:text-stone-100">{realTotalRead}</p>
-                </div>
-            </div>
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800 flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
-                    <Award size={24} />
-                </div>
-                <div>
-                    <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">Yearly Goal</p>
-                    <p className="text-2xl font-bold text-stone-800 dark:text-stone-100">{completedBooksCount} <span className="text-sm text-stone-400 font-normal">/ {yearlyGoal}</span></p>
-                </div>
-            </div>
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800 flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center">
-                    <Flame size={24} />
-                </div>
-                <div>
-                    <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">Current Streak</p>
-                    <p className="text-2xl font-bold text-stone-800 dark:text-stone-100">{(user.streakDays || 0) > 0 ? user.streakDays : 0} Days</p>
-                </div>
-            </div>
-        </div>
-
-        <div className="mb-10">
-            <h3 className="font-serif font-bold text-2xl text-stone-800 dark:text-stone-100 mb-6">Achievements</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                {ACHIEVEMENTS.map((ach) => (
-                    <div 
-                        key={ach.id} 
-                        className={`p-4 rounded-2xl border transition-all duration-300 ${
-                            ach.unlocked 
-                            ? 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 shadow-sm hover:shadow-md' 
-                            : 'bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-700 opacity-60 grayscale'
-                        }`}
-                    >
-                        <div className="text-4xl mb-3">{ach.icon}</div>
-                        <h4 className="font-bold text-stone-800 dark:text-stone-100">{ach.title}</h4>
-                        <p className="text-xs text-stone-500 dark:text-stone-400">{ach.desc}</p>
+        {/* Right Column: Admin / Extras */}
+        <div className="lg:col-span-4 space-y-8">
+            {isAdmin && (
+                 <div className="bg-white dark:bg-stone-900 p-8 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm">
+                    <div className="flex items-center gap-3 mb-8">
+                        <ShieldAlert className="text-rose-500" size={24} />
+                        <h3 className="text-xl font-serif font-black text-stone-800 dark:text-stone-100">Админ-панель</h3>
                     </div>
-                ))}
-            </div>
-        </div>
 
-        {isAdmin && (
-             <div className="mb-20 animate-fade-in-up border-t-2 border-stone-100 dark:border-stone-800 pt-10">
-                 <div className="flex items-center gap-3 mb-6">
-                    <ShieldAlert className="text-red-500" size={32} />
-                    <div>
-                        <h3 className="font-serif font-bold text-2xl text-stone-800 dark:text-stone-100">Admin Panel</h3>
-                        <p className="text-stone-500 text-sm">User Management Database</p>
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                        {allUsers.map((u) => (
+                            <div key={u.id} className="flex items-center justify-between group p-2 hover:bg-stone-50 dark:hover:bg-stone-850 rounded-xl transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <img src={u.profile.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                    <div className="text-[10px]">
+                                        <p className="font-bold text-stone-800 dark:text-stone-100 truncate w-24">{u.profile.name}</p>
+                                        <p className="text-stone-400">{u.email}</p>
+                                    </div>
+                                </div>
+                                {u.email !== ADMIN_EMAIL && (
+                                    <button onClick={() => handleDeleteUser(u.id)} className="p-2 text-stone-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
+                                )}
+                            </div>
+                        ))}
                     </div>
                  </div>
+            )}
 
-                 <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800 overflow-hidden">
-                     <div className="overflow-x-auto">
-                         <table className="w-full text-left">
-                             <thead className="bg-stone-50 dark:bg-stone-950 text-stone-500 dark:text-stone-400 font-medium text-xs uppercase tracking-wider">
-                                 <tr>
-                                     <th className="px-6 py-4">User</th>
-                                     <th className="px-6 py-4">Email</th>
-                                     <th className="px-6 py-4">Password</th>
-                                     <th className="px-6 py-4 text-right">Actions</th>
-                                 </tr>
-                             </thead>
-                             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                                 {allUsers.map((u) => (
-                                     <tr key={u.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
-                                         <td className="px-6 py-4">
-                                             <div className="flex items-center gap-3">
-                                                 <img src={u.profile.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
-                                                 <span className="font-medium text-stone-800 dark:text-stone-200">{u.profile.name}</span>
-                                             </div>
-                                         </td>
-                                         <td className="px-6 py-4 text-sm text-stone-600 dark:text-stone-400">
-                                             {u.email}
-                                         </td>
-                                         <td className="px-6 py-4 font-mono text-sm text-stone-500">
-                                            {u.email === ADMIN_EMAIL ? (
-                                                <span className="flex items-center gap-1 text-stone-400 italic">
-                                                    <Lock size={12} /> Hidden
-                                                </span>
-                                            ) : (
-                                                u.password
-                                            )}
-                                         </td>
-                                         <td className="px-6 py-4 text-right">
-                                             {u.email !== ADMIN_EMAIL && (
-                                                <button 
-                                                    onClick={() => handleDeleteUser(u.id)}
-                                                    className="text-stone-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                                                    title="Delete User"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                             )}
-                                         </td>
-                                     </tr>
-                                 ))}
-                             </tbody>
-                         </table>
-                     </div>
-                     {allUsers.length === 0 && (
-                         <div className="p-8 text-center text-stone-400 italic">Loading users...</div>
-                     )}
-                 </div>
-             </div>
-        )}
+            <div className="p-8 bg-stone-900 dark:bg-stone-950 rounded-[3rem] text-white border border-stone-800 overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-150 transition-transform duration-1000">
+                    <BookOpen size={120} />
+                </div>
+                <div className="relative z-10">
+                    <h5 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Всего времени</h5>
+                    <p className="text-4xl font-black mb-1">124ч</p>
+                    <p className="text-xs font-medium opacity-60">Наслаждения текстом</p>
+                </div>
+            </div>
+        </div>
       </div>
     </div>
   );
