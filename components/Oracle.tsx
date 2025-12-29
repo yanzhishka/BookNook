@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Book } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
 import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Lock } from 'lucide-react';
 
 interface OracleProps {
@@ -25,7 +26,6 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [checkingKey, setCheckingKey] = useState<boolean>(true);
 
-  // Проверка наличия ключа при монтировании
   useEffect(() => {
     const checkKey = async () => {
       if (window.aistudio) {
@@ -42,7 +42,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const handleConnectKey = async () => {
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
-      setHasKey(true); // После открытия окна считаем, что ключ будет доступен
+      setHasKey(true);
     }
   };
 
@@ -55,7 +55,6 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const getRecommendations = async () => {
     if (!prompt.trim()) return;
     
-    // Если ключа нет, просим пользователя его выбрать
     if (!process.env.API_KEY) {
         await handleConnectKey();
         return; 
@@ -67,51 +66,44 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
     setFlippedIndices([]);
 
     const myBooksContext = books.length > 0 
-      ? `Пользователь уже читал: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}.` 
+      ? `Пользователь уже читал или интересуется книгами: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}.` 
       : '';
 
-    const userMessage = `Подбери 6 книг на русском для запроса: "${prompt}". ${myBooksContext}`;
-
     try {
-      // ИСПОЛЬЗУЕМ GROQ API
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { 
-                role: "system", 
-                content: `Ты — великий литературный оракул. Отвечай ТОЛЬКО в формате JSON (массив объектов). 
-                Поля: title, author, description (5 предложений), vibe (метафора), pages (число).` 
-            },
-            { role: "user", content: userMessage }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.8
-        })
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Подбери 6 уникальных книг для читателя с запросом: "${prompt}". ${myBooksContext}`,
+        config: {
+          systemInstruction: "Ты — великий литературный оракул. Твоя задача — подбирать книги, которые изменят жизнь читателя. Отвечай строго в формате JSON.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              recommendations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING, description: "Название книги" },
+                    author: { type: Type.STRING, description: "Автор" },
+                    description: { type: Type.STRING, description: "Захватывающее описание 5-6 предложений на русском" },
+                    vibe: { type: Type.STRING, description: "Метафоричное описание атмосферы на русском" },
+                    pages: { type: Type.NUMBER, description: "Число страниц" }
+                  },
+                  required: ["title", "author", "description", "vibe", "pages"]
+                }
+              }
+            }
+          }
+        }
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-            setHasKey(false);
-            throw new Error("Невалидный API ключ. Пожалуйста, выберите рабочий ключ в настройках.");
-        }
-        throw new Error("Оракул временно недоступен.");
-      }
-
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-      const parsed = JSON.parse(content);
-      const finalData = Array.isArray(parsed) ? parsed : (parsed.recommendations || parsed.books || Object.values(parsed)[0]);
-      
-      if (Array.isArray(finalData)) {
-        setRecommendations(finalData.slice(0, 6));
+      const data = JSON.parse(response.text || '{}');
+      if (data.recommendations && Array.isArray(data.recommendations)) {
+        setRecommendations(data.recommendations.slice(0, 6));
       } else {
-        throw new Error("Неверный формат ответа.");
+        throw new Error("Оракул дал туманный ответ. Попробуйте еще раз.");
       }
     } catch (err: any) {
       console.error(err);
@@ -125,7 +117,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="animate-spin text-amber-500 mb-4" size={32} />
-        <p className="text-stone-400 font-bold uppercase tracking-widest text-[10px]">Проверка доступа...</p>
+        <p className="text-stone-400 font-bold uppercase tracking-widest text-[10px]">Инициализация Оракула...</p>
       </div>
     );
   }
@@ -138,7 +130,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
         </div>
         <h2 className="text-3xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-4">Оракул спит</h2>
         <p className="text-stone-500 dark:text-stone-400 mb-10 leading-relaxed">
-          Чтобы пробудить способности Оракула (Llama-3 через Groq), необходимо подключить ваш API ключ.
+          Чтобы пробудить мистические способности Оракула (Gemini Flash), необходимо подключить ваш API ключ через системное окно.
         </p>
         <button 
           onClick={handleConnectKey}
@@ -163,14 +155,14 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
         <div className="inline-block p-4 bg-amber-50 dark:bg-amber-900/10 rounded-3xl mb-4 shadow-inner border border-amber-100 dark:border-amber-800 relative group">
             <Compass size={44} className="text-amber-600 dark:text-amber-500 animate-pulse" />
             <div className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-                <Zap size={8} /> LLAMA-3 SPEED
+                <Zap size={8} /> GEMINI AI
             </div>
         </div>
         <h2 className="text-4xl md:text-5xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-4 tracking-tight">
           Литературный <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-rose-500 to-orange-500">Оракул</span>
         </h2>
         <p className="text-stone-500 dark:text-stone-400 text-lg max-w-2xl mx-auto leading-relaxed">
-          На базе Llama-3.3. Нажмите на карточку, чтобы заглянуть внутрь каждой истории.
+          На базе Gemini 3 Flash. Расскажите о своих предпочтениях, и я укажу вам путь.
         </p>
       </div>
 
@@ -184,7 +176,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && getRecommendations()}
-                placeholder="Что вы хотите почувствовать сегодня?.."
+                placeholder="Напишите, что вы любите читать..."
                 className="flex-1 bg-transparent border-none outline-none px-4 py-4 text-stone-800 dark:text-stone-100 text-lg placeholder:text-stone-400"
             />
             <button 
@@ -202,7 +194,6 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
           <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-3xl mb-12 animate-shake border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-3">
               <AlertCircle size={20} />
               <span>{error}</span>
-              <button onClick={handleConnectKey} className="ml-4 underline font-bold">Подключить ключ</button>
           </div>
       )}
 
@@ -277,7 +268,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
                             
                             <div className="mt-8 pt-6 border-t border-amber-50 dark:border-stone-800/50 flex justify-center">
                                 <div className="text-[10px] text-amber-600/60 dark:text-amber-400/40 uppercase tracking-[0.3em] font-black">
-                                    Llama-3.3 Intelligence
+                                    Gemini 3 Intelligence
                                 </div>
                             </div>
                         </div>
