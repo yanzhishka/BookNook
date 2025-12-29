@@ -10,6 +10,14 @@ interface DashboardProps {
   onNavigate: (tab: string) => void;
 }
 
+const formatReadingTime = (seconds: number) => {
+  if (!seconds) return '0м';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}ч ${minutes}м`;
+  return `${minutes}м`;
+};
+
 const QUOTE_LIBRARY = [
   { text: "Книги — это уникальное портативное волшебство.", source: "Стивен Кинг" },
   { text: "Мир — это книга, и те, кто не путешествуют, читают лишь одну страницу.", source: "Святой Августин" },
@@ -276,9 +284,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
                 )}
             </div>
             
-            <button onClick={() => onNavigate('library')} className="relative z-10 mt-8 w-full py-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors">
-                Все цитаты
-            </button>
+            <div className="relative z-10 mt-8 w-full py-4 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl flex flex-col items-center">
+                <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1">Всего прочитано</span>
+                <span className="text-lg font-black text-stone-900 dark:text-stone-100">{formatReadingTime(user.totalReadingTime || 0)}</span>
+            </div>
         </div>
       </div>
     </div>

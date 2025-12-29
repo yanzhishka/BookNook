@@ -2,28 +2,20 @@
 import { GoogleGenAI } from "@google/genai";
 import { ImageSize, AspectRatio } from "../types";
 
-// Универсальный способ получения ключа
-const getApiKey = () => {
-  return process.env.API_KEY || (window as any).VITE_API_KEY;
-};
-
-const getAiClient = () => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("API Key not found. Please set API_KEY environment variable.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 export const generateSceneImage = async (
   prompt: string,
   size: ImageSize,
   aspectRatio: AspectRatio
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    // Always use the pre-configured process.env.API_KEY directly when initializing.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Choose model based on size: high-quality models for 2K or 4K.
+    const model = (size === '2K' || size === '4K') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: model,
       contents: {
         parts: [{ text: prompt }]
       },
@@ -41,8 +33,14 @@ export const generateSceneImage = async (
       }
     }
     throw new Error("No image data returned.");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Image Generation Error:", error);
+    // If key fails or is missing, prompt to select via AI Studio dialog.
+    if (error.message?.includes("Requested entity was not found.")) {
+        if (typeof window !== 'undefined' && (window as any).aistudio) {
+            (window as any).aistudio.openSelectKey();
+        }
+    }
     throw error;
   }
 };
@@ -53,7 +51,8 @@ export const editBookImage = async (
   prompt: string
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    // Direct initialization as required by SDK guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -82,16 +81,14 @@ export const editBookImage = async (
 };
 
 export const checkAndRequestApiKey = async (): Promise<boolean> => {
-  // Если ключ уже есть в переменных окружения, доступ разрешен
-  if (getApiKey()) return true;
-  
-  // Если мы в среде AI Studio, пытаемся открыть диалог
+  // Check if API key is selected using window.aistudio methods.
   if (typeof window !== 'undefined' && (window as any).aistudio) {
     try {
       const aiStudio = (window as any).aistudio;
       const hasKey = await aiStudio.hasSelectedApiKey();
       if (!hasKey) {
         await aiStudio.openSelectKey();
+        // Assume selection successful to avoid race conditions.
         return true; 
       }
       return true;
@@ -100,5 +97,6 @@ export const checkAndRequestApiKey = async (): Promise<boolean> => {
     }
   }
   
-  return false;
+  // For standard environments, assume process.env.API_KEY is pre-configured.
+  return !!process.env.API_KEY;
 };

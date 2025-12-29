@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User, Activity } from '../types';
 import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2 } from 'lucide-react';
 import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
 
-// Color themes for annotations
 const ANNOTATION_COLORS = [
     { name: 'amber', bg: 'bg-amber-200/50', text: 'text-amber-900', border: 'border-amber-400', sideBg: 'bg-amber-50 dark:bg-amber-900/20' },
     { name: 'rose', bg: 'bg-rose-200/50', text: 'text-rose-900', border: 'border-rose-400', sideBg: 'bg-rose-50 dark:bg-rose-900/20' },
@@ -31,6 +30,37 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
   const [sharedNotes, setSharedNotes] = useState<Set<string>>(new Set());
   const textRef = useRef<HTMLDivElement>(null);
+
+  // Time tracking state
+  const sessionStartTime = useRef<number>(Date.now());
+  const lastSyncTime = useRef<number>(Date.now());
+
+  const syncReadingTime = useCallback(async () => {
+    if (user.id === 'guest') return;
+    const now = Date.now();
+    const sessionSeconds = Math.floor((now - lastSyncTime.current) / 1000);
+    if (sessionSeconds <= 0) return;
+
+    const updatedUser = {
+      ...user,
+      totalReadingTime: (user.totalReadingTime || 0) + sessionSeconds
+    };
+    
+    lastSyncTime.current = now;
+    await db.updateUserProfile(updatedUser);
+  }, [user]);
+
+  // Track time
+  useEffect(() => {
+    const timer = setInterval(() => {
+        syncReadingTime();
+    }, 30000); // Синхронизация каждые 30 секунд
+
+    return () => {
+        clearInterval(timer);
+        syncReadingTime(); // Последняя синхронизация перед закрытием
+    };
+  }, [syncReadingTime]);
 
   // Auto-save progress
   useEffect(() => {
@@ -128,7 +158,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     const end = start + CHARS_PER_PAGE;
     const pageText = book.content.slice(start, end);
 
-    // Find annotations that appear on this page
     const pageAnnotations = (book.annotations || []).filter(ann => pageText.includes(ann.quote));
 
     if (pageAnnotations.length === 0) return pageText;

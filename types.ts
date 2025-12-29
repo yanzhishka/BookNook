@@ -45,6 +45,7 @@ export interface User {
   booksReadThisYear: number;
   totalBooksRead?: number;
   streakDays?: number;
+  totalReadingTime?: number; // в секундах
 }
 
 export interface Comment {
@@ -84,7 +85,6 @@ export interface Chat {
   lastMessage: string;
 }
 
-// Added missing types for Studio and Discover components
 export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
 

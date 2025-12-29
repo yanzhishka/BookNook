@@ -23,6 +23,7 @@ const mapProfileToUser = (profile: any): User => ({
   joinedDate: profile.joined_date,
   booksReadThisYear: 0,
   streakDays: profile.streak_days || 0,
+  totalReadingTime: profile.total_reading_time || 0,
 });
 
 const mapDbBookToBook = (b: any): Book => ({
@@ -249,6 +250,7 @@ export const db = {
   },
 
   async updateBook(book: Book) {
+    // Fix: line 256 used book.my_rating (snake_case) instead of book.myRating (camelCase)
     await supabase.from('books').update({ 
       progress: Number(book.progress) || 0, 
       status: book.status, 
@@ -269,7 +271,8 @@ export const db = {
       bio: user.bio, 
       location: user.location, 
       avatar: user.avatar, 
-      banner_url: user.bannerUrl 
+      banner_url: user.bannerUrl,
+      total_reading_time: user.totalReadingTime
     }).eq('id', user.id);
   },
 

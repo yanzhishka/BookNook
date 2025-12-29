@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Target } from 'lucide-react';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Target, Lock } from 'lucide-react';
 import { db, UserData } from '../services/db';
 
 interface ProfileProps {
@@ -10,14 +10,25 @@ interface ProfileProps {
   books: Book[];
 }
 
-const ACHIEVEMENTS = [
-  { id: 1, icon: '🐛', title: 'Книжный червь', desc: 'Прочитано 10 книг', unlocked: true },
-  { id: 2, icon: '🔥', title: 'В ударе', desc: 'Серия 7 дней', unlocked: true },
-  { id: 3, icon: '✍️', title: 'Критик', desc: 'Написано 5 рецензий', unlocked: true },
-  { id: 4, icon: '🏰', title: 'Фанатик фэнтези', desc: 'Прочитано 5 книг фэнтези', unlocked: false },
-];
+interface Achievement {
+    id: string;
+    icon: string;
+    title: string;
+    desc: string;
+    isUnlocked: boolean;
+    progress?: number;
+    goal: number;
+}
 
 const ADMIN_EMAIL = 'nme030609@gmail.com';
+
+const formatReadingTime = (seconds: number) => {
+  if (!seconds) return '0м';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}ч ${minutes}м`;
+  return `${minutes}м`;
+};
 
 export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'stats' | 'achievements'>('info');
@@ -35,8 +46,48 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
 
   const completedBooks = useMemo(() => books.filter(b => b.status === 'completed'), [books]);
   const totalPagesRead = useMemo(() => books.reduce((acc, b) => acc + (b.currentPage || 0), 0), [books]);
+  const totalAnnotations = useMemo(() => books.reduce((acc, b) => acc + (b.annotations?.length || 0), 0), [books]);
   
-  // Fake weekly stats for visualization
+  // Dynamic Achievements Logic
+  const achievements = useMemo((): Achievement[] => [
+    { 
+        id: 'bookworm', 
+        icon: '🐛', 
+        title: 'Книжный червь', 
+        desc: 'Прочитать 5 книг', 
+        goal: 5,
+        progress: completedBooks.length,
+        isUnlocked: completedBooks.length >= 5 
+    },
+    { 
+        id: 'on_fire', 
+        icon: '🔥', 
+        title: 'В ударе', 
+        desc: 'Серия чтения 7 дней', 
+        goal: 7,
+        progress: user.streakDays || 0,
+        isUnlocked: (user.streakDays || 0) >= 7 
+    },
+    { 
+        id: 'thinker', 
+        icon: '🧠', 
+        title: 'Мыслитель', 
+        desc: 'Создать 10 заметок', 
+        goal: 10,
+        progress: totalAnnotations,
+        isUnlocked: totalAnnotations >= 10 
+    },
+    { 
+        id: 'marathon', 
+        icon: '🏃', 
+        title: 'Марафонец', 
+        desc: '1 час общего времени чтения', 
+        goal: 3600,
+        progress: user.totalReadingTime || 0,
+        isUnlocked: (user.totalReadingTime || 0) >= 3600 
+    },
+  ], [completedBooks, user.streakDays, totalAnnotations, user.totalReadingTime]);
+
   const weeklyStats = [
     { day: 'Пн', pages: 42 },
     { day: 'Вт', pages: 12 },
@@ -106,7 +157,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      {/* Hero Section */}
       <div className="relative w-full h-64 rounded-[3rem] overflow-hidden shadow-2xl mb-24 group bg-stone-200 dark:bg-stone-800">
         <img src={user.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -121,7 +171,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
         )}
         <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={(e) => handleImageUpload(e, 'bannerUrl')} />
         
-        {/* Avatar positioned over the overlap */}
         <div className="absolute -bottom-16 left-10">
           <div className="relative group/avatar">
             <div className="w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800 transition-transform hover:scale-105 duration-500">
@@ -141,7 +190,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* Left Column: Info */}
         <div className="lg:col-span-8">
             <div className="flex justify-between items-start mb-10">
                 <div>
@@ -193,7 +241,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                 </div>
             )}
 
-            {/* Tabs */}
             <div className="flex border-b border-stone-100 dark:border-stone-800 mb-10 gap-8">
                 {[
                     { id: 'info', label: 'Обзор', icon: History },
@@ -268,61 +315,50 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                             ))}
                         </div>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-8 bg-stone-50 dark:bg-stone-950 rounded-[2.5rem] border border-stone-100 dark:border-stone-800">
-                             <Target className="text-rose-500 mb-6" size={24} />
-                             <h5 className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg mb-2">Цель на год</h5>
-                             <div className="flex justify-between items-end mb-4">
-                                <span className="text-3xl font-black text-stone-900 dark:text-white">{Math.round((completedBooks.length / 20) * 100)}%</span>
-                                <span className="text-xs font-bold text-stone-400">{completedBooks.length} / 20 книг</span>
-                             </div>
-                             <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-rose-500" style={{ width: `${(completedBooks.length / 20) * 100}%` }} />
-                             </div>
-                        </div>
-                        <div className="p-8 bg-stone-50 dark:bg-stone-950 rounded-[2.5rem] border border-stone-100 dark:border-stone-800">
-                             <History className="text-blue-500 mb-6" size={24} />
-                             <h5 className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg mb-2">Рекорды</h5>
-                             <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-stone-500">Макс. страниц / день</span>
-                                    <span className="font-bold text-stone-800 dark:text-stone-200">110</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-stone-500">Лучшая серия</span>
-                                    <span className="font-bold text-stone-800 dark:text-stone-200">14 дн.</span>
-                                </div>
-                             </div>
-                        </div>
-                    </div>
                 </div>
             )}
 
             {activeTab === 'achievements' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in-up">
-                    {ACHIEVEMENTS.map((ach) => (
+                    {achievements.map((ach) => (
                         <div 
                             key={ach.id} 
-                            className={`p-8 rounded-[2.5rem] border transition-all duration-500 flex gap-6 items-center group ${
-                                ach.unlocked 
+                            className={`p-8 rounded-[2.5rem] border transition-all duration-500 flex gap-6 items-center group relative overflow-hidden ${
+                                ach.isUnlocked 
                                 ? 'bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-xl' 
                                 : 'bg-stone-50/50 dark:bg-stone-900/30 border-dashed border-stone-200 dark:border-stone-800 opacity-60 grayscale'
                             }`}
                         >
-                            <div className="text-5xl shrink-0 filter group-hover:scale-110 transition-transform">{ach.icon}</div>
-                            <div>
-                                <h4 className="font-serif font-bold text-lg text-stone-800 dark:text-stone-100 leading-tight mb-1">{ach.title}</h4>
-                                <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">{ach.desc}</p>
-                                {ach.unlocked && <span className="inline-block mt-3 text-[9px] font-black uppercase tracking-widest text-emerald-500 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">Разблокировано</span>}
+                            <div className="text-5xl shrink-0 filter group-hover:scale-110 transition-transform relative z-10">
+                                {ach.isUnlocked ? ach.icon : <div className="p-3 bg-stone-100 dark:bg-stone-800 rounded-2xl"><Lock size={24} className="text-stone-400" /></div>}
                             </div>
+                            <div className="flex-1 relative z-10">
+                                <h4 className="font-serif font-bold text-lg text-stone-800 dark:text-stone-100 leading-tight mb-1">{ach.title}</h4>
+                                <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mb-3">{ach.desc}</p>
+                                
+                                {!ach.isUnlocked && (
+                                     <div className="w-full bg-stone-100 dark:bg-stone-800 h-1 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-stone-300 dark:bg-stone-600 transition-all duration-1000" 
+                                            style={{ width: `${Math.min(100, (ach.progress || 0) / ach.goal * 100)}%` }} 
+                                        />
+                                     </div>
+                                )}
+                                
+                                {ach.isUnlocked && <span className="inline-block text-[9px] font-black uppercase tracking-widest text-emerald-500 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">Разблокировано</span>}
+                            </div>
+                            
+                            {ach.isUnlocked && (
+                                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                    <Award size={120} />
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
             )}
         </div>
 
-        {/* Right Column: Admin / Extras */}
         <div className="lg:col-span-4 space-y-8">
             {isAdmin && (
                  <div className="bg-white dark:bg-stone-900 p-8 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm">
@@ -356,7 +392,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                 </div>
                 <div className="relative z-10">
                     <h5 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Всего времени</h5>
-                    <p className="text-4xl font-black mb-1">124ч</p>
+                    <p className="text-4xl font-black mb-1">{formatReadingTime(user.totalReadingTime || 0)}</p>
                     <p className="text-xs font-medium opacity-60">Наслаждения текстом</p>
                 </div>
             </div>
