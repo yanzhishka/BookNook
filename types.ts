@@ -32,6 +32,14 @@ export interface Book {
   totalPages?: number;
 }
 
+export interface UserArchetype {
+  title: string;
+  description: string;
+  traits: string[];
+  color: string;
+  icon: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -46,6 +54,7 @@ export interface User {
   totalBooksRead?: number;
   streakDays?: number;
   totalReadingTime?: number; // в секундах
+  archetype?: UserArchetype;
 }
 
 export interface Comment {

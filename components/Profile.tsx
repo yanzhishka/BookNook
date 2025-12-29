@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { User, Book } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Target, Lock } from 'lucide-react';
+import { User, Book, UserArchetype } from '../types';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, Star, History, Lock, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { db, UserData } from '../services/db';
+import { analyzeReadingArchetype } from '../services/geminiService';
 
 interface ProfileProps {
   user: User;
@@ -33,6 +34,7 @@ const formatReadingTime = (seconds: number) => {
 export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'stats' | 'achievements'>('info');
   const [isEditing, setIsEditing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [editName, setEditName] = useState(user.name);
   const [editBio, setEditBio] = useState(user.bio || '');
@@ -48,7 +50,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
   const totalPagesRead = useMemo(() => books.reduce((acc, b) => acc + (b.currentPage || 0), 0), [books]);
   const totalAnnotations = useMemo(() => books.reduce((acc, b) => acc + (b.annotations?.length || 0), 0), [books]);
   
-  // Dynamic Achievements Logic
   const achievements = useMemo((): Achievement[] => [
     { 
         id: 'bookworm', 
@@ -112,6 +113,28 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
       } catch (e) {
           console.error("Failed to load users", e);
       }
+  };
+
+  const handleArchetypeAnalysis = async () => {
+    if (books.length === 0) {
+        alert("Прочитайте хотя бы одну книгу для анализа!");
+        return;
+    }
+    setIsAnalyzing(true);
+    try {
+        const bookList = books.map(b => ({ title: b.title, author: b.author }));
+        const annList = books.flatMap(b => b.annotations?.map(a => a.comment) || []);
+        
+        const result: UserArchetype = await analyzeReadingArchetype(bookList, annList);
+        const updatedUser = { ...user, archetype: result };
+        onUpdateUser(updatedUser);
+        await db.updateUserProfile(updatedUser);
+    } catch (e) {
+        console.error(e);
+        alert("Оракул сегодня молчалив. Попробуйте позже.");
+    } finally {
+        setIsAnalyzing(false);
+    }
   };
 
   const handleSave = async () => {
@@ -192,7 +215,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8">
             <div className="flex justify-between items-start mb-10">
-                <div>
+                <div className="flex-1">
                     {isEditing ? (
                         <input 
                             value={editName} 
@@ -200,9 +223,17 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                             className="text-4xl font-serif font-black text-stone-900 dark:text-stone-100 bg-transparent border-b-2 border-stone-200 dark:border-stone-700 outline-none pb-2 mb-4 w-full"
                         />
                     ) : (
-                        <h1 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2 tracking-tighter flex items-center gap-4">
+                        <h1 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2 tracking-tighter flex items-center gap-4 flex-wrap">
                             {user.name}
                             {isAdmin && <ShieldAlert className="text-rose-500" size={24} />}
+                            {user.archetype && (
+                                <span 
+                                    className="text-sm px-4 py-1.5 rounded-full font-black uppercase tracking-widest flex items-center gap-2 shadow-sm border border-stone-100 dark:border-stone-800 animate-scale-in"
+                                    style={{ backgroundColor: `${user.archetype.color}20`, color: user.archetype.color, borderColor: `${user.archetype.color}40` }}
+                                >
+                                    {user.archetype.icon} {user.archetype.title}
+                                </span>
+                            )}
                         </h1>
                     )}
                     <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-xs">{user.handle}</p>
@@ -238,6 +269,50 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                         {user.location && <div className="flex items-center gap-3"><MapPin size={18} className="text-amber-500" /> {user.location}</div>}
                         <div className="flex items-center gap-3"><Calendar size={18} className="text-blue-500" /> С {user.joinedDate}</div>
                     </div>
+                </div>
+            )}
+
+            {/* AI Archetype Section */}
+            {!isEditing && (
+                <div className="mb-12 relative overflow-hidden p-8 rounded-[3rem] bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 shadow-sm group">
+                    <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform duration-700">
+                        <Sparkles size={120} />
+                    </div>
+                    {user.archetype ? (
+                        <div className="relative z-10 animate-fade-in">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Читательская душа</h4>
+                                    <h3 className="text-3xl font-serif font-black text-stone-800 dark:text-stone-100">{user.archetype.title}</h3>
+                                </div>
+                                <button onClick={handleArchetypeAnalysis} disabled={isAnalyzing} className="p-3 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 transition-all text-stone-400 hover:text-stone-900">
+                                    {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                                </button>
+                            </div>
+                            <p className="text-stone-600 dark:text-stone-400 italic mb-6 leading-relaxed">«{user.archetype.description}»</p>
+                            <div className="flex flex-wrap gap-3">
+                                {user.archetype.traits.map(trait => (
+                                    <span key={trait} className="px-3 py-1.5 bg-stone-50 dark:bg-stone-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-stone-500 border border-stone-100 dark:border-stone-700">
+                                        {trait}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-6">
+                            <Sparkles className="mx-auto mb-4 text-amber-500" size={32} />
+                            <h3 className="text-lg font-bold text-stone-800 dark:text-stone-100 mb-2">Кто вы в мире книг?</h3>
+                            <p className="text-sm text-stone-500 mb-8 max-w-sm mx-auto">Оракул проанализирует ваши книги и заметки, чтобы определить ваш уникальный литературный архетип.</p>
+                            <button 
+                                onClick={handleArchetypeAnalysis}
+                                disabled={isAnalyzing}
+                                className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 mx-auto shadow-lg hover:scale-105 transition-all"
+                            >
+                                {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                {isAnalyzing ? 'Заглядываем в душу...' : 'Начать анализ'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 

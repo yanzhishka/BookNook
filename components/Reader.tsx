@@ -320,6 +320,9 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
                  ) : (
                     book.annotations?.map((ann) => {
                         const theme = ANNOTATION_COLORS.find(c => c.name === ann.color) || ANNOTATION_COLORS[0];
+                        const isSharing = sharingNoteId === ann.id;
+                        const isShared = sharedNotes.has(ann.id);
+                        
                         return (
                             <div 
                                 key={ann.id} 
@@ -330,7 +333,13 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
                                 <div className="flex justify-between items-start mb-2">
                                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${theme.bg} ${theme.text}`}>Цитата</span>
                                     <div className="flex gap-1">
-                                        <button onClick={() => handleShareNote(ann)} disabled={sharedNotes.has(ann.id)} className={`p-1.5 transition-all rounded-lg ${sharedNotes.has(ann.id) ? 'text-emerald-500' : 'text-stone-400 hover:text-amber-600 opacity-0 group-hover:opacity-100'}`}>{sharedNotes.has(ann.id) ? <Check size={14} /> : <Share2 size={14} />}</button>
+                                        <button 
+                                            onClick={() => handleShareNote(ann)} 
+                                            disabled={isShared || isSharing} 
+                                            className={`p-1.5 transition-all rounded-lg ${isShared ? 'text-emerald-500' : 'text-stone-400 hover:text-amber-600 opacity-0 group-hover:opacity-100'}`}
+                                        >
+                                            {isSharing ? <Loader2 size={14} className="animate-spin" /> : isShared ? <Check size={14} /> : <Share2 size={14} />}
+                                        </button>
                                         <button onClick={() => deleteAnnotation(ann.id)} className="p-1.5 text-stone-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
                                     </div>
                                 </div>

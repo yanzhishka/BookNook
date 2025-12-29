@@ -1,6 +1,41 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { ImageSize, AspectRatio } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { ImageSize, AspectRatio, UserArchetype } from "../types";
+
+export const analyzeReadingArchetype = async (
+  books: { title: string; author: string }[],
+  annotations: string[]
+): Promise<UserArchetype> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Проанализируй читательский профиль. Книги: ${books.map(b => b.title).join(', ')}. Заметки: ${annotations.join(' | ')}. 
+      Определи "Литературный Архетип" пользователя. Придумай поэтичное название, описание (2-3 предложения), 3 ключевых качества, подходящий цвет (hex) и один эмодзи. 
+      Ответь строго в формате JSON.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            description: { type: Type.STRING },
+            traits: { type: Type.ARRAY, items: { type: Type.STRING } },
+            color: { type: Type.STRING },
+            icon: { type: Type.STRING }
+          },
+          required: ["title", "description", "traits", "color", "icon"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return result as UserArchetype;
+  } catch (error) {
+    console.error("Archetype Analysis Error:", error);
+    throw error;
+  }
+};
 
 export const generateSceneImage = async (
   prompt: string,
@@ -8,10 +43,7 @@ export const generateSceneImage = async (
   aspectRatio: AspectRatio
 ): Promise<string> => {
   try {
-    // Always use the pre-configured process.env.API_KEY directly when initializing.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Choose model based on size: high-quality models for 2K or 4K.
     const model = (size === '2K' || size === '4K') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
     
     const response = await ai.models.generateContent({
@@ -35,7 +67,6 @@ export const generateSceneImage = async (
     throw new Error("No image data returned.");
   } catch (error: any) {
     console.error("Image Generation Error:", error);
-    // If key fails or is missing, prompt to select via AI Studio dialog.
     if (error.message?.includes("Requested entity was not found.")) {
         if (typeof window !== 'undefined' && (window as any).aistudio) {
             (window as any).aistudio.openSelectKey();
@@ -51,7 +82,6 @@ export const editBookImage = async (
   prompt: string
 ): Promise<string> => {
   try {
-    // Direct initialization as required by SDK guidelines.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -81,14 +111,12 @@ export const editBookImage = async (
 };
 
 export const checkAndRequestApiKey = async (): Promise<boolean> => {
-  // Check if API key is selected using window.aistudio methods.
   if (typeof window !== 'undefined' && (window as any).aistudio) {
     try {
       const aiStudio = (window as any).aistudio;
       const hasKey = await aiStudio.hasSelectedApiKey();
       if (!hasKey) {
         await aiStudio.openSelectKey();
-        // Assume selection successful to avoid race conditions.
         return true; 
       }
       return true;
@@ -96,7 +124,5 @@ export const checkAndRequestApiKey = async (): Promise<boolean> => {
       return false;
     }
   }
-  
-  // For standard environments, assume process.env.API_KEY is pre-configured.
   return !!process.env.API_KEY;
 };
