@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Book } from '../types';
-import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw } from 'lucide-react';
+import { Sparkles, Loader2, Info, Compass, Wand2, BookOpenText, Target, Hash, ChevronRight, RotateCcw, Zap } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface OracleProps {
@@ -36,48 +36,50 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
     setRecommendations([]);
     setFlippedIndices([]);
 
+    const myBooksContext = books.length > 0 
+      ? `Пользователь уже читал или интересуется: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}.` 
+      : '';
+
+    const systemInstruction = `Ты — великий литературный оракул. Подбери ровно 6 книг на основе запроса пользователя. ${myBooksContext}`;
+
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const myBooksContext = books.length > 0 
-        ? `Пользователь уже читал или интересуется: ${books.slice(0, 10).map(b => `${b.title} (${b.author})`).join(', ')}.` 
-        : '';
-      
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `${myBooksContext} Запрос пользователя: "${prompt}". Предложи 6 наиболее подходящих книг.`,
+        contents: prompt,
         config: {
-          systemInstruction: `Ты — великий литературный оракул с глубочайшими познаниями в мировой литературе. 
-          Твоя задача: на основе запроса и контекста пользователя подобрать ровно 6 книг. 
-          Для каждой книги составь:
-          1. 'title': Название.
-          2. 'author': Автор.
-          3. 'description': Очень подробное и увлекательное описание (минимум 5-6 предложений). Опиши сюжет, уникальный стиль повествования, философские вопросы и атмосферу.
-          4. 'vibe': Краткая и точная характеристика атмосферы (например, "Холодная меланхолия и шепот старых лесов").
-          5. 'pages': Примерное количество страниц в стандартном издании (целое число).
-          Отвечай на русском языке в формате JSON.`,
+          systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
-                title: { type: Type.STRING },
-                author: { type: Type.STRING },
-                description: { type: Type.STRING },
-                vibe: { type: Type.STRING },
-                pages: { type: Type.INTEGER }
+                title: { type: Type.STRING, description: "Название книги" },
+                author: { type: Type.STRING, description: "Автор книги" },
+                description: { type: Type.STRING, description: "Захватывающее описание (5-6 предложений)" },
+                vibe: { type: Type.STRING, description: "Характеристика атмосферы (метафорично)" },
+                pages: { type: Type.NUMBER, description: "Примерное количество страниц" },
               },
-              required: ["title", "author", "description", "vibe", "pages"]
-            }
-          }
+              required: ["title", "author", "description", "vibe", "pages"],
+            },
+          },
         },
       });
 
-      const data = JSON.parse(response.text || "[]");
-      setRecommendations(data);
-    } catch (err) {
+      const text = response.text;
+      if (!text) throw new Error("Пустой ответ от модели");
+      
+      const finalData = JSON.parse(text);
+      
+      if (Array.isArray(finalData)) {
+        setRecommendations(finalData.slice(0, 6));
+      } else {
+        throw new Error("Неверный формат ответа от Оракула");
+      }
+    } catch (err: any) {
       console.error(err);
-      setError("Оракул погружен в глубокую медитацию и не может ответить. Попробуйте чуть позже.");
+      setError("Оракул временно недоступен. Мы восстанавливаем связь со звездами. Пожалуйста, попробуйте еще раз.");
     } finally {
       setLoading(false);
     }
@@ -93,8 +95,11 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
       `}</style>
 
       <div className="text-center mb-12 animate-fade-in-up">
-        <div className="inline-block p-4 bg-amber-50 dark:bg-amber-900/10 rounded-3xl mb-4 shadow-inner border border-amber-100 dark:border-amber-800">
+        <div className="inline-block p-4 bg-amber-50 dark:bg-amber-900/10 rounded-3xl mb-4 shadow-inner border border-amber-100 dark:border-amber-800 relative group">
             <Compass size={44} className="text-amber-600 dark:text-amber-500 animate-pulse" />
+            <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[8px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                <Zap size={8} /> GEMINI FLASH SPEED
+            </div>
         </div>
         <h2 className="text-4xl md:text-5xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-4 tracking-tight">
           Литературный <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-rose-500 to-orange-500">Оракул</span>
@@ -205,7 +210,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
                             
                             <div className="mt-8 pt-6 border-t border-amber-50 dark:border-stone-800/50 flex justify-center">
                                 <div className="text-[10px] text-amber-600/60 dark:text-amber-400/40 uppercase tracking-[0.3em] font-black">
-                                    Выбор Оракула
+                                    AI GEMINI INTELLIGENCE
                                 </div>
                             </div>
                         </div>

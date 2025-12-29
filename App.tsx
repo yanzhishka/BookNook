@@ -38,7 +38,8 @@ const LITERARY_QUOTES = [
   "«Книга — это устройство, способное разжечь воображение»"
 ];
 
-const STORAGE_KEY = 'bnook_active_tab';
+const TAB_STORAGE_KEY = 'bnook_active_tab';
+const THEME_STORAGE_KEY = 'bnook_theme';
 
 export type Theme = 'light' | 'dark';
 
@@ -48,10 +49,16 @@ const App: React.FC = () => {
   const [isGuest, setIsGuest] = useState(false);
   
   const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || 'home';
+    return localStorage.getItem(TAB_STORAGE_KEY) || 'home';
   });
   
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
+    if (savedTheme) return savedTheme;
+    // Если темы нет, проверяем системные настройки
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+  
   const [user, setUser] = useState<User | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -60,12 +67,14 @@ const App: React.FC = () => {
     return LITERARY_QUOTES[Math.floor(Math.random() * LITERARY_QUOTES.length)];
   }, []);
 
+  // Синхронизация темы с классом HTML и localStorage
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, activeTab);
+    localStorage.setItem(TAB_STORAGE_KEY, activeTab);
   }, [activeTab]);
 
   useEffect(() => {
@@ -101,7 +110,7 @@ const App: React.FC = () => {
     setIsAuthenticated(false); setUser(null); setIsGuest(false);
     setBooks([]); 
     setActiveTab('home');
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TAB_STORAGE_KEY);
   }, [isGuest]);
 
   const handleTabChange = useCallback((tab: string) => {
@@ -113,7 +122,7 @@ const App: React.FC = () => {
   }, [isGuest]);
 
   if (isLoading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-white dark:bg-stone-950 text-stone-800 dark:text-stone-100 p-10 overflow-hidden">
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950 text-stone-800 dark:text-stone-100 p-10 overflow-hidden transition-colors duration-500">
       <div className="max-w-lg text-center animate-fade-in-up">
         <div className="mb-8 flex justify-center">
             <Loader2 className="animate-spin text-stone-900 dark:text-stone-100" size={40} />
