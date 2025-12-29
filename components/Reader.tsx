@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Book, Annotation } from '../types';
-import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { Book, Annotation, User, Activity } from '../types';
+import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2 } from 'lucide-react';
+import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
 
@@ -15,17 +16,20 @@ const ANNOTATION_COLORS = [
 
 interface ReaderProps {
   book: Book;
+  user: User;
   onClose: () => void;
   onUpdateBook: (book: Book) => void;
 }
 
-export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
+export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; rect: DOMRect | null } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null);
+  const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
+  const [sharedNotes, setSharedNotes] = useState<Set<string>>(new Set());
   const textRef = useRef<HTMLDivElement>(null);
 
   // Auto-save progress
@@ -87,6 +91,34 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
           ...book,
           annotations: (book.annotations || []).filter(a => a.id !== id)
       });
+  };
+
+  const handleShareNote = async (ann: Annotation) => {
+    if (user.id === 'guest') return;
+    setSharingNoteId(ann.id);
+    
+    const activityContent = `Цитата: "${ann.quote}"\n\nМоя мысль: ${ann.comment}`;
+    
+    const activity: Activity = {
+        id: '',
+        user: user,
+        book: book,
+        type: 'note',
+        content: activityContent,
+        timestamp: '',
+        likes: 0,
+        likedBy: [],
+        comments: []
+    };
+
+    try {
+        await db.createActivity(activity);
+        setSharedNotes(prev => new Set(prev).add(ann.id));
+    } catch (e) {
+        console.error("Failed to share note", e);
+    } finally {
+        setSharingNoteId(null);
+    }
   };
 
   const renderContentWithHighlights = () => {
@@ -199,6 +231,8 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
                     book.annotations?.map((ann) => {
                         const theme = ANNOTATION_COLORS.find(c => c.name === ann.color) || ANNOTATION_COLORS[0];
                         const isHovered = hoveredNoteId === ann.id;
+                        const isShared = sharedNotes.has(ann.id);
+                        const isSharing = sharingNoteId === ann.id;
                         
                         return (
                             <div 
@@ -209,12 +243,24 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
                             >
                                 <div className="flex justify-between items-start mb-2">
                                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${theme.bg} ${theme.text} shrink-0`}>Цитата</span>
-                                    <button 
-                                        onClick={() => deleteAnnotation(ann.id)}
-                                        className="text-stone-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                    <div className="flex gap-1">
+                                        {user.id !== 'guest' && (
+                                            <button 
+                                                onClick={() => handleShareNote(ann)}
+                                                disabled={isShared || isSharing}
+                                                title={isShared ? "Опубликовано" : "Опубликовать в ленте"}
+                                                className={`p-1.5 transition-all rounded-lg ${isShared ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/40' : 'text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'} ${!isShared && !isSharing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+                                            >
+                                                {isSharing ? <Loader2 size={14} className="animate-spin" /> : isShared ? <Check size={14} /> : <Share2 size={14} />}
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => deleteAnnotation(ann.id)}
+                                            className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p className="text-xs text-stone-500 italic mb-3 line-clamp-3 leading-relaxed border-l-2 pl-3 border-stone-200 dark:border-stone-700 break-all w-full">
                                     {ann.quote}

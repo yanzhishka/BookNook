@@ -213,6 +213,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       return (
         <Reader 
             book={selectedBook} 
+            user={user}
             onClose={() => setIsReading(false)} 
             onUpdateBook={(b) => {
                 setSelectedBook(b);
@@ -306,7 +307,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
 
       {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => !isUploading && setShowAddModal(false)} />
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => !isUploading && setShowAddModal(false)} />
               <div className="bg-[#110f0e] rounded-[2.5rem] w-full max-w-xl relative z-10 shadow-2xl animate-scale-in border border-stone-800 overflow-hidden">
                   <div className="flex bg-[#1c1917]/50 border-b border-stone-800">
                       <button 

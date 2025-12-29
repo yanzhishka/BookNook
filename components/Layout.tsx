@@ -27,7 +27,8 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'messages', label: 'Сообщения', icon: Mail, restricted: true },
   ];
 
-  const NavButton = ({ item, isMobile = false }: { item: typeof navItems[0], isMobile?: boolean }) => {
+  // Fix: Explicitly type NavButton as React.FC to include React's intrinsic 'key' property in its props definition.
+  const NavButton: React.FC<{ item: typeof navItems[0], isMobile?: boolean }> = ({ item, isMobile = false }) => {
     const Icon = item.icon;
     const isActive = activeTab === item.id;
     const isLocked = isGuest && item.restricted;
