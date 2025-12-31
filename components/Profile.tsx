@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book, UserArchetype } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw, Mail } from 'lucide-react';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw, Mail, ArrowRight } from 'lucide-react';
 import { db, UserData } from '../services/db';
 import { analyzeReadingArchetype } from '../services/geminiService';
 
@@ -206,21 +206,26 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      <div className="relative w-full h-64 rounded-[3rem] overflow-hidden shadow-2xl mb-24 group bg-stone-200 dark:bg-stone-800">
-        <img src={profileUser.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-        {isEditing && isOwnProfile && (
-            <button 
-                onClick={() => bannerInputRef.current?.click()}
-                className="absolute bottom-6 right-6 bg-white/20 backdrop-blur-xl text-white px-6 py-2.5 rounded-2xl flex items-center gap-2 hover:bg-white/40 transition-all z-10 border border-white/30"
-            >
-                <Camera size={18} />
-                <span className="text-sm font-bold">Изменить обложку</span>
-            </button>
-        )}
+      {/* Исправленный контейнер баннера: удален overflow-hidden с родителя */}
+      <div className="relative w-full h-64 mb-24">
+        {/* Обертка самого баннера с округлением и обрезкой */}
+        <div className="absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl bg-stone-200 dark:bg-stone-800 group">
+            <img src={profileUser.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+            {isEditing && isOwnProfile && (
+                <button 
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="absolute bottom-6 right-6 bg-white/20 backdrop-blur-xl text-white px-6 py-2.5 rounded-2xl flex items-center gap-2 hover:bg-white/40 transition-all z-10 border border-white/30"
+                >
+                    <Camera size={18} />
+                    <span className="text-sm font-bold">Изменить обложку</span>
+                </button>
+            )}
+        </div>
         <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={(e) => handleImageUpload(e, 'bannerUrl')} />
         
-        <div className="absolute -bottom-16 left-10">
+        {/* Аватарка теперь не обрезается, так как она вне блока с overflow-hidden */}
+        <div className="absolute -bottom-16 left-10 z-20">
           <div className="relative group/avatar">
             <div className="w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800 transition-transform hover:scale-105 duration-500">
                 <img src={profileUser.avatar} alt={profileUser.name} className="w-full h-full object-cover" />
