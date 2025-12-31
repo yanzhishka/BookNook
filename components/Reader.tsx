@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User, Activity } from '../types';
 import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer } from 'lucide-react';
@@ -26,13 +27,15 @@ interface ReaderProps {
 
 export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
-  const [selection, setSelection] = useState<{ text: string; rect: DOMRect | null } | null>(null);
+  const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null);
   const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
   const [sharedNotes, setSharedNotes] = useState<Set<string>>(new Set());
+  
+  const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   // Focus Mode State
@@ -62,7 +65,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     await db.updateUserProfile(updatedUser);
   }, [user]);
 
-  // Track total app reading time
   useEffect(() => {
     const timer = setInterval(() => {
         syncReadingTime();
@@ -74,7 +76,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     };
   }, [syncReadingTime]);
 
-  // Session Stopwatch Logic
   useEffect(() => {
     let interval: any;
     if (isStopwatchRunning) {
@@ -85,14 +86,12 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     return () => clearInterval(interval);
   }, [isStopwatchRunning]);
 
-  // Update volume
   useEffect(() => {
     if (audioRef.current) {
         audioRef.current.volume = volume;
     }
   }, [volume]);
 
-  // Ambient Sounds Logic
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -121,7 +120,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Auto-save progress
   useEffect(() => {
     const totalPages = book.totalPages || 1;
     const progress = Math.round((currentPage / totalPages) * 100);
@@ -145,11 +143,17 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
 
   const handleTextSelection = () => {
     const windowSelection = window.getSelection();
-    if (windowSelection && windowSelection.toString().trim().length > 0) {
+    if (windowSelection && windowSelection.toString().trim().length > 0 && containerRef.current) {
       const range = windowSelection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const parentRect = containerRef.current.getBoundingClientRect();
+      
+      // Calculate relative position within the containerRef because fixed elements 
+      // inside parents with transforms (animate-fade-in-up) are relative to that parent.
       setSelection({
         text: windowSelection.toString(),
-        rect: range.getBoundingClientRect()
+        top: rect.top - parentRect.top,
+        left: rect.left - parentRect.left + rect.width / 2
       });
     } else {
         setSelection(null);
@@ -208,7 +212,10 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   };
 
   return (
-    <div className={`fixed inset-0 z-50 transition-all duration-700 overflow-hidden flex flex-col ${isZenMode ? 'bg-stone-950' : 'bg-[#FDFCFB] dark:bg-[#0C0A09]'}`}>
+    <div 
+        ref={containerRef}
+        className={`fixed inset-0 z-50 transition-all duration-700 overflow-hidden flex flex-col ${isZenMode ? 'bg-stone-950' : 'bg-[#FDFCFB] dark:bg-[#0C0A09]'}`}
+    >
       <audio ref={audioRef} loop />
       
       <header className={`h-16 px-6 border-b transition-all duration-500 flex items-center justify-between z-10 bg-inherit ${isZenMode ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0 border-stone-200 dark:border-stone-800'}`}>
@@ -406,8 +413,18 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
         )}
 
         {selection && !isAddingNote && !isZenMode && (
-            <div className="fixed z-[100] animate-scale-in" style={{ top: `${selection.rect!.top - 60}px`, left: `${selection.rect!.left + selection.rect!.width / 2}px`, transform: 'translateX(-50%)' }}>
-                <button onClick={() => setIsAddingNote(true)} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 font-bold hover:scale-110 transition-all ring-4 ring-white/10">
+            <div 
+              className="fixed z-[100] animate-scale-in" 
+              style={{ 
+                top: `${selection.top - 60}px`, 
+                left: `${selection.left}px`, 
+                transform: 'translateX(-50%)' 
+              }}
+            >
+                <button 
+                  onClick={() => setIsAddingNote(true)} 
+                  className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 font-bold hover:scale-110 transition-all ring-4 ring-white/10"
+                >
                     <MessageSquarePlus size={18} /> <span className="text-sm">Заметка</span>
                 </button>
             </div>

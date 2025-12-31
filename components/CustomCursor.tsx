@@ -77,7 +77,7 @@ export const CustomCursor: React.FC = () => {
   return (
     <>
       <style>{`
-        * {
+        html, body, *, *:before, *:after {
           cursor: none !important;
         }
         @keyframes rippleExpand {
