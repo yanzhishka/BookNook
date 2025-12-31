@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { CustomCursor } from './components/CustomCursor';
@@ -8,7 +7,6 @@ import { db } from './services/db';
 import { Loader2 } from 'lucide-react';
 import { Auth } from './components/Auth';
 
-// Ленивая загрузка компонентов для уменьшения начального бандла
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
 const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
@@ -57,6 +55,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  
+  // New state for viewing specific profiles
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -79,7 +80,6 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Session init failed", e);
       } finally {
-        // Удалена искусственная задержка в 2 секунды
         setIsLoading(false);
       }
     })();
@@ -101,6 +101,7 @@ const App: React.FC = () => {
     setIsAuthenticated(false); setUser(null); setIsGuest(false);
     setBooks([]); 
     setActiveTab('home');
+    setViewingProfileId(null);
     localStorage.removeItem(TAB_STORAGE_KEY);
   }, [isGuest]);
 
@@ -109,8 +110,14 @@ const App: React.FC = () => {
       setShowLoginPrompt(true);
     } else {
       setActiveTab(tab);
+      if (tab !== 'profile') setViewingProfileId(null);
     }
   }, [isGuest]);
+
+  const handleViewProfile = useCallback((userId: string) => {
+    setViewingProfileId(userId);
+    setActiveTab('profile');
+  }, []);
 
   if (isLoading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950">
@@ -142,11 +149,11 @@ const App: React.FC = () => {
                 {(() => {
                   switch (activeTab) {
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
-                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} />;
+                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
                     case 'oracle': return <Oracle books={books} />;
                     case 'messages': return <Messages user={user} />;
-                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} />;
+                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                   }
                 })()}
