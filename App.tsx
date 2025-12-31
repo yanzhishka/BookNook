@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
@@ -79,7 +79,6 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Session init failed", e);
       } finally {
-        // Удалена искусственная задержка в 2 секунды
         setIsLoading(false);
       }
     })();
