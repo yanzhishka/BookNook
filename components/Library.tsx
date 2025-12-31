@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Book, User, Activity } from '../types';
-import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, PenTool, X, Star } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, PenTool, X, Star, Sparkles, Check } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -12,6 +12,18 @@ const PROXIES = [
   'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
+];
+
+// Curated list for the Recommendations Feed
+const STAFF_PICKS = [
+  { id: 1342, title: "Pride and Prejudice", author: "Jane Austen", cover: "https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg" },
+  { id: 11, title: "Alice's Adventures in Wonderland", author: "Lewis Carroll", cover: "https://www.gutenberg.org/cache/epub/11/pg11.cover.medium.jpg" },
+  { id: 1661, title: "The Adventures of Sherlock Holmes", author: "Arthur Conan Doyle", cover: "https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg" },
+  { id: 2701, title: "Moby Dick; Or, The Whale", author: "Herman Melville", cover: "https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg" },
+  { id: 1513, title: "Romeo and Juliet", author: "William Shakespeare", cover: "https://www.gutenberg.org/cache/epub/1513/pg1513.cover.medium.jpg" },
+  { id: 84, title: "Frankenstein; Or, The Modern Prometheus", author: "Mary Wollstonecraft Shelley", cover: "https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg" },
+  { id: 98, title: "A Tale of Two Cities", author: "Charles Dickens", cover: "https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg" },
+  { id: 145, title: "Middlemarch", author: "George Eliot", cover: "https://www.gutenberg.org/cache/epub/145/pg145.cover.medium.jpg" }
 ];
 
 interface LibraryProps {
@@ -31,7 +43,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addMode, setAddMode] = useState<'catalog' | 'upload'>('catalog');
+  const [addMode, setAddMode] = useState<'catalog' | 'upload' | 'feed'>('feed');
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -149,21 +161,25 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     throw new Error("Не удалось загрузить текст.");
   };
 
-  const addFromCatalog = async (gBook: GutenbergBook) => {
+  const addFromCatalog = async (gBook: any) => {
+    if (books.some(b => b.title === gBook.title)) return;
     setIsUploading(true);
     setErrorMessage(null);
     try {
-      const formats = Object.entries(gBook.formats)
+      // Fix: Cast the mapped values to string array to ensure compatibility with tryFetchText signature
+      const formats: string[] = gBook.formats ? (Object.entries(gBook.formats)
         .filter(([key]) => key.toLowerCase().includes('text/plain'))
-        .map(([_, url]) => url);
+        .map(([_, url]) => url as string)) : [];
+      
       const content = await tryFetchText(gBook.id, formats);
       const totalPages = Math.max(1, Math.ceil(content.length / CHARS_PER_PAGE));
-      const author = gBook.authors.map(a => a.name).join(', ') || 'Неизвестный автор';
+      const author = gBook.authors ? gBook.authors.map((a: any) => a.name).join(', ') : gBook.author || 'Неизвестный автор';
+      
       const bookData: Book = {
         id: '', 
         title: gBook.title,
         author: author,
-        coverUrl: gBook.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.cover.medium.jpg`,
+        coverUrl: gBook.cover || gBook.formats?.['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.cover.medium.jpg`,
         progress: 0,
         status: 'want_to_read',
         content: content,
@@ -341,7 +357,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             <p className="text-stone-500 dark:text-stone-400">Управляйте своей коллекцией и продолжайте чтение.</p>
         </div>
         <button 
-            onClick={() => setShowAddModal(true)} 
+            onClick={() => { setAddMode('feed'); setShowAddModal(true); }} 
             className="w-full md:w-auto bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl font-black text-xs uppercase tracking-widest"
         >
             <Plus size={20} /> <span>Добавить книгу</span>
@@ -460,7 +476,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             <div className="col-span-full py-24 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-[3rem] bg-stone-50/50 dark:bg-stone-900/10">
                 <BookOpen size={64} className="mx-auto mb-6 text-stone-200 dark:text-stone-800" />
                 <p className="text-stone-500 dark:text-stone-400 font-bold uppercase tracking-widest text-sm mb-4">В этой категории пока пусто.</p>
-                <button onClick={() => setShowAddModal(true)} className="text-stone-800 dark:text-stone-100 underline font-black uppercase text-xs tracking-widest">Добавить первую книгу</button>
+                <button onClick={() => { setAddMode('feed'); setShowAddModal(true); }} className="text-stone-800 dark:text-stone-100 underline font-black uppercase text-xs tracking-widest">Добавить первую книгу</button>
             </div>
         )}
       </div>
@@ -470,14 +486,49 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
               <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => !isUploading && setShowAddModal(false)} />
               <div className="bg-[#110f0e] rounded-[3rem] w-full max-w-xl relative z-10 shadow-2xl animate-scale-in border border-stone-800 overflow-hidden">
                   <div className="flex bg-[#1c1917]/50 border-b border-stone-800">
-                      <button onClick={() => setAddMode('catalog')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'catalog' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><LibraryIcon size={16} /> Поиск</button>
+                      <button onClick={() => setAddMode('feed')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'feed' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Sparkles size={16} /> Рекомендации</button>
+                      <button onClick={() => setAddMode('catalog')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'catalog' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Search size={16} /> Поиск</button>
                       <button onClick={() => setAddMode('upload')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'upload' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Upload size={16} /> Загрузка</button>
                   </div>
                   <div className="p-10">
-                      {addMode === 'catalog' ? (
+                      {addMode === 'feed' ? (
+                          <div className="space-y-6">
+                              <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500">Выбор редакции</h4>
+                                  <div className="flex items-center gap-2 text-amber-500 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                      <Sparkles size={12} /> Популярное сейчас
+                                  </div>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                  {STAFF_PICKS.map(pick => {
+                                      const isOwned = books.some(b => b.title === pick.title);
+                                      return (
+                                          <div 
+                                              key={pick.id} 
+                                              onClick={() => !isUploading && !isOwned && addFromCatalog(pick)}
+                                              className={`group p-4 bg-[#1c1917]/50 rounded-3xl border border-stone-800 transition-all ${isOwned ? 'opacity-50 grayscale cursor-default' : 'hover:bg-white/5 hover:border-amber-500/50 cursor-pointer'}`}
+                                          >
+                                              <div className="flex gap-4 items-center">
+                                                  <img src={pick.cover} className="w-12 h-18 object-cover rounded-lg shadow-lg group-hover:scale-110 transition-transform" />
+                                                  <div className="flex-1 min-w-0">
+                                                      <h5 className="text-white font-serif font-bold text-sm truncate">{pick.title}</h5>
+                                                      <p className="text-[9px] font-black text-stone-500 uppercase truncate mb-2">{pick.author}</p>
+                                                      {isOwned ? (
+                                                          <span className="flex items-center gap-1 text-emerald-500 text-[8px] font-black uppercase tracking-widest"><Check size={10} /> В библиотеке</span>
+                                                      ) : (
+                                                          <span className="text-amber-500 text-[8px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Добавить +</span>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      ) : addMode === 'catalog' ? (
                           <div className="space-y-6">
                               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500" size={20} /><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchClassics()} placeholder="Название или автор..." className="w-full pl-12 pr-4 py-4 bg-[#1c1917] border border-[#292524] rounded-2xl outline-none focus:ring-2 ring-blue-500/40 text-white transition-all placeholder:text-stone-600" /></div>
-                              <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-3">{isSearching ? <div className="flex flex-col items-center py-10 gap-3"><Loader2 className="animate-spin text-amber-500" /><p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Ищем...</p></div> : searchResults.map(res => (<div key={res.id} onClick={() => !isUploading && addFromCatalog(res)} className="flex items-center gap-4 p-4 bg-[#1c1917]/50 rounded-[1.5rem] hover:bg-[#1c1917] border border-transparent hover:border-amber-500/50 cursor-pointer transition-all group"><img src={res.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${res.id}/pg${res.id}.cover.small.jpg`} className="w-10 h-14 object-cover rounded-md" alt="" /><div className="flex-1 min-w-0"><h4 className="font-serif font-bold text-stone-100 text-sm truncate">{res.title}</h4><p className="text-[9px] font-black text-stone-500 uppercase tracking-widest truncate">{res.authors.map(a => a.name).join(', ')}</p></div><ChevronRight size={16} className="text-stone-700" /></div>))}</div>
+                              <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-3">{isSearching ? <div className="flex flex-col items-center py-10 gap-3"><Loader2 className="animate-spin text-amber-500" /><p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Ищем...</p></div> : searchResults.map(res => (<div key={res.id} onClick={() => !isUploading && addFromCatalog(res)} className="flex items-center gap-4 p-4 bg-[#1c1917]/50 rounded-[1.5rem] hover:bg-[#1c1917] border border-transparent hover:border-amber-500/50 cursor-pointer transition-all group"><img src={res.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${res.id}/pg${res.id}.cover.small.jpg`} className="w-10 h-14 object-cover rounded-md" alt="" /><div className="flex-1 min-w-0"><h4 className="font-serif font-bold text-stone-100 text-sm truncate">{res.title}</h4><p className="text-[9px] font-black text-stone-500 uppercase tracking-widest truncate">{res.authors.map((a: any) => a.name).join(', ')}</p></div><ChevronRight size={16} className="text-stone-700" /></div>))}</div>
                           </div>
                       ) : (
                           <div className="space-y-4">

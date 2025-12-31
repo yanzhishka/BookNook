@@ -7,6 +7,7 @@ export const analyzeReadingArchetype = async (
   annotations: string[]
 ): Promise<UserArchetype> => {
   try {
+    // Instantiate right before making the call to ensure latest API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -43,8 +44,10 @@ export const generateSceneImage = async (
   aspectRatio: AspectRatio
 ): Promise<string> => {
   try {
+    // Instantiate right before making the call to ensure latest API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const model = (size === '2K' || size === '4K') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    const isHighRes = size === '2K' || size === '4K';
+    const model = isHighRes ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
     
     const response = await ai.models.generateContent({
       model: model,
@@ -53,7 +56,8 @@ export const generateSceneImage = async (
       },
       config: {
         imageConfig: {
-          imageSize: size,
+          // imageSize is only supported for gemini-3-pro-image-preview
+          ...(model === 'gemini-3-pro-image-preview' ? { imageSize: size } : {}),
           aspectRatio: aspectRatio
         }
       }
@@ -67,6 +71,7 @@ export const generateSceneImage = async (
     throw new Error("No image data returned.");
   } catch (error: any) {
     console.error("Image Generation Error:", error);
+    // If request fails with entity not found, it might be due to missing/expired key for Pro model
     if (error.message?.includes("Requested entity was not found.")) {
         if (typeof window !== 'undefined' && (window as any).aistudio) {
             (window as any).aistudio.openSelectKey();
@@ -82,6 +87,7 @@ export const editBookImage = async (
   prompt: string
 ): Promise<string> => {
   try {
+    // Instantiate right before making the call
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -116,6 +122,7 @@ export const checkAndRequestApiKey = async (): Promise<boolean> => {
       const aiStudio = (window as any).aistudio;
       const hasKey = await aiStudio.hasSelectedApiKey();
       if (!hasKey) {
+        // Guidelines: assume key selection was successful after triggering openSelectKey
         await aiStudio.openSelectKey();
         return true; 
       }
