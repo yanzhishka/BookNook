@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Book, Activity } from '../types';
-import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame} from 'lucide-react';
+// Fix: Added Activity as ActivityIcon to resolve type/value conflict
+import { BookOpen, ArrowRight, Quote as QuoteIcon, Clock, TrendingUp, Sparkles, Flame, Activity as ActivityIcon } from 'lucide-react';
 import { db } from '../services/db';
 
 interface DashboardProps {
@@ -93,37 +94,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
 
               {currentBook ? (
                 <div className="flex flex-col md:flex-row gap-12 flex-1">
-                    <div className="w-48 md:w-64 shrink-0 relative perspective-1000">
+                    <div className="w-48 md:w-72 shrink-0 relative perspective-1000">
                         <img 
                             src={currentBook.coverUrl} 
                             alt={currentBook.title} 
-                            className="relative w-full aspect-[2/3] object-cover rounded-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] transform -rotate-3 group-hover:rotate-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]" 
+                            className="relative w-full aspect-[2/3] object-cover rounded-3xl shadow-[0_40px_80px_-15px_rgba(0,0,0,0.4)] transform -rotate-2 group-hover:rotate-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] z-10" 
                         />
-                        <div className="absolute -bottom-4 -right-4 bg-white dark:bg-stone-800 p-4 rounded-2xl shadow-xl border border-stone-100 dark:border-stone-700 animate-float">
-                            <Zap size={24} className="text-amber-500" />
-                        </div>
                     </div>
-                    <div className="flex-1 flex flex-col justify-center">
-                        <h2 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-50 mb-4 leading-[1.1] tracking-tight">
+                    <div className="flex-1 flex flex-col justify-center lg:pl-6">
+                        <h2 className="text-6xl font-serif font-black text-stone-900 dark:text-stone-50 mb-4 leading-[1.05] tracking-tight">
                             {currentBook.title}
                         </h2>
-                        <p className="text-stone-500 dark:text-stone-400 text-2xl mb-10 font-medium italic">от {currentBook.author}</p>
+                        <p className="text-stone-500 dark:text-stone-400 text-2xl mb-10 font-medium italic opacity-80">от {currentBook.author}</p>
                         
-                        <div className="space-y-4 mb-12">
+                        <div className="space-y-4 mb-12 max-w-md">
                             <div className="flex justify-between items-end">
-                                <span className="text-4xl font-black text-stone-900 dark:text-white">{currentBook.progress}%</span>
-                                <span className="text-xs font-black text-stone-400 uppercase tracking-widest">стр. {currentBook.currentPage} / {currentBook.totalPages}</span>
+                                <span className="text-5xl font-black text-stone-900 dark:text-white tracking-tighter">{currentBook.progress}%</span>
+                                <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">стр. {currentBook.currentPage} / {currentBook.totalPages}</span>
                             </div>
-                            <div className="w-full bg-stone-100 dark:bg-white/5 rounded-full h-3 overflow-hidden border border-stone-200/50 dark:border-white/5">
+                            <div className="w-full bg-stone-100 dark:bg-white/5 rounded-full h-3.5 overflow-hidden border border-stone-200/50 dark:border-white/5 p-1">
                                 <div className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-full transition-all duration-[2s] cubic-bezier(0.16, 1, 0.3, 1)" style={{ width: `${currentBook.progress}%` }}></div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => onNavigate('library')}
-                            className="w-full md:w-fit bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-12 py-5 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 hover:scale-105 transition-all shadow-2xl active:scale-95"
+                            className="w-full md:w-fit bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-14 py-6 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-4 hover:scale-105 transition-all shadow-2xl active:scale-95 group/btn"
                         >
-                            Открыть Дневник <ArrowRight size={20} />
+                            Открыть Дневник <ArrowRight size={20} className="group-hover/btn:translate-x-2 transition-transform" />
                         </button>
                     </div>
                 </div>
@@ -197,77 +195,88 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 reveal" style={{ animationDelay: '400ms' }}>
+        {/* СТРИК */}
         <div className="lg:col-span-3 space-y-8">
-            <div className="bg-gradient-to-br from-rose-500 to-orange-600 p-10 rounded-[3.5rem] text-white shadow-2xl group relative overflow-hidden hover-lift">
+            <div className="bg-gradient-to-br from-rose-500 to-orange-600 p-10 rounded-[3.5rem] text-white shadow-2xl group h-full relative overflow-hidden hover-lift">
                 <Flame size={120} className="absolute -bottom-10 -right-10 opacity-20 group-hover:scale-150 transition-transform duration-[2s]" />
-                <div className="relative z-10">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-3">Streak</h4>
-                    <p className="text-6xl font-black mb-2 tracking-tighter">{user.streakDays || 0}</p>
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-3">Streak</h4>
+                      <p className="text-7xl font-black mb-2 tracking-tighter">{user.streakDays || 0}</p>
+                    </div>
                     <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Дней в огне</p>
                 </div>
             </div>
         </div>
 
-        <div className="lg:col-span-6 glass p-10 rounded-[3.5rem] flex flex-col hover-lift">
+        {/* СООБЩЕСТВО */}
+        <div className="lg:col-span-4 glass p-10 rounded-[3.5rem] flex flex-col hover-lift h-full">
             <div className="flex justify-between items-center mb-10">
-                <h3 className="text-2xl font-serif font-black text-stone-900 dark:text-stone-50 flex items-center gap-4">
-                    <Zap className="text-rose-500 animate-pulse" size={24} />
-                    Активность Сообщества
+                <h3 className="text-xl font-serif font-black text-stone-900 dark:text-stone-50 flex items-center gap-3">
+                    {/* Fix: Using ActivityIcon component to avoid conflict with Activity type */}
+                    <ActivityIcon size={20} className="text-rose-500" />
+                    Социум
                 </h3>
-                <button onClick={() => onNavigate('feed')} className="p-3 bg-stone-100 dark:bg-stone-800 rounded-full hover:bg-stone-900 dark:hover:bg-white hover:text-white dark:hover:text-stone-950 transition-all">
-                    <ArrowRight size={20} />
+                <button onClick={() => onNavigate('feed')} className="p-2.5 bg-stone-100 dark:bg-stone-800 rounded-full hover:bg-stone-900 dark:hover:bg-white hover:text-white dark:hover:text-stone-950 transition-all">
+                    <ArrowRight size={18} />
                 </button>
             </div>
             
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-5">
                 {loadingFeed ? (
                   [1,2,3].map(i => (
-                    <div key={i} className="flex items-center gap-6 p-4">
-                      <div className="w-12 h-12 rounded-full skeleton shrink-0" />
-                      <div className="flex-1 space-y-3">
-                        <div className="h-3 w-32 skeleton rounded-full" />
+                    <div key={i} className="flex items-center gap-4 p-3">
+                      <div className="w-10 h-10 rounded-full skeleton shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-2.5 w-24 skeleton rounded-full" />
                         <div className="h-2 w-full skeleton rounded-full" />
                       </div>
                     </div>
                   ))
                 ) : recentActivity.length > 0 ? (
-                    recentActivity.map((act) => (
-                        <div key={act.id} className="flex items-center gap-6 p-4 rounded-3xl hover:bg-stone-50 dark:hover:bg-white/5 transition-all group cursor-pointer">
-                            <img src={act.user.avatar} className="w-12 h-12 rounded-full object-cover ring-4 ring-white dark:ring-stone-800 group-hover:ring-amber-500 transition-all" />
+                    recentActivity.slice(0, 4).map((act) => (
+                        <div key={act.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-stone-50 dark:hover:bg-white/5 transition-all group cursor-pointer border border-transparent hover:border-stone-100 dark:hover:border-white/5">
+                            <img src={act.user.avatar} className="w-10 h-10 rounded-full object-cover ring-2 ring-stone-100 dark:ring-stone-800 transition-all" />
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3 mb-1">
-                                    <p className="text-sm font-black text-stone-900 dark:text-stone-100 truncate">{act.user.name}</p>
-                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-500">{act.type}</span>
-                                </div>
-                                <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-1 italic font-medium">«{act.content || 'Поделился мыслями...'}»</p>
+                                <p className="text-xs font-black text-stone-900 dark:text-stone-100 truncate mb-0.5">{act.user.name}</p>
+                                <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-1 italic font-medium">«{act.content || '...'}»</p>
                             </div>
-                            <span className="text-[10px] font-black text-stone-300 uppercase shrink-0">{act.timestamp}</span>
                         </div>
                     ))
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-stone-300 dark:text-stone-700 italic text-lg">Пока здесь тишина...</div>
+                    <div className="flex-1 flex items-center justify-center text-stone-300 italic text-sm">Тишина...</div>
                 )}
             </div>
         </div>
 
-        <div className="lg:col-span-3 glass p-10 rounded-[3.5rem] relative overflow-hidden flex flex-col justify-between group hover-lift">
-            <QuoteIcon size={100} className="absolute -top-6 -left-6 text-stone-100 dark:text-stone-800 opacity-50 transform -rotate-12 group-hover:rotate-0 transition-transform duration-1000" />
+        {/* РАСШИРЕННАЯ ЦИТАТА И ВРЕМЯ */}
+        <div className="lg:col-span-5 glass p-12 rounded-[3.5rem] relative overflow-hidden flex flex-col justify-between group hover-lift border-2 border-stone-200/50 dark:border-white/5">
+            <QuoteIcon size={120} className="absolute -top-6 -left-6 text-stone-200 dark:text-stone-800 opacity-20 transform -rotate-12 group-hover:rotate-0 transition-transform duration-1000" />
             
-            <div className="relative z-10 pt-8">
-                <div className="h-[2px] w-12 bg-amber-500 mb-8"></div>
+            <div className="relative z-10 pt-4 flex-1">
+                <div className="h-[2px] w-16 bg-amber-500 mb-10"></div>
                 {dailyQuote && (
-                    <>
-                        <p className="font-serif text-xl text-stone-900 dark:text-stone-200 italic leading-relaxed mb-8 font-medium">
+                    <div className="space-y-8">
+                        <p className="font-serif text-3xl md:text-4xl text-stone-900 dark:text-stone-200 italic leading-[1.3] font-medium tracking-tight">
                             «{dailyQuote.text}»
                         </p>
-                        <p className="text-xs font-black text-stone-400 uppercase tracking-[0.2em]">— {dailyQuote.source}</p>
-                    </>
+                        <p className="text-sm font-black text-stone-400 uppercase tracking-[0.4em] flex items-center gap-4">
+                          <span className="h-px w-8 bg-stone-300 dark:bg-stone-700"></span>
+                          {dailyQuote.source}
+                        </p>
+                    </div>
                 )}
             </div>
             
-            <div className="relative z-10 mt-12 w-full py-6 bg-stone-900 dark:bg-white rounded-3xl flex flex-col items-center shadow-xl">
-                <span className="text-[9px] font-black text-white/40 dark:text-stone-400 uppercase tracking-[0.3em] mb-2">Total reading time</span>
-                <span className="text-3xl font-black text-white dark:text-stone-900 tracking-tighter">{formatReadingTime(user.totalReadingTime || 0)}</span>
+            <div className="relative z-10 mt-16 w-full p-10 bg-stone-900 dark:bg-white rounded-[2.5rem] flex items-center justify-between shadow-2xl group/stats overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-rose-500/20 opacity-0 group-hover/stats:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <span className="text-[10px] font-black text-white/40 dark:text-stone-400 uppercase tracking-[0.5em] mb-2 block">TOTAL READING JOURNEY</span>
+                  <span className="text-5xl font-black text-white dark:text-stone-900 tracking-tighter leading-none">{formatReadingTime(user.totalReadingTime || 0)}</span>
+                </div>
+                <div className="relative z-10 bg-white/10 dark:bg-stone-100 p-4 rounded-2xl backdrop-blur-md">
+                   <Clock className="text-amber-500" size={32} />
+                </div>
             </div>
         </div>
       </div>
