@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
-import { Feed } from './components/Feed';
-import { Library } from './components/Library';
-import { Oracle } from './components/Oracle';
-import { Profile } from './components/Profile';
-import { Dashboard } from './components/Dashboard';
-import { Messages } from './components/Messages';
-import { Auth } from './components/Auth';
 import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
 import { User, Book } from './types';
 import { db } from './services/db';
 import { Loader2 } from 'lucide-react';
+import { Auth } from './components/Auth';
+
+// Ленивая загрузка компонентов для уменьшения начального бандла
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
+const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
+const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
+const Oracle = lazy(() => import('./components/Oracle').then(module => ({ default: module.Oracle })));
+const Messages = lazy(() => import('./components/Messages').then(module => ({ default: module.Messages })));
+const Profile = lazy(() => import('./components/Profile').then(module => ({ default: module.Profile })));
 
 const GUEST_USER: User = {
   id: 'guest',
@@ -25,23 +27,17 @@ const GUEST_USER: User = {
   streakDays: 0
 };
 
-const LITERARY_QUOTES = [
-  "«Свобода — это возможность сказать, что дважды два — четыре»",
-  "«Мир — это книга, и те, кто не путешествует, читают лишь одну страницу»",
-  "«Книги — это зеркала: в них видишь только то, что уже есть у тебя в душе»",
-  "«Я всегда воображал, что Рай будет своего рода библиотекой»",
-  "«Человек, который не читает книг, не имеет преимуществ перед тем, кто не умеет читать»",
-  "«Если ты не знаешь, куда идешь, любая дорога приведет тебя туда»",
-  "«Судьба — это не результат обстоятельств, а результат выбора»",
-  "«Все великие книги похожи тем, что они правдивее, чем сама жизнь»",
-  "«Мы читаем, чтобы знать, что мы не одиноки»",
-  "«Книга — это устройство, способное разжечь воображение»"
-];
-
 const TAB_STORAGE_KEY = 'bnook_active_tab';
 const THEME_STORAGE_KEY = 'bnook_theme';
 
 export type Theme = 'light' | 'dark';
+
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center h-full min-h-[400px] animate-fade-in">
+    <Loader2 className="animate-spin text-stone-300 dark:text-stone-700 mb-4" size={32} />
+    <p className="text-stone-400 text-xs font-black uppercase tracking-widest">Листаем страницы...</p>
+  </div>
+);
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +51,6 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
     if (savedTheme) return savedTheme;
-    // Если темы нет, проверяем системные настройки
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   
@@ -63,11 +58,6 @@ const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  const loadingQuote = useMemo(() => {
-    return LITERARY_QUOTES[Math.floor(Math.random() * LITERARY_QUOTES.length)];
-  }, []);
-
-  // Синхронизация темы с классом HTML и localStorage
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -89,7 +79,8 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Session init failed", e);
       } finally {
-        setTimeout(() => setIsLoading(false), 2000);
+        // Удалена искусственная задержка в 2 секунды
+        setIsLoading(false);
       }
     })();
   }, []);
@@ -122,18 +113,8 @@ const App: React.FC = () => {
   }, [isGuest]);
 
   if (isLoading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950 text-stone-800 dark:text-stone-100 p-10 overflow-hidden transition-colors duration-500">
-      <div className="max-w-lg text-center animate-fade-in-up">
-        <div className="mb-8 flex justify-center">
-            <Loader2 className="animate-spin text-stone-900 dark:text-stone-100" size={40} />
-        </div>
-        <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-stone-600 dark:text-stone-300">
-           {loadingQuote}
-        </p>
-        <div className="mt-12 h-1 w-24 bg-stone-200 dark:bg-stone-800 mx-auto rounded-full overflow-hidden">
-           <div className="h-full bg-stone-900 dark:bg-stone-100 animate-[shimmer_2s_infinite_linear]" style={{ width: '40%' }}></div>
-        </div>
-      </div>
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950">
+      <Loader2 className="animate-spin text-stone-900 dark:text-stone-100" size={40} />
     </div>
   );
 
@@ -157,17 +138,19 @@ const App: React.FC = () => {
             isGuest={isGuest}
             onLoginClick={() => setShowLoginPrompt(true)}
         >
-            {(() => {
-              switch (activeTab) {
-                case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
-                case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} />;
-                case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
-                case 'oracle': return <Oracle books={books} />;
-                case 'messages': return <Messages user={user} />;
-                case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} />;
-                default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
-              }
-            })()}
+            <Suspense fallback={<PageLoader />}>
+                {(() => {
+                  switch (activeTab) {
+                    case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
+                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} />;
+                    case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
+                    case 'oracle': return <Oracle books={books} />;
+                    case 'messages': return <Messages user={user} />;
+                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} />;
+                    default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
+                  }
+                })()}
+            </Suspense>
         </Layout>
         <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleLogout} />
     </div>

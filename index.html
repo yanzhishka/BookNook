@@ -16,7 +16,7 @@
           extend: {
             colors: {
               stone: {
-                50: '#fcfaf7', // Более мягкий, бумажный оттенок
+                50: '#fcfaf7',
                 850: '#292524',
                 950: '#0c0a09',
               }
@@ -42,14 +42,13 @@
       
       body {
         font-family: 'Inter', sans-serif;
-        /* Плавная смена фона при переключении тем */
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+        text-rendering: optimizeLegibility;
       }
       h1, h2, h3, h4, .serif {
         font-family: 'Merriweather', serif;
       }
 
-      /* Skeleton Effect */
       .skeleton {
         background: linear-gradient(90deg, #f5f5f4 25%, #e7e5e4 50%, #f5f5f4 75%);
         background-size: 1000px 100%;
@@ -60,79 +59,21 @@
         background-size: 1000px 100%;
       }
 
-      /* Custom Animations */
       @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(20px); }
+        from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
       .animate-fade-in-up {
-        animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
-      @keyframes scaleIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
-      }
-      .animate-scale-in {
-        animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
-
-      @keyframes slideInRight {
-        from { opacity: 0; transform: translateX(20px); }
-        to { opacity: 1; transform: translateX(0); }
-      }
-      .animate-slide-in-right {
-        animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
-
-      @keyframes shake {
-        10%, 90% { transform: translate3d(-1px, 0, 0); }
-        20%, 80% { transform: translate3d(2px, 0, 0); }
-        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-        40%, 60% { transform: translate3d(4px, 0, 0); }
-      }
-
-      /* Celebration Animations */
-      .celebrating .rounded-2xl,
-      .celebrating .rounded-xl,
-      .celebrating .rounded-lg,
-      .celebrating button,
-      .celebrating input,
-      .celebrating textarea {
-        animation: element-wave 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-      }
-
-      @keyframes element-wave {
-        0% { transform: scale(1); border-color: inherit; }
-        40% { transform: scale(1.02); box-shadow: 0 0 15px rgba(120, 113, 108, 0.3); border-color: #8b5cf6; }
-        100% { transform: scale(1); border-color: inherit; }
-      }
-
-      /* Utility to hide before animation starts to prevent flash */
-      .opacity-0-start {
-        opacity: 0;
-      }
-      
-      /* Custom Scrollbar for dark mode aesthetics */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background-color: #d6d3d1;
         border-radius: 20px;
       }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #44403c;
-      }
-
-      /* Улучшенные тени для светлой темы */
-      .light-shadow {
-        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
-      }
-
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #44403c; }
     </style>
 <script type="importmap">
 {
