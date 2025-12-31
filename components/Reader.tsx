@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User, Activity } from '../types';
-import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer, Sparkles, X, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer, Sparkles, X, Download } from 'lucide-react';
 import { db } from '../services/db';
 import { generateSceneImage } from '../services/geminiService';
 
@@ -31,17 +31,14 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [selection, setSelection] = useState<{ text: string; rect: DOMRect | null } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
-  const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null);
-  const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
-  const [sharedNotes, setSharedNotes] = useState<Set<string>>(new Set());
+  const [selectedColor] = useState(ANNOTATION_COLORS[0]);
   const textRef = useRef<HTMLDivElement>(null);
 
   // Focus Mode State
   const [isZenMode, setIsZenMode] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
-  const [volume, setVolume] = useState(0.4);
+  const [volume] = useState(0.4);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
@@ -143,27 +140,12 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     } else setSelection(null);
   };
 
-  const saveAnnotation = () => {
-    if (!selection || !noteText.trim()) return;
-    const newAnnotation: Annotation = {
-      id: Date.now().toString(),
-      quote: selection.text,
-      comment: noteText,
-      color: selectedColor.name,
-      timestamp: Date.now()
-    };
-    onUpdateBook({ ...book, annotations: [newAnnotation, ...(book.annotations || [])] });
-    setNoteText(''); setIsAddingNote(false); setSelection(null);
-    window.getSelection()?.removeAllRanges();
-  };
-
   const deleteAnnotation = (id: string) => {
       onUpdateBook({ ...book, annotations: (book.annotations || []).filter(a => a.id !== id) });
   };
 
   const handleShareNote = async (ann: Annotation) => {
     if (user.id === 'guest') return;
-    setSharingNoteId(ann.id);
     const activity: Activity = {
         id: '', user: user, book: book, type: 'note',
         content: `Цитата: "${ann.quote}"\n\nМоя мысль: ${ann.comment}`,
@@ -171,8 +153,9 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     };
     try {
         await db.createActivity(activity);
-        setSharedNotes(prev => new Set(prev).add(ann.id));
-    } finally { setSharingNoteId(null); }
+    } catch (e) {
+        console.error("Failed to share note", e);
+    }
   };
 
   return (
@@ -216,7 +199,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
                         const start = (currentPage - 1) * CHARS_PER_PAGE;
                         const end = start + CHARS_PER_PAGE;
                         const pageText = book.content.slice(start, end);
-                        return pageText; // Simplification for brevity, annotation logic remains the same
+                        return pageText;
                     })()
                 ) : "Текст отсутствует."}
              </div>

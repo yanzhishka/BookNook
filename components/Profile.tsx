@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book, UserArchetype } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { Edit3, BookOpen, Flame, Camera, ShieldAlert, History, Lock, Sparkles, Loader2 } from 'lucide-react';
 import { db, UserData } from '../services/db';
 import { analyzeReadingArchetype } from '../services/geminiService';
 
@@ -46,17 +46,15 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [editName, setEditName] = useState(user.name);
-  const [editBio, setEditBio] = useState(user.bio || '');
-  const [editLocation, setEditLocation] = useState(user.location || '');
+  const [editBio] = useState(user.bio || '');
+  const [editLocation] = useState(user.location || '');
 
-  const [allUsers, setAllUsers] = useState<UserData[]>([]);
   const isAdmin = user.handle === ADMIN_EMAIL;
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const completedBooks = useMemo(() => books.filter(b => b.status === 'completed'), [books]);
-  const totalPagesRead = useMemo(() => books.reduce((acc, b) => acc + (b.currentPage || 0), 0), [books]);
   const totalAnnotations = useMemo(() => books.reduce((acc, b) => acc + (b.annotations?.length || 0), 0), [books]);
   
   const heatmapData = useMemo(() => generateHeatmapData(), []);
@@ -66,17 +64,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
     { id: 'on_fire', icon: '🔥', title: 'В ударе', desc: 'Серия чтения 7 дней', goal: 7, progress: user.streakDays || 0, isUnlocked: (user.streakDays || 0) >= 7 },
     { id: 'thinker', icon: '🧠', title: 'Мыслитель', desc: 'Создать 10 заметок', goal: 10, progress: totalAnnotations, isUnlocked: totalAnnotations >= 10 },
   ], [completedBooks, user.streakDays, totalAnnotations]);
-
-  useEffect(() => {
-      if (isAdmin) loadAllUsers();
-  }, [isAdmin]);
-
-  const loadAllUsers = async () => {
-      try {
-          const users = await db.getAllUsersData();
-          setAllUsers(users);
-      } catch (e) { console.error(e); }
-  };
 
   const handleArchetypeAnalysis = async () => {
     if (books.length === 0) {
@@ -147,7 +134,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                 ) : <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all"><Edit3 size={20}/></button>}
             </div>
 
-            {/* Activity Heatmap (Новое!) */}
             <div className="mb-12 p-8 bg-white dark:bg-stone-900 rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm overflow-hidden">
                 <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-6 flex items-center gap-2"><History size={16} className="text-amber-500" /> История странствий (90 дней)</h3>
                 <div className="grid grid-cols-15 gap-1.5 h-32">
@@ -183,6 +169,20 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                 ))}
             </div>
 
+            {activeTab === 'achievements' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                    {achievements.map((ach) => (
+                        <div key={ach.id} className={`p-6 rounded-[2rem] border transition-all duration-300 flex items-center gap-4 ${ach.isUnlocked ? 'bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 shadow-sm' : 'bg-stone-50/50 dark:bg-stone-900/30 opacity-50 border-dashed'}`}>
+                            <div className="text-4xl">{ach.isUnlocked ? ach.icon : <Lock size={20} className="text-stone-400" />}</div>
+                            <div>
+                                <h4 className="font-bold text-stone-800 dark:text-stone-100">{ach.title}</h4>
+                                <p className="text-[10px] text-stone-500 uppercase tracking-widest">{ach.desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {activeTab === 'info' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
                     <div className="p-8 bg-stone-900 dark:bg-stone-950 rounded-[2.5rem] text-white flex flex-col justify-between group overflow-hidden relative border border-stone-800">
@@ -200,6 +200,24 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, books }) =
                     </div>
                 </div>
             )}
+
+            <div className="mt-12 p-8 bg-stone-900 dark:bg-stone-950 rounded-[3rem] text-white border border-stone-800 overflow-hidden relative group">
+                <Sparkles size={100} className="absolute -bottom-8 -right-8 opacity-10" />
+                <div className="relative z-10">
+                    {user.archetype ? (
+                        <>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Ваш архетип</h4>
+                            <h3 className="text-2xl font-serif font-black mb-2">{user.archetype.icon} {user.archetype.title}</h3>
+                            <p className="text-xs opacity-70 leading-relaxed italic">{user.archetype.description}</p>
+                        </>
+                    ) : (
+                        <button onClick={handleArchetypeAnalysis} disabled={isAnalyzing} className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all disabled:opacity-50">
+                            {isAnalyzing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                            {isAnalyzing ? 'Анализ...' : 'Узнать свой архетип'}
+                        </button>
+                    )}
+                </div>
+            </div>
         </div>
 
         <div className="lg:col-span-4 space-y-8">
