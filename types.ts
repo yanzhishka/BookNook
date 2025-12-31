@@ -40,15 +40,6 @@ export interface UserArchetype {
   icon: string;
 }
 
-export interface Quest {
-  id: string;
-  title: string;
-  icon: string;
-  goal: number;
-  current: number;
-  reward: string;
-}
-
 export interface User {
   id: string;
   name: string;
@@ -64,7 +55,6 @@ export interface User {
   streakDays?: number;
   totalReadingTime?: number; // в секундах
   archetype?: UserArchetype;
-  dailyQuests?: Quest[];
 }
 
 export interface Comment {
