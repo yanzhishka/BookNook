@@ -54,7 +54,6 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
             };
 
             setMessages(prev => {
-              // Проверка на дубликат (на случай если Realtime сработает слишком быстро)
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
@@ -99,12 +98,8 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
   const handleSendMessage = async () => {
     if (!activeChatId || !newMessage.trim()) return;
     try {
-      // Удалено: setMessages(prev => [...prev, savedMsg]);
-      // Теперь мы полагаемся исключительно на Realtime подписку для обновления списка сообщений.
       await db.sendMessage(activeChatId, user.id, newMessage);
       setNewMessage('');
-      
-      // Обновляем только превью последнего сообщения в списке чатов
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, lastMessage: newMessage } : c));
     } catch (e) {
       console.error("Failed to send", e);
@@ -120,7 +115,13 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
           if (!targetUser) { setCreateError("Пользователь не найден."); return; }
           if (targetUser.id === user.id) { setCreateError("Вы не можете создать чат с самим собой."); return; }
           const newChat = await db.createChat(targetUser.id, user.id);
-          setChats(prev => [newChat, ...prev]);
+          
+          setChats(prev => {
+              const exists = prev.some(c => c.id === newChat.id);
+              if (exists) return prev;
+              return [newChat, ...prev];
+          });
+          
           setActiveChatId(newChat.id);
           setShowCreateModal(false);
           setTargetEmail('');
@@ -135,7 +136,8 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
     if (!chatToDelete) return;
     setIsDeletingChat(true);
     try {
-      await db.deleteChat(chatToDelete);
+      // ПЕРЕДАЕМ user.id ДЛЯ УДАЛЕНИЯ ТОЛЬКО СВОЕЙ ЗАПИСИ
+      await db.deleteChat(chatToDelete, user.id);
       setChats(prev => prev.filter(c => c.id !== chatToDelete));
       if (activeChatId === chatToDelete) {
         setActiveChatId(null);
@@ -144,7 +146,7 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
       setChatToDelete(null);
     } catch (e) {
       console.error("Error deleting chat:", e);
-      alert("Не удалось полностью удалить чат из базы данных. Попробуйте еще раз.");
+      alert("Не удалось удалить чат. Попробуйте еще раз.");
     } finally {
       setIsDeletingChat(false);
     }
@@ -157,8 +159,8 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
     <div className="h-[calc(100vh-4rem)] md:h-screen max-w-7xl mx-auto flex flex-col md:flex-row gap-6 p-4 md:p-8 animate-fade-in-up relative">
       <ConfirmDialog 
         isOpen={!!chatToDelete} 
-        title="Удалить чат навсегда?" 
-        message={isDeletingChat ? "Удаление данных..." : "Эта переписка будет удалена для всех участников. Это действие нельзя отменить."} 
+        title="Удалить чат для себя?" 
+        message={isDeletingChat ? "Удаление данных..." : "Эта переписка будет скрыта из вашего списка. Собеседник продолжит видеть сообщения."} 
         onConfirm={handleDeleteChat} 
         onCancel={() => !isDeletingChat && setChatToDelete(null)} 
       />

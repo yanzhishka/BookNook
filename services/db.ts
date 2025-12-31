@@ -23,6 +23,7 @@ const mapProfileToUser = (profile: any): User => ({
   joinedDate: profile.joined_date,
   booksReadThisYear: 0,
   streakDays: profile.streak_days || 0,
+  // Fix: changed total_reading_time to totalReadingTime to match the User interface
   totalReadingTime: profile.total_reading_time || 0,
 });
 
@@ -88,11 +89,27 @@ export const db = {
 
   async logout() { await supabase.auth.signOut(); },
 
-  async deleteChat(chatId: string): Promise<void> {
-    await supabase.from('messages').delete().eq('chat_id', chatId);
-    await supabase.from('chat_participants').delete().eq('chat_id', chatId);
-    const { error: chatErr } = await supabase.from('chats').delete().eq('id', chatId);
-    if (chatErr) throw new Error("Не удалось удалить чат");
+  async deleteChat(chatId: string, userId: string): Promise<void> {
+    // 1. Удаляем участие ТОЛЬКО текущего пользователя
+    const { error: partErr } = await supabase
+      .from('chat_participants')
+      .delete()
+      .eq('chat_id', chatId)
+      .eq('user_id', userId);
+    
+    if (partErr) throw partErr;
+
+    // 2. Проверяем, остались ли другие участники
+    const { data: remaining } = await supabase
+      .from('chat_participants')
+      .select('user_id')
+      .eq('chat_id', chatId);
+
+    // 3. Если участников больше нет, полностью удаляем чат и сообщения
+    if (!remaining || remaining.length === 0) {
+      await supabase.from('messages').delete().eq('chat_id', chatId);
+      await supabase.from('chats').delete().eq('id', chatId);
+    }
   },
 
   async getChats(userId: string): Promise<Chat[]> {
@@ -142,6 +159,17 @@ export const db = {
   },
 
   async createChat(targetUserId: string, currentUserId: string): Promise<Chat> {
+    // ПРОВЕРКА: Не существует ли уже чат между этими пользователями?
+    const { data: myChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', currentUserId);
+    const { data: targetChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', targetUserId);
+    
+    if (myChats && targetChats) {
+      const commonChatId = myChats.find(mc => targetChats.some(tc => tc.chat_id === mc.chat_id))?.chat_id;
+      if (commonChatId) {
+        return this.getChatById(commonChatId);
+      }
+    }
+
     const chatId = crypto.randomUUID();
     const { error: chatErr } = await supabase.from('chats').insert({ id: chatId });
     if (chatErr) throw chatErr;
