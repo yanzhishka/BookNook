@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Book, Activity } from '../types';
-import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame, Target, Trophy } from 'lucide-react';
+import { BookOpen, ArrowRight, Quote as QuoteIcon, Zap, Clock, TrendingUp, Sparkles, Flame} from 'lucide-react';
 import { db } from '../services/db';
 
 interface DashboardProps {
@@ -231,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
                     </div>
                   ))
                 ) : recentActivity.length > 0 ? (
-                    recentActivity.map((act, i) => (
+                    recentActivity.map((act) => (
                         <div key={act.id} className="flex items-center gap-6 p-4 rounded-3xl hover:bg-stone-50 dark:hover:bg-white/5 transition-all group cursor-pointer">
                             <img src={act.user.avatar} className="w-12 h-12 rounded-full object-cover ring-4 ring-white dark:ring-stone-800 group-hover:ring-amber-500 transition-all" />
                             <div className="flex-1 min-w-0">
