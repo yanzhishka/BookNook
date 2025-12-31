@@ -15,7 +15,7 @@ interface FeedProps {
 const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget }: any) => {
     const isLiked = activity.likedBy.includes(user.id);
     const showComments = activeCommentId === activity.id;
-    const canDelete = isAdmin || activity.user.id === user.id;
+    const canDeleteActivity = isAdmin || activity.user.id === user.id;
 
     return (
         <div 
@@ -30,7 +30,7 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
                             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{activity.timestamp}</p>
                         </div>
                     </div>
-                    {canDelete && (
+                    {canDeleteActivity && (
                         <button onClick={() => setDeleteTarget({type: 'post', id: activity.id})} className="p-3 text-stone-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all">
                             <Trash2 size={18} />
                         </button>
@@ -82,6 +82,14 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
                                 <div className="flex-1">
                                     <div className="flex justify-between items-start mb-1">
                                         <p className="text-sm font-black text-stone-800 dark:text-stone-100">{comment.userName}</p>
+                                        {(isAdmin || comment.userId === user.id) && (
+                                            <button 
+                                                onClick={() => setDeleteTarget({ type: 'comment', id: comment.id, parentId: activity.id })}
+                                                className="p-1.5 text-stone-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-all"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl rounded-tl-none shadow-sm border border-stone-100 dark:border-stone-800">
                                         <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed">{comment.text}</p>
@@ -238,6 +246,17 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
             if (deleteTarget?.type === 'post') {
                 await db.deleteActivity(deleteTarget.id);
                 setActivities(prev => prev.filter(a => a.id !== deleteTarget.id));
+            } else if (deleteTarget?.type === 'comment' && deleteTarget.parentId) {
+                await db.deleteComment(deleteTarget.parentId, deleteTarget.id);
+                setActivities(prev => prev.map(act => {
+                    if (act.id === deleteTarget.parentId) {
+                        return { 
+                            ...act, 
+                            comments: act.comments.filter(c => c.id !== deleteTarget.id) 
+                        };
+                    }
+                    return act;
+                }));
             }
             setDeleteTarget(null);
         }}

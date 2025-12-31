@@ -215,6 +215,13 @@ export const db = {
     await supabase.from('activities').update({ comments: [...(data.comments || []), comment] }).eq('id', activityId);
   },
 
+  async deleteComment(activityId: string, commentId: string) {
+    const { data } = await supabase.from('activities').select('comments').eq('id', activityId).maybeSingle();
+    if (!data || !data.comments) return;
+    const updatedComments = data.comments.filter((c: any) => c.id !== commentId);
+    await supabase.from('activities').update({ comments: updatedComments }).eq('id', activityId);
+  },
+
   async deleteActivity(id: string) { await supabase.from('activities').delete().eq('id', id); },
 
   async getLeaderboard(limit: number = 5): Promise<User[]> {
@@ -250,7 +257,6 @@ export const db = {
   },
 
   async updateBook(book: Book) {
-    // Fix: line 256 used book.my_rating (snake_case) instead of book.myRating (camelCase)
     await supabase.from('books').update({ 
       progress: Number(book.progress) || 0, 
       status: book.status, 
