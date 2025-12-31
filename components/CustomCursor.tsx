@@ -8,27 +8,17 @@ interface Ripple {
 }
 
 export const CustomCursor: React.FC = () => {
-  // Direct DOM ref for high-performance updates
   const cursorDotRef = useRef<HTMLDivElement>(null);
-  
-  // Mutable state for physics coordinates
   const mousePos = useRef({ x: -100, y: -100 });
   
-  // UI State for styling
   const [isHovering, setIsHovering] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  
-  // Ripples State
   const [ripples, setRipples] = useState<Ripple[]>([]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
-      
-      // Make visible on first move
       if (!isVisible) setIsVisible(true);
-      
-      // Move the center dot instantly
       if (cursorDotRef.current) {
          cursorDotRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
       }
@@ -36,7 +26,9 @@ export const CustomCursor: React.FC = () => {
 
     const onMouseOver = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
-        // Check if element is interactive
+        if (!target) return;
+        
+        const style = window.getComputedStyle(target);
         const isClickable = 
             target.tagName === 'BUTTON' ||
             target.tagName === 'A' ||
@@ -45,7 +37,7 @@ export const CustomCursor: React.FC = () => {
             target.closest('button') !== null ||
             target.closest('a') !== null ||
             target.closest('[role="button"]') !== null ||
-            window.getComputedStyle(target).cursor === 'pointer';
+            style.cursor === 'pointer';
         
         setIsHovering(isClickable);
     };
@@ -56,13 +48,10 @@ export const CustomCursor: React.FC = () => {
             y: e.clientY,
             id: Date.now()
         };
-        
         setRipples(prev => [...prev, newRipple]);
-
-        // Cleanup ripple after animation
         setTimeout(() => {
             setRipples(prev => prev.filter(r => r.id !== newRipple.id));
-        }, 800); 
+        }, 600); 
     };
 
     const onMouseLeave = () => setIsVisible(false);
@@ -88,40 +77,39 @@ export const CustomCursor: React.FC = () => {
   return (
     <>
       <style>{`
-        body, a, button, input, textarea, [role="button"] {
+        * {
           cursor: none !important;
         }
         @keyframes rippleExpand {
             0% {
-                transform: translate(-50%, -50%) scale(0.5);
-                opacity: 1;
-                border-width: 2px;
+                transform: translate(-50%, -50%) scale(0.6);
+                opacity: 0.8;
+                border-width: 1px;
             }
             100% {
-                transform: translate(-50%, -50%) scale(4);
+                transform: translate(-50%, -50%) scale(2.5);
                 opacity: 0;
                 border-width: 0px;
             }
         }
         .ripple {
-            animation: rippleExpand 0.8s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+            animation: rippleExpand 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
       `}</style>
 
       <div className={`fixed top-0 left-0 pointer-events-none z-[9999] mix-blend-difference transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-        {/* Main Dot */}
         <div 
             ref={cursorDotRef}
             className="absolute top-0 left-0 will-change-transform"
         >
-            <div className={`bg-white rounded-full w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${isHovering ? 'scale-[2.5] opacity-50' : 'scale-100'}`} />
+            <div className={`bg-white rounded-full transition-all duration-300 ease-out ${isHovering ? 'w-10 h-10 -translate-x-1/2 -translate-y-1/2 opacity-20' : 'w-3 h-3 -translate-x-1/2 -translate-y-1/2 opacity-100'}`} />
+            {isHovering && <div className="absolute top-0 left-0 w-2 h-2 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />}
         </div>
 
-        {/* Click Ripples */}
         {ripples.map(ripple => (
              <div 
                 key={ripple.id}
-                className="absolute rounded-full border border-white bg-white/10 ripple backdrop-blur-[1px]"
+                className="absolute rounded-full border border-white/40 bg-white/5 ripple"
                 style={{ 
                     left: ripple.x, 
                     top: ripple.y,

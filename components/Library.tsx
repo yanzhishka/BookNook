@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { Book, User } from '../types';
-import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark } from 'lucide-react';
+import { Book, User, Activity } from '../types';
+import { Plus, BookOpen, Upload, Trash2, Search, Library as LibraryIcon, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, PenTool, X, Star } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -42,6 +42,13 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [searchResults, setSearchResults] = useState<GutenbergBook[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewBook, setReviewBook] = useState<Book | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -60,20 +67,43 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     const updatedBook: Book = { 
       ...book, 
       status: newStatus,
-      // Автоматически корректируем прогресс для удобства
       progress: newStatus === 'completed' ? 100 : (newStatus === 'want_to_read' ? 0 : book.progress)
     };
     
-    // Обновляем локально для мгновенной реакции UI
     setBooks(prev => prev.map(b => b.id === book.id ? updatedBook : b));
     
     try {
       await db.updateBook(updatedBook);
     } catch (e) {
       console.error("Failed to update status in DB", e);
-      // В случае ошибки возвращаем как было
       setBooks(prev => prev.map(b => b.id === book.id ? book : b));
     }
+  };
+
+  const handleSubmitReview = async () => {
+      if (!reviewBook || !reviewText.trim()) return;
+      setIsSubmittingReview(true);
+      try {
+          const activity: Activity = {
+              id: '',
+              user: user,
+              book: reviewBook,
+              type: 'review',
+              content: `Оценка: ${'★'.repeat(reviewRating)}${'☆'.repeat(5-reviewRating)}\n\n${reviewText}`,
+              timestamp: '',
+              likes: 0,
+              likedBy: [],
+              comments: []
+          };
+          await db.createActivity(activity);
+          setShowReviewModal(false);
+          setReviewText('');
+          setReviewBook(null);
+      } catch (e) {
+          console.error("Review error", e);
+      } finally {
+          setIsSubmittingReview(false);
+      }
   };
 
   const searchClassics = async () => {
@@ -262,6 +292,49 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
         onCancel={() => !isDeleting && setBookToDelete(null)}
       />
 
+      {showReviewModal && reviewBook && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowReviewModal(false)} />
+              <div className="bg-white dark:bg-stone-900 w-full max-w-lg p-10 rounded-[3rem] shadow-2xl relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800">
+                  <div className="flex justify-between items-start mb-8">
+                      <div>
+                          <h3 className="text-3xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2">Написать отзыв</h3>
+                          <p className="text-stone-500">Поделитесь впечатлениями о «{reviewBook.title}»</p>
+                      </div>
+                      <button onClick={() => setShowReviewModal(false)} className="p-2 text-stone-400 hover:text-stone-800 dark:hover:text-stone-100"><X size={24} /></button>
+                  </div>
+                  
+                  <div className="flex justify-center gap-2 mb-8">
+                      {[1,2,3,4,5].map(star => (
+                          <button 
+                            key={star} 
+                            onClick={() => setReviewRating(star)}
+                            className={`transition-all ${star <= reviewRating ? 'text-amber-500 scale-110' : 'text-stone-200'}`}
+                          >
+                              <Star size={32} fill={star <= reviewRating ? 'currentColor' : 'none'} />
+                          </button>
+                      ))}
+                  </div>
+
+                  <textarea 
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    placeholder="Что вы думаете об этой книге?.."
+                    className="w-full h-48 p-6 bg-stone-50 dark:bg-stone-800 rounded-2xl border-none outline-none focus:ring-2 ring-stone-200 dark:ring-stone-700 font-serif text-lg mb-8 resize-none dark:text-stone-100"
+                  />
+
+                  <button 
+                    onClick={handleSubmitReview}
+                    disabled={!reviewText.trim() || isSubmittingReview}
+                    className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-all disabled:opacity-50"
+                  >
+                      {isSubmittingReview ? <Loader2 size={20} className="animate-spin" /> : <PenTool size={20} />}
+                      Опубликовать в сообществе
+                  </button>
+              </div>
+          </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
         <div className="animate-fade-in-up">
             <h2 className="text-4xl font-serif font-black text-stone-800 dark:text-stone-100 tracking-tight mb-2">Библиотека</h2>
@@ -317,6 +390,19 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
                 style={{ animationDelay: `${idx * 50}ms` }}
             >
                 <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    {book.status === 'completed' && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setReviewBook(book);
+                                setShowReviewModal(true);
+                            }}
+                            className="p-2 bg-amber-500 rounded-xl text-white hover:bg-amber-600 transition-colors shadow-sm"
+                            title="Написать отзыв"
+                        >
+                            <PenTool size={16} />
+                        </button>
+                    )}
                     <button 
                         onClick={(e) => {
                             e.stopPropagation();
