@@ -4,10 +4,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>B.Nook</title>
+    <title>B.Nook | Divine Reading</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://qsnsmmtudoiybxsrzllc.supabase.co">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -22,15 +21,36 @@
               }
             },
             animation: {
-              'aurora': 'aurora 3s ease-in-out infinite',
-              'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
-              'bounce-slow': 'bounce 3s infinite',
-              'shimmer': 'shimmer 2s linear infinite',
+              'aurora': 'aurora 20s linear infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'pulse-glow': 'pulse-glow 4s ease-in-out infinite',
+              'grain': 'grain 8s steps(10) infinite',
             },
             keyframes: {
-              shimmer: {
-                '0%': { backgroundPosition: '-1000px 0' },
-                '100%': { backgroundPosition: '1000px 0' },
+              aurora: {
+                '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+                '33%': { transform: 'translate(2%, 5%) scale(1.1)' },
+                '66%': { transform: 'translate(-3%, -2%) scale(0.9)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+                '50%': { transform: 'translateY(-20px) rotate(2deg)' },
+              },
+              'pulse-glow': {
+                '0%, 100%': { opacity: 0.5, filter: 'blur(20px)' },
+                '50%': { opacity: 0.8, filter: 'blur(40px)' },
+              },
+              grain: {
+                '0%, 100%': { transform: 'translate(0, 0)' },
+                '10%': { transform: 'translate(-5%, -5%)' },
+                '20%': { transform: 'translate(-10%, 5%)' },
+                '30%': { transform: 'translate(5%, -10%)' },
+                '40%': { transform: 'translate(-5%, 15%)' },
+                '50%': { transform: 'translate(-10%, 5%)' },
+                '60%': { transform: 'translate(15%, 0)' },
+                '70%': { transform: 'translate(0, 10%)' },
+                '80%': { transform: 'translate(-15%, 0)' },
+                '90%': { transform: 'translate(10%, 5%)' },
               }
             }
           }
@@ -38,42 +58,98 @@
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Inter:wght@300;400;500;600&family=Fredoka:wght@400;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300&family=Inter:wght@100;300;400;500;600;700;800;900&display=swap');
       
       body {
         font-family: 'Inter', sans-serif;
-        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
         text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
       }
       h1, h2, h3, h4, .serif {
         font-family: 'Merriweather', serif;
+        letter-spacing: -0.02em;
       }
 
-      .skeleton {
-        background: linear-gradient(90deg, #f5f5f4 25%, #e7e5e4 50%, #f5f5f4 75%);
-        background-size: 1000px 100%;
-        animation: shimmer 2s infinite linear;
+      /* Divine Background Layers */
+      .aurora-container {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: -1;
+        overflow: hidden;
+        background: #fcfaf7;
+        pointer-events: none;
       }
-      .dark .skeleton {
-        background: linear-gradient(90deg, #1c1917 25%, #292524 50%, #1c1917 75%);
-        background-size: 1000px 100%;
+      .dark .aurora-container { background: #0c0a09; }
+
+      .aurora-blob {
+        position: absolute;
+        width: 60vw;
+        height: 60vw;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.15;
+        animation: aurora 20s infinite alternate;
+      }
+      .dark .aurora-blob { opacity: 0.1; }
+
+      .aurora-1 { top: -10%; left: -10%; background: #f59e0b; }
+      .aurora-2 { bottom: -10%; right: -10%; background: #ec4899; animation-delay: -5s; }
+      .aurora-3 { top: 20%; right: 10%; background: #3b82f6; animation-delay: -10s; }
+
+      /* Grain Overlay */
+      .noise-overlay::before {
+        content: "";
+        position: fixed;
+        top: -150%; left: -150%; width: 300%; height: 300%;
+        background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+        opacity: 0.04;
+        pointer-events: none;
+        z-index: 9999;
+        animation: grain 8s steps(10) infinite;
+      }
+      .dark .noise-overlay::before { opacity: 0.07; }
+
+      /* Glassmorphism */
+      .glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      .dark .glass {
+        background: rgba(12, 10, 9, 0.7);
+        backdrop-filter: blur(12px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
 
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.1);
+        border-radius: 10px;
       }
-      .animate-fade-in-up {
-        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+      /* Advanced Animations */
+      @keyframes reveal {
+        from { opacity: 0; transform: translateY(20px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .reveal {
+        animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
-      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #d6d3d1;
-        border-radius: 20px;
+      .hover-lift {
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #44403c; }
+      .hover-lift:hover {
+        transform: translateY(-8px) scale(1.01);
+        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+      }
+      .dark .hover-lift:hover {
+        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4);
+      }
     </style>
 <script type="importmap">
 {
@@ -90,7 +166,12 @@
 }
 </script>
 </head>
-  <body class="bg-[#fcfaf7] text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased transition-colors duration-300">
+  <body class="noise-overlay bg-[#fcfaf7] text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased">
+    <div class="aurora-container">
+      <div class="aurora-blob aurora-1"></div>
+      <div class="aurora-blob aurora-2"></div>
+      <div class="aurora-blob aurora-3"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
   </body>

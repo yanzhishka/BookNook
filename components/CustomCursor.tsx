@@ -8,8 +8,9 @@ interface Ripple {
 }
 
 export const CustomCursor: React.FC = () => {
-  const cursorDotRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
   const mousePos = useRef({ x: -100, y: -100 });
+  const delayedPos = useRef({ x: -100, y: -100 });
   
   const [isHovering, setIsHovering] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -19,10 +20,27 @@ export const CustomCursor: React.FC = () => {
     const onMouseMove = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
       if (!isVisible) setIsVisible(true);
-      
-      if (cursorDotRef.current) {
-        cursorDotRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      const newRipple = { x: e.clientX, y: e.clientY, id: Date.now() };
+      setRipples(prev => [...prev, newRipple]);
+      setTimeout(() => {
+        setRipples(prev => prev.filter(r => r.id !== newRipple.id));
+      }, 600);
+    };
+
+    const animate = () => {
+      // Плавное следование (Lerp)
+      const lerpAmount = 0.2;
+      delayedPos.current.x += (mousePos.current.x - delayedPos.current.x) * lerpAmount;
+      delayedPos.current.y += (mousePos.current.y - delayedPos.current.y) * lerpAmount;
+
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate3d(${delayedPos.current.x}px, ${delayedPos.current.y}px, 0)`;
       }
+
+      requestAnimationFrame(animate);
     };
 
     const onMouseOver = (e: MouseEvent) => {
@@ -34,37 +52,26 @@ export const CustomCursor: React.FC = () => {
       }
     };
 
-    const onMouseClick = (e: MouseEvent) => {
-      const newRipple = {
-        x: e.clientX,
-        y: e.clientY,
-        id: Date.now()
-      };
-      setRipples(prev => [...prev, newRipple]);
-      setTimeout(() => {
-        setRipples(prev => prev.filter(r => r.id !== newRipple.id));
-      }, 600); 
-    };
-
-    const onMouseLeave = () => setIsVisible(false);
-    const onMouseEnter = () => setIsVisible(true);
+    const handleEnter = () => setIsVisible(true);
+    const handleLeave = () => setIsVisible(false);
 
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mousedown', onMouseClick);
+    window.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseover', onMouseOver);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave);
-    document.documentElement.addEventListener('mouseenter', onMouseEnter);
+    document.addEventListener('mouseenter', handleEnter);
+    document.addEventListener('mouseleave', handleLeave);
+    
+    const raf = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mousedown', onMouseClick);
+      window.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('mouseover', onMouseOver);
-      document.documentElement.removeEventListener('mouseleave', onMouseLeave);
-      document.documentElement.removeEventListener('mouseenter', onMouseEnter);
+      document.removeEventListener('mouseenter', handleEnter);
+      document.removeEventListener('mouseleave', handleLeave);
+      cancelAnimationFrame(raf);
     };
   }, [isVisible]);
-
-  if (!isVisible && mousePos.current.x < 0) return null;
 
   return (
     <>
@@ -73,31 +80,28 @@ export const CustomCursor: React.FC = () => {
           cursor: none !important;
         }
         @keyframes rippleExpand {
-          0% {
-            transform: translate(-50%, -50%) scale(0.6);
-            opacity: 0.8;
-            border-width: 1px;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(2.5);
-            opacity: 0;
-            border-width: 0px;
-          }
+          0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
         }
-        .ripple {
-          animation: rippleExpand 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        .cursor-ripple {
+          position: fixed;
+          pointer-events: none;
+          border: 1px solid white;
+          border-radius: 50%;
+          z-index: 9998;
+          mix-blend-difference;
+          animation: rippleExpand 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
-      <div className={`fixed top-0 left-0 pointer-events-none z-[9999] mix-blend-difference transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`fixed inset-0 pointer-events-none z-[9999] transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
         <div 
-          ref={cursorDotRef}
+          ref={cursorRef}
           className="absolute top-0 left-0 will-change-transform"
-          style={{ transition: 'transform 0.1s ease-out' }}
         >
           <div 
-            className={`bg-white rounded-full transition-all duration-300 -translate-x-1/2 -translate-y-1/2 ${
-              isHovering ? 'w-6 h-6 opacity-40' : 'w-3 h-3 opacity-100'
+            className={`rounded-full bg-white mix-blend-difference transition-all duration-300 -translate-x-1/2 -translate-y-1/2 shadow-lg ${
+              isHovering ? 'w-4 h-4 opacity-50' : 'w-3 h-3 opacity-100'
             }`}
           />
         </div>
@@ -105,12 +109,12 @@ export const CustomCursor: React.FC = () => {
         {ripples.map(ripple => (
           <div 
             key={ripple.id}
-            className="absolute rounded-full border border-white/40 bg-white/5 ripple"
+            className="cursor-ripple"
             style={{ 
               left: ripple.x, 
               top: ripple.y,
-              width: '30px',
-              height: '30px',
+              width: '20px',
+              height: '20px',
             }} 
           />
         ))}
