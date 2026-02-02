@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Book, UserArchetype } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw, Mail } from 'lucide-react';
+import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { db, UserData } from '../services/db';
 import { analyzeReadingArchetype } from '../services/geminiService';
 
@@ -192,11 +193,6 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
       }
   };
 
-  const handleMessageUser = async () => {
-    if (!profileUser.email) return;
-    onNavigate?.('messages');
-  };
-
   if (isLoadingProfile) return (
       <div className="flex flex-col items-center justify-center min-h-[500px] animate-fade-in">
           <Loader2 className="animate-spin text-amber-500 mb-4" size={40} />
@@ -206,9 +202,7 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      {/* Исправленный контейнер баннера: удален overflow-hidden с родителя */}
       <div className="relative w-full h-64 mb-24">
-        {/* Обертка самого баннера с округлением и обрезкой */}
         <div className="absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl bg-stone-200 dark:bg-stone-800 group">
             <img src={profileUser.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -224,7 +218,6 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
         </div>
         <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={(e) => handleImageUpload(e, 'bannerUrl')} />
         
-        {/* Аватарка теперь не обрезается, так как она вне блока с overflow-hidden */}
         <div className="absolute -bottom-16 left-10 z-20">
           <div className="relative group/avatar">
             <div className="w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800 transition-transform hover:scale-105 duration-500">
@@ -261,7 +254,7 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                     <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-xs">{profileUser.handle}</p>
                 </div>
                 
-                {isOwnProfile ? (
+                {isOwnProfile && (
                     isEditing ? (
                         <div className="flex gap-3">
                             <button onClick={() => setIsEditing(false)} className="px-6 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 font-bold text-sm">Отмена</button>
@@ -270,10 +263,6 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                     ) : (
                         <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all"><Edit3 size={20}/></button>
                     )
-                ) : (
-                    <button onClick={handleMessageUser} className="bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl hover:scale-105 transition-all">
-                        <Mail size={18} /> Написать
-                    </button>
                 )}
             </div>
 

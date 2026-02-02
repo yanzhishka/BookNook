@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { User, Book, Quote, Activity, Comment, Chat, Message } from '../types';
+import { User, Book, Quote, Activity, Comment } from '../types';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
 
@@ -88,107 +88,6 @@ export const db = {
 
   async logout() { await supabase.auth.signOut(); },
 
-  async deleteChat(chatId: string, userId: string): Promise<void> {
-    const { error: partErr } = await supabase
-      .from('chat_participants')
-      .delete()
-      .eq('chat_id', chatId)
-      .eq('user_id', userId);
-    
-    if (partErr) throw partErr;
-
-    const { data: remaining } = await supabase
-      .from('chat_participants')
-      .select('user_id')
-      .eq('chat_id', chatId);
-
-    if (!remaining || remaining.length === 0) {
-      await supabase.from('messages').delete().eq('chat_id', chatId);
-      await supabase.from('chats').delete().eq('id', chatId);
-    }
-  },
-
-  async getChats(userId: string): Promise<Chat[]> {
-    const { data: partRecs } = await supabase.from('chat_participants').select('chat_id').eq('user_id', userId);
-    if (!partRecs || partRecs.length === 0) return [];
-    
-    const chatIds = partRecs.map(r => r.chat_id);
-    const { data, error } = await supabase.from('chats')
-      .select(`*, messages (content, created_at), chat_participants (profiles (*))`)
-      .in('id', chatIds)
-      .order('updated_at', { ascending: false });
-
-    if (error) throw error;
-    return data.map((c: any) => ({
-      id: c.id,
-      updatedAt: c.updated_at,
-      participants: c.chat_participants.map((p: any) => mapProfileToUser(p.profiles)),
-      lastMessage: c.messages?.sort((a: any, b: any) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.content || '...'
-    }));
-  },
-
-  async sendMessage(chatId: string, senderId: string, content: string): Promise<Message> {
-    const { data, error } = await supabase.from('messages').insert([{ chat_id: chatId, sender_id: senderId, content }]).select().single();
-    if (error) throw error;
-    await supabase.from('chats').update({ updated_at: new Date().toISOString() }).eq('id', chatId);
-    return {
-      id: data.id,
-      chatId: data.chat_id,
-      senderId: data.sender_id,
-      content: data.content,
-      createdAt: data.created_at,
-      isRead: data.is_read
-    };
-  },
-
-  async getMessages(chatId: string): Promise<Message[]> {
-    const { data } = await supabase.from('messages').select('*').eq('chat_id', chatId).order('created_at', { ascending: true });
-    return (data || []).map((m: any) => ({
-      id: m.id,
-      chatId: m.chat_id,
-      senderId: m.sender_id,
-      content: m.content,
-      createdAt: m.created_at,
-      isRead: m.is_read
-    }));
-  },
-
-  async createChat(targetUserId: string, currentUserId: string): Promise<Chat> {
-    const { data: myChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', currentUserId);
-    const { data: targetChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', targetUserId);
-    
-    if (myChats && targetChats) {
-      const commonChatId = myChats.find(mc => targetChats.some(tc => tc.chat_id === mc.chat_id))?.chat_id;
-      if (commonChatId) {
-        return this.getChatById(commonChatId);
-      }
-    }
-
-    const chatId = crypto.randomUUID();
-    const { error: chatErr } = await supabase.from('chats').insert({ id: chatId });
-    if (chatErr) throw chatErr;
-    
-    const { error: partErr } = await supabase.from('chat_participants').insert([
-      { chat_id: chatId, user_id: currentUserId },
-      { chat_id: chatId, user_id: targetUserId }
-    ]);
-    if (partErr) throw partErr;
-
-    return this.getChatById(chatId);
-  },
-
-  async getChatById(chatId: string): Promise<Chat> {
-    const { data, error } = await supabase.from('chats').select(`*, chat_participants (profiles (*))`).eq('id', chatId).single();
-    if (error) throw error;
-    return {
-      id: data.id,
-      updatedAt: data.updated_at,
-      participants: data.chat_participants.map((p: any) => mapProfileToUser(p.profiles)),
-      lastMessage: ''
-    };
-  },
-
   async searchUserByEmail(email: string) {
     const { data } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
     return data ? mapProfileToUser(data) : null;
@@ -250,11 +149,9 @@ export const db = {
   async deleteActivity(id: string) { await supabase.from('activities').delete().eq('id', id); },
 
   async getLeaderboard(limit: number = 5): Promise<User[]> {
-    // Optimization: Fetch all profiles and book counts in bulk instead of N separate queries
     const { data: profiles } = await supabase.from('profiles').select('*');
     if (!profiles) return [];
     
-    // Fetch counts for all 'completed' books grouped by user_id
     const { data: counts } = await supabase
       .from('books')
       .select('user_id')

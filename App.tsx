@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { CustomCursor } from './components/CustomCursor';
@@ -11,7 +12,6 @@ const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ 
 const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
 const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
 const Oracle = lazy(() => import('./components/Oracle').then(module => ({ default: module.Oracle })));
-const Messages = lazy(() => import('./components/Messages').then(module => ({ default: module.Messages })));
 const Profile = lazy(() => import('./components/Profile').then(module => ({ default: module.Profile })));
 
 const GUEST_USER: User = {
@@ -152,7 +152,6 @@ const App: React.FC = () => {
                     case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
                     case 'oracle': return <Oracle books={books} />;
-                    case 'messages': return <Messages user={user} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                   }

@@ -78,22 +78,6 @@ export interface Activity {
   comments: Comment[];
 }
 
-export interface Message {
-  id: string;
-  chatId: string;
-  senderId: string;
-  content: string;
-  createdAt: string;
-  isRead: boolean;
-}
-
-export interface Chat {
-  id: string;
-  updatedAt: string;
-  participants: User[];
-  lastMessage: string;
-}
-
 export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
 

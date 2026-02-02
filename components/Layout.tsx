@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BookOpen, Users, Sun, Moon, LogOut, Lock, Home, Mail, Sparkles } from 'lucide-react';
 import { User } from '../types';
@@ -23,7 +24,6 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'library', label: 'Мой дневник', icon: BookOpen, restricted: true },
     { id: 'oracle', label: 'Оракул', icon: Sparkles, restricted: true },
     { id: 'feed', label: 'Сообщество', icon: Users, restricted: false },
-    { id: 'messages', label: 'Сообщения', icon: Mail, restricted: true },
   ];
 
   const NavButton: React.FC<{ item: typeof navItems[0], isMobile?: boolean }> = ({ item, isMobile = false }) => {
@@ -67,7 +67,6 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className="min-h-screen flex flex-col md:flex-row bg-transparent transition-colors duration-500">
       <aside className="hidden md:flex w-80 flex-col border-r border-stone-200/50 dark:border-stone-800/50 bg-white/40 dark:bg-stone-950/40 backdrop-blur-xl h-screen sticky top-0 z-30">
         <div className="p-10">
-          {/* Fix: Replaced undefined 'onNavigate' with 'onTabChange' prop */}
           <h1 className="text-3xl font-serif font-black tracking-tighter text-stone-900 dark:text-stone-50 cursor-pointer flex items-center gap-2 group" onClick={() => onTabChange('home')}>
             <div className="w-10 h-10 bg-stone-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-stone-950 text-xl transform rotate-3 group-hover:rotate-0 transition-transform">B</div>
             B.NOOK
