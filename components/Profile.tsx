@@ -33,7 +33,7 @@ const formatReadingTime = (seconds: number) => {
   return `${minutes}м`;
 };
 
-export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUser, books: currentBooks, viewingUserId, onNavigate }) => {
+export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUser, books: currentBooks, viewingUserId }) => {
   const isOwnProfile = !viewingUserId || viewingUserId === currentUser.id;
   
   const [profileUser, setProfileUser] = useState<User>(currentUser);
