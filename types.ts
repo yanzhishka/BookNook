@@ -88,3 +88,25 @@ export interface MoodCategory {
   color: string;
   description: string;
 }
+
+/**
+ * Represents a single message within a chat conversation.
+ */
+export interface Message {
+  id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+/**
+ * Represents a chat conversation between multiple users.
+ */
+export interface Chat {
+  id: string;
+  participants: User[];
+  lastMessage?: string;
+  updatedAt: string;
+}

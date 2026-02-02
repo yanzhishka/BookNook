@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { User, Book, Quote, Activity, Comment } from '../types';
+import { User, Book, Quote, Activity, Comment, Chat, Message } from '../types';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
 
@@ -214,6 +214,109 @@ export const db = {
       banner_url: user.bannerUrl,
       total_reading_time: user.totalReadingTime
     }).eq('id', user.id);
+  },
+
+  /**
+   * Fetches all chats for a given user, including participant profiles.
+   */
+  async getChats(userId: string): Promise<Chat[]> {
+    const { data: participants } = await supabase
+      .from('chat_participants')
+      .select('chat_id')
+      .eq('user_id', userId);
+    
+    if (!participants || participants.length === 0) return [];
+    
+    const chatIds = participants.map(p => p.chat_id);
+    
+    const { data: chatsData } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        chat_participants (
+          user_id,
+          profiles:user_id (*)
+        )
+      `)
+      .in('id', chatIds)
+      .order('updated_at', { ascending: false });
+      
+    return (chatsData || []).map((c: any) => ({
+      id: c.id,
+      lastMessage: c.last_message,
+      updatedAt: c.updated_at,
+      participants: c.chat_participants.map((cp: any) => mapProfileToUser(cp.profiles))
+    }));
+  },
+
+  /**
+   * Fetches all messages belonging to a specific chat ID.
+   */
+  async getMessages(chatId: string): Promise<Message[]> {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+      
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      chatId: m.chat_id,
+      senderId: m.sender_id,
+      content: m.content,
+      createdAt: m.created_at,
+      isRead: m.is_read
+    }));
+  },
+
+  /**
+   * Inserts a new message and updates the corresponding chat's last message timestamp.
+   */
+  async sendMessage(chatId: string, senderId: string, content: string) {
+    const { error } = await supabase.from('messages').insert([{
+      chat_id: chatId,
+      sender_id: senderId,
+      content
+    }]);
+    if (error) throw error;
+    
+    await supabase.from('chats').update({ 
+      last_message: content, 
+      updated_at: new Date().toISOString() 
+    }).eq('id', chatId);
+  },
+
+  /**
+   * Creates a new chat between two users, or returns an existing one if they already share a chat.
+   */
+  async createChat(userId1: string, userId2: string): Promise<Chat> {
+    const { data: p1 } = await supabase.from('chat_participants').select('chat_id').eq('user_id', userId1);
+    const { data: p2 } = await supabase.from('chat_participants').select('chat_id').eq('user_id', userId2);
+    
+    const commonChatId = p1?.find(cp1 => p2?.some(cp2 => cp2.chat_id === cp1.chat_id))?.chat_id;
+    
+    if (commonChatId) {
+      const allChats = await this.getChats(userId1);
+      return allChats.find(c => c.id === commonChatId)!;
+    }
+
+    const { data: chat, error } = await supabase.from('chats').insert([{}]).select().single();
+    if (error) throw error;
+    
+    await supabase.from('chat_participants').insert([
+      { chat_id: chat.id, user_id: userId1 },
+      { chat_id: chat.id, user_id: userId2 }
+    ]);
+    
+    const allChats = await this.getChats(userId1);
+    return allChats.find(c => c.id === chat.id)!;
+  },
+
+  /**
+   * Removes a user from a chat. In a real-world scenario, this might also delete the chat if empty.
+   */
+  async deleteChat(chatId: string, userId: string) {
+    await supabase.from('chat_participants').delete().eq('chat_id', chatId).eq('user_id', userId);
   },
 
   async getAllUsersData(): Promise<UserData[]> {
