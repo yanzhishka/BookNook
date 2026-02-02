@@ -23,7 +23,6 @@ const mapProfileToUser = (profile: any): User => ({
   joinedDate: profile.joined_date,
   booksReadThisYear: 0,
   streakDays: profile.streak_days || 0,
-  // Fix: changed total_reading_time to totalReadingTime to match the User interface
   totalReadingTime: profile.total_reading_time || 0,
 });
 
@@ -90,7 +89,6 @@ export const db = {
   async logout() { await supabase.auth.signOut(); },
 
   async deleteChat(chatId: string, userId: string): Promise<void> {
-    // 1. Удаляем участие ТОЛЬКО текущего пользователя
     const { error: partErr } = await supabase
       .from('chat_participants')
       .delete()
@@ -99,13 +97,11 @@ export const db = {
     
     if (partErr) throw partErr;
 
-    // 2. Проверяем, остались ли другие участники
     const { data: remaining } = await supabase
       .from('chat_participants')
       .select('user_id')
       .eq('chat_id', chatId);
 
-    // 3. Если участников больше нет, полностью удаляем чат и сообщения
     if (!remaining || remaining.length === 0) {
       await supabase.from('messages').delete().eq('chat_id', chatId);
       await supabase.from('chats').delete().eq('id', chatId);
@@ -159,7 +155,6 @@ export const db = {
   },
 
   async createChat(targetUserId: string, currentUserId: string): Promise<Chat> {
-    // ПРОВЕРКА: Не существует ли уже чат между этими пользователями?
     const { data: myChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', currentUserId);
     const { data: targetChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', targetUserId);
     
@@ -199,10 +194,12 @@ export const db = {
     return data ? mapProfileToUser(data) : null;
   },
 
-  async getFeed(): Promise<Activity[]> {
+  async getFeed(limit: number = 15): Promise<Activity[]> {
     const { data } = await supabase.from('activities')
       .select(`*, profiles:user_id (*), books:book_id (*)`)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(limit);
+      
     return (data || []).map((item: any) => ({
       id: item.id,
       user: mapProfileToUser(item.profiles),
@@ -253,15 +250,27 @@ export const db = {
   async deleteActivity(id: string) { await supabase.from('activities').delete().eq('id', id); },
 
   async getLeaderboard(limit: number = 5): Promise<User[]> {
+    // Optimization: Fetch all profiles and book counts in bulk instead of N separate queries
     const { data: profiles } = await supabase.from('profiles').select('*');
     if (!profiles) return [];
-    const users = await Promise.all(profiles.map(async (p: any) => {
-      const { count } = await supabase.from('books').select('*', { count: 'exact', head: true })
-        .eq('user_id', p.id).eq('status', 'completed');
+    
+    // Fetch counts for all 'completed' books grouped by user_id
+    const { data: counts } = await supabase
+      .from('books')
+      .select('user_id')
+      .eq('status', 'completed');
+
+    const bookCounts: Record<string, number> = {};
+    counts?.forEach((b: any) => {
+      bookCounts[b.user_id] = (bookCounts[b.user_id] || 0) + 1;
+    });
+
+    const users = profiles.map((p: any) => {
       const u = mapProfileToUser(p);
-      u.booksReadThisYear = count || 0;
+      u.booksReadThisYear = bookCounts[p.id] || 0;
       return u;
-    }));
+    });
+
     const sorted = users.sort((a, b) => b.booksReadThisYear - a.booksReadThisYear);
     return limit === -1 ? sorted : sorted.slice(0, limit);
   },

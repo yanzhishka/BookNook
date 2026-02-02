@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback, memo } from 'react';
 import { Activity, User, Book, Comment } from '../types';
 import { MessageSquare, Heart, BookOpen, Trophy, Loader2, Send, PenTool, Trash2, Quote as QuoteIcon } from 'lucide-react';
@@ -101,9 +102,13 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
 
   const loadData = useCallback(async () => {
       try {
-          const [feedData, leaderboardData] = await Promise.all([db.getFeed(), db.getLeaderboard(-1)]);
+          // Optimized: Only fetch the first 15 feed items and 5 leaderboard items
+          const [feedData, leaderboardData] = await Promise.all([
+            db.getFeed(15), 
+            db.getLeaderboard(5)
+          ]);
           setActivities(feedData);
-          setLeaderboard(leaderboardData.slice(0, 5));
+          setLeaderboard(leaderboardData);
       } catch (e) {
           console.error("Failed to load feed data", e);
       } finally {
@@ -163,7 +168,28 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
         </div>
         <div className="bg-white dark:bg-stone-900 rounded-[2.5rem] p-8 shadow-sm border border-stone-100 dark:border-stone-800 animate-fade-in-up mb-10 relative overflow-hidden group">{isGuest && (<div className="absolute inset-0 bg-white/70 dark:bg-stone-900/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center text-center p-8"><button onClick={onRequireLogin} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-10 py-3.5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-all">Войти</button></div>)}<div className={`flex flex-col gap-6 ${isGuest ? 'blur-sm' : ''}`}><div className="flex gap-4"><img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-full object-cover ring-4 ring-stone-50 dark:ring-stone-800/50" /><textarea value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} placeholder="О чем вы думаете?" className="flex-1 bg-transparent border-none text-xl text-stone-800 dark:text-stone-100 placeholder:text-stone-300 dark:placeholder:text-stone-700 outline-none resize-none min-h-[100px] font-serif py-2" /></div><div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t border-stone-100 dark:border-stone-800"><select value={selectedBookId} onChange={(e) => setSelectedBookId(e.target.value)} className="w-full md:w-64 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-2xl outline-none border border-stone-200 dark:border-stone-700"><option value="">Без привязки к книге</option>{books.map(book => <option key={book.id} value={book.id}>{book.title}</option>)}</select><button onClick={handlePostSubmit} disabled={!newPostContent.trim() || isPosting} className="w-full md:w-auto bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-10 py-3 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 transition-all disabled:opacity-50">{isPosting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}Опубликовать</button></div></div></div>
         <div className="space-y-8 min-h-[500px]">
-            {loading ? [1,2,3].map(i => (<div key={i} className="bg-white dark:bg-stone-900 rounded-[2.5rem] p-8 border border-stone-100 dark:border-stone-800"><div className="flex items-center gap-4 mb-6"><div className="w-12 h-12 rounded-full skeleton" /><div className="space-y-2"><div className="h-3 w-32 skeleton rounded" /><div className="h-2 w-20 skeleton rounded" /></div></div><div className="h-4 w-full skeleton rounded mb-4" /><div className="h-4 w-3/4 skeleton rounded" /></div>)) : activities.length === 0 ? (<div className="text-center py-24 bg-stone-50 dark:bg-stone-900/30 rounded-[3rem] border-2 border-dashed border-stone-200 dark:border-stone-800"><PenTool size={48} className="mx-auto mb-6 text-stone-300 dark:text-stone-700" /><p className="text-stone-500 dark:text-stone-400 font-bold uppercase tracking-widest text-sm">Здесь пока пусто.</p></div>) : (activities.map((activity) => (<ActivityItem key={activity.id} activity={activity} user={user} isAdmin={isAdmin} onLike={handleLike} onCommentClick={setActiveCommentId} activeCommentId={activeCommentId} commentText={commentText} setCommentText={setCommentText} onSubmitComment={handleSubmitComment} submittingComment={submittingComment} setDeleteTarget={setDeleteTarget} onViewProfile={onViewProfile} />)))}
+            {loading ? [1,2,3].map(i => (
+                <div key={i} className="bg-white dark:bg-stone-900 rounded-[2.5rem] p-8 border border-stone-100 dark:border-stone-800">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-full skeleton" />
+                        <div className="space-y-2">
+                            <div className="h-3 w-32 skeleton rounded" />
+                            <div className="h-2 w-20 skeleton rounded" />
+                        </div>
+                    </div>
+                    <div className="h-4 w-full skeleton rounded mb-4" />
+                    <div className="h-4 w-3/4 skeleton rounded" />
+                </div>
+            )) : activities.length === 0 ? (
+                <div className="text-center py-24 bg-stone-50 dark:bg-stone-900/30 rounded-[3rem] border-2 border-dashed border-stone-200 dark:border-stone-800">
+                    <PenTool size={48} className="mx-auto mb-6 text-stone-300 dark:text-stone-700" />
+                    <p className="text-stone-500 dark:text-stone-400 font-bold uppercase tracking-widest text-sm">Здесь пока пусто.</p>
+                </div>
+            ) : (
+                activities.map((activity) => (
+                    <ActivityItem key={activity.id} activity={activity} user={user} isAdmin={isAdmin} onLike={handleLike} onCommentClick={setActiveCommentId} activeCommentId={activeCommentId} commentText={commentText} setCommentText={setCommentText} onSubmitComment={handleSubmitComment} submittingComment={submittingComment} setDeleteTarget={setDeleteTarget} onViewProfile={onViewProfile} />
+                ))
+            )}
         </div>
       </div>
       <div className="hidden lg:block space-y-8">
