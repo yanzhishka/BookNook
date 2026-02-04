@@ -1,13 +1,13 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { ImageSize, AspectRatio, UserArchetype } from "../types";
+import { UserArchetype, ImageSize, AspectRatio } from "../types";
 
 export const analyzeReadingArchetype = async (
   books: { title: string; author: string }[],
   annotations: string[]
 ): Promise<UserArchetype> => {
   try {
-    // Instantiate right before making the call to ensure latest API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -38,80 +38,84 @@ export const analyzeReadingArchetype = async (
   }
 };
 
+// Added generateSceneImage for AI image generation based on user prompt and config
 export const generateSceneImage = async (
   prompt: string,
-  size: ImageSize,
-  aspectRatio: AspectRatio
+  size: ImageSize = '1K',
+  ratio: AspectRatio = '1:1'
 ): Promise<string> => {
+  // Use gemini-3-pro-image-preview for high quality (2K/4K), otherwise use gemini-2.5-flash-image
+  const model = size === '1K' ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview';
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const config: any = {
+    imageConfig: {
+      aspectRatio: ratio,
+    }
+  };
+
+  // imageSize is only supported for gemini-3-pro-image-preview
+  if (model === 'gemini-3-pro-image-preview') {
+    config.imageConfig.imageSize = size;
+  }
+
   try {
-    // Instantiate right before making the call to ensure latest API key
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const isHighRes = size === '2K' || size === '4K';
-    const model = isHighRes ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
-    
     const response = await ai.models.generateContent({
-      model: model,
-      contents: {
-        parts: [{ text: prompt }]
-      },
-      config: {
-        imageConfig: {
-          // imageSize is only supported for gemini-3-pro-image-preview
-          ...(model === 'gemini-3-pro-image-preview' ? { imageSize: size } : {}),
-          aspectRatio: aspectRatio
-        }
-      }
+      model,
+      contents: { parts: [{ text: prompt }] },
+      config
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    // Iterate through response parts to find the image data
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
       if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+        return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data returned.");
-  } catch (error: any) {
-    console.error("Image Generation Error:", error);
-    // If request fails with entity not found, it might be due to missing/expired key for Pro model
-    if (error.message?.includes("Requested entity was not found.")) {
-        if (typeof window !== 'undefined' && (window as any).aistudio) {
-            (window as any).aistudio.openSelectKey();
-        }
-    }
+    throw new Error("No image data returned from model");
+  } catch (error) {
+    console.error("generateSceneImage Error:", error);
     throw error;
   }
 };
 
+// Added editBookImage for AI image editing using text instructions and an existing image
 export const editBookImage = async (
-  base64Image: string,
+  base64Data: string,
   mimeType: string,
   prompt: string
 ): Promise<string> => {
+  // Editing defaults to gemini-2.5-flash-image
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    // Instantiate right before making the call
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
             inlineData: {
-              data: base64Image,
-              mimeType: mimeType
-            }
+              data: base64Data,
+              mimeType: mimeType,
+            },
           },
-          { text: prompt }
-        ]
-      }
+          {
+            text: prompt,
+          },
+        ],
+      },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    // Iterate through response parts to find the edited image data
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
       if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+        return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No edited image returned.");
+    throw new Error("No edited image data returned from model");
   } catch (error) {
-    console.error("Image Editing Error:", error);
+    console.error("editBookImage Error:", error);
     throw error;
   }
 };
@@ -122,7 +126,6 @@ export const checkAndRequestApiKey = async (): Promise<boolean> => {
       const aiStudio = (window as any).aistudio;
       const hasKey = await aiStudio.hasSelectedApiKey();
       if (!hasKey) {
-        // Guidelines: assume key selection was successful after triggering openSelectKey
         await aiStudio.openSelectKey();
         return true; 
       }

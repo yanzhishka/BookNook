@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { User, Book, Quote, Activity, Comment, Chat, Message } from '../types';
+import { User, Book, Quote, Activity, Comment, Annotation, Chat, Message } from '../types';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
 
@@ -26,19 +26,37 @@ const mapProfileToUser = (profile: any): User => ({
   totalReadingTime: profile.total_reading_time || 0,
 });
 
-const mapDbBookToBook = (b: any): Book => ({
-  id: b.id,
-  title: b.title,
-  author: b.author,
-  coverUrl: b.cover_url,
-  progress: b.progress || 0,
-  status: b.status || 'want_to_read',
-  myRating: b.my_rating || 0,
-  content: b.content,
-  currentPage: b.current_page || 1,
-  totalPages: b.total_pages || 1,
-  annotations: b.annotations || []
-});
+const mapDbBookToBook = (b: any, allQuotes: any[] = []): Book => {
+  const bookQuotes = allQuotes
+    .filter(q => (q.book_id === b.id || q.bookId === b.id))
+    .map(q => {
+      const rawTime = q.timestamp || q.created_at;
+      const timestamp = typeof rawTime === 'number' ? rawTime : new Date(rawTime).getTime();
+      
+      return {
+        id: q.id,
+        quote: q.text || q.quote || '',
+        comment: q.comment || '',
+        color: q.color || 'amber',
+        timestamp: timestamp || Date.now()
+      };
+    });
+
+  return {
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    coverUrl: b.cover_url,
+    progress: b.progress || 0,
+    status: b.status || 'want_to_read',
+    myRating: b.my_rating || 0,
+    content: b.content,
+    currentPage: b.current_page || 1,
+    totalPages: b.total_pages || 1,
+    annotations: bookQuotes,
+    tags: []
+  };
+};
 
 export const db = {
   async getSession(): Promise<{ user: User, books: Book[], quotes: Quote[] } | null> {
@@ -48,17 +66,25 @@ export const db = {
   },
 
   async loadUserData(userId: string): Promise<{ user: User, books: Book[], quotes: Quote[] }> {
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-    const { data: books } = await supabase.from('books').select('*').eq('user_id', userId);
-    const { data: quotes } = await supabase.from('quotes').select('*').eq('user_id', userId);
+    if (!userId) throw new Error("User ID is required");
+
+    const [profileRes, booksRes, quotesRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('books').select('*').eq('user_id', userId),
+      supabase.from('quotes').select('*').eq('user_id', userId)
+    ]);
+
+    const profile = profileRes.data;
+    const books = booksRes.data || [];
+    const quotes = quotesRes.data || [];
 
     const user = mapProfileToUser(profile || { id: userId });
-    user.booksReadThisYear = books?.filter((b: any) => b.status === 'completed').length || 0;
+    user.booksReadThisYear = books.filter((b: any) => b.status === 'completed').length;
 
     return {
       user,
-      books: (books || []).map(mapDbBookToBook),
-      quotes: (quotes || []).map((q: any) => ({
+      books: books.map(b => mapDbBookToBook(b, quotes)),
+      quotes: quotes.map((q: any) => ({
         ...q,
         bookId: q.book_id,
         bookTitle: q.book_title
@@ -93,36 +119,29 @@ export const db = {
     return data ? mapProfileToUser(data) : null;
   },
 
+  /* Feed & Activities */
   async getFeed(limit: number = 15): Promise<Activity[]> {
-    const { data } = await supabase.from('activities')
-      .select(`*, profiles:user_id (*), books:book_id (*)`)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-      
+    const { data } = await supabase.from('activities').select(`*, profiles:user_id (*), books:book_id (*)`).order('created_at', { ascending: false }).limit(limit);
     return (data || []).map((item: any) => ({
-      id: item.id,
-      user: mapProfileToUser(item.profiles),
-      book: item.books ? mapDbBookToBook(item.books) : null,
-      type: item.type,
-      content: item.content,
-      timestamp: new Date(item.created_at).toLocaleDateString(),
-      likes: (item.liked_by || []).length,
-      likedBy: item.liked_by || [],
-      comments: item.comments || []
+      id: item.id, user: mapProfileToUser(item.profiles), book: item.books ? mapDbBookToBook(item.books) : null,
+      type: item.type, content: item.content, timestamp: new Date(item.created_at).toLocaleDateString(),
+      likes: (item.liked_by || []).length, likedBy: item.liked_by || [], comments: item.comments || []
     }));
   },
 
   async createActivity(activity: Activity): Promise<Activity> {
     const { data, error } = await supabase.from('activities').insert([{
-      user_id: activity.user.id,
-      book_id: activity.book?.id,
-      type: activity.type,
-      content: activity.content,
-      liked_by: [],
-      comments: []
-    }]).select().single();
+      user_id: activity.user.id, book_id: activity.book?.id, type: activity.type, content: activity.content, liked_by: [], comments: []
+    } ]).select().single();
     if (error) throw error;
     return { ...activity, id: data.id, timestamp: new Date(data.created_at).toLocaleDateString() };
+  },
+
+  async shareAnnotation(user: User, book: Book, annotation: Annotation): Promise<Activity> {
+    return this.createActivity({
+      id: '', user, book, type: 'note', content: `${annotation.quote}\n\n— ${annotation.comment}`,
+      timestamp: 'Только что', likes: 0, likedBy: [], comments: []
+    });
   },
 
   async toggleActivityLike(activityId: string, userId: string) {
@@ -142,192 +161,151 @@ export const db = {
   async deleteComment(activityId: string, commentId: string) {
     const { data } = await supabase.from('activities').select('comments').eq('id', activityId).maybeSingle();
     if (!data || !data.comments) return;
-    const updatedComments = data.comments.filter((c: any) => c.id !== commentId);
-    await supabase.from('activities').update({ comments: updatedComments }).eq('id', activityId);
+    await supabase.from('activities').update({ comments: data.comments.filter((c: any) => c.id !== commentId) }).eq('id', activityId);
   },
 
   async deleteActivity(id: string) { await supabase.from('activities').delete().eq('id', id); },
 
   async getLeaderboard(limit: number = 5): Promise<User[]> {
     const { data: profiles } = await supabase.from('profiles').select('*');
-    if (!profiles) return [];
-    
-    const { data: counts } = await supabase
-      .from('books')
-      .select('user_id')
-      .eq('status', 'completed');
-
+    const { data: counts } = await supabase.from('books').select('user_id').eq('status', 'completed');
     const bookCounts: Record<string, number> = {};
-    counts?.forEach((b: any) => {
-      bookCounts[b.user_id] = (bookCounts[b.user_id] || 0) + 1;
-    });
-
-    const users = profiles.map((p: any) => {
+    counts?.forEach((b: any) => { bookCounts[b.user_id] = (bookCounts[b.user_id] || 0) + 1; });
+    const users = (profiles || []).map((p: any) => {
       const u = mapProfileToUser(p);
       u.booksReadThisYear = bookCounts[p.id] || 0;
       return u;
     });
-
-    const sorted = users.sort((a, b) => b.booksReadThisYear - a.booksReadThisYear);
-    return limit === -1 ? sorted : sorted.slice(0, limit);
+    return users.sort((a, b) => b.booksReadThisYear - a.booksReadThisYear).slice(0, limit === -1 ? undefined : limit);
   },
 
+  /* Books & Annotations Sync */
   async addBook(book: Book, userId: string) {
     const payload = { 
-      user_id: userId, 
-      title: book.title, 
-      author: book.author, 
-      cover_url: book.coverUrl, 
-      progress: Number(book.progress) || 0, 
-      status: book.status, 
-      my_rating: Number(book.myRating) || 0, 
-      content: book.content, 
-      current_page: Number(book.currentPage) || 1, 
-      total_pages: Number(book.totalPages) || 1 
+      user_id: userId, title: book.title, author: book.author, cover_url: book.coverUrl, 
+      progress: Number(book.progress) || 0, status: book.status, my_rating: Number(book.myRating) || 0, 
+      content: book.content, current_page: Number(book.currentPage) || 1, total_pages: Number(book.totalPages) || 1
     };
     const { data, error } = await supabase.from('books').insert([payload]).select().single();
     if (error) throw error;
-    return mapDbBookToBook(data);
+    
+    let annotations = book.annotations || [];
+    if (annotations.length > 0) {
+      annotations = await this.syncAnnotations(data.id, userId, book.title, annotations);
+    }
+    
+    return mapDbBookToBook(data, annotations);
   },
 
-  async updateBook(book: Book) {
-    await supabase.from('books').update({ 
+  async syncAnnotations(bookId: string, userId: string, bookTitle: string, annotations: Annotation[]): Promise<any[]> {
+    const updatedAnnotations: any[] = [];
+
+    for (const ann of annotations) {
+      const isUUID = ann.id.includes('-') || ann.id.length > 20;
+      
+      const payload: any = {
+        user_id: userId,
+        book_id: bookId,
+        book_title: bookTitle,
+        text: ann.quote,
+        comment: ann.comment,
+        color: ann.color,
+        timestamp: Number(ann.timestamp) || Date.now()
+      };
+
+      if (isUUID) {
+        payload.id = ann.id;
+      }
+
+      try {
+        const { data, error } = await supabase.from('quotes').upsert([payload]).select().single();
+        if (error) throw error;
+        // КРИТИЧНО: Возвращаем объект с book_id, чтобы mapDbBookToBook мог его отфильтровать
+        updatedAnnotations.push({
+          ...ann,
+          id: data.id,
+          book_id: bookId 
+        });
+      } catch (e) {
+        console.error("Failed to sync specific quote:", payload, e);
+        updatedAnnotations.push({ ...ann, book_id: bookId });
+      }
+    }
+    return updatedAnnotations;
+  },
+
+  async deleteAnnotation(annId: string) {
+    if (!annId || annId.length < 20) return;
+    await supabase.from('quotes').delete().eq('id', annId);
+  },
+
+  async updateBook(book: Book, userId: string): Promise<Book> {
+    if (!book.id) throw new Error("Book ID is required for update");
+    
+    const payload = {
       progress: Number(book.progress) || 0, 
       status: book.status, 
       my_rating: Number(book.myRating) || 0, 
       current_page: Number(book.currentPage) || 1,
       total_pages: Number(book.totalPages) || 1
-    }).eq('id', book.id);
+    };
+    
+    const { data: bookData, error } = await supabase.from('books').update(payload).eq('id', book.id).select().single();
+    if (error) throw error;
+
+    let annotations = book.annotations || [];
+    if (annotations.length > 0) {
+      annotations = await this.syncAnnotations(book.id, userId, book.title, annotations);
+    }
+
+    return mapDbBookToBook(bookData, annotations);
   },
 
   async deleteBook(id: string) { 
+    await supabase.from('quotes').delete().eq('book_id', id);
     await supabase.from('activities').delete().eq('book_id', id);
     await supabase.from('books').delete().eq('id', id);
   },
 
   async updateUserProfile(user: User) {
     await supabase.from('profiles').update({ 
-      name: user.name, 
-      bio: user.bio, 
-      location: user.location, 
-      avatar: user.avatar, 
-      banner_url: user.bannerUrl,
-      total_reading_time: user.totalReadingTime
+      name: user.name, bio: user.bio, location: user.location, avatar: user.avatar, 
+      banner_url: user.bannerUrl, total_reading_time: user.totalReadingTime
     }).eq('id', user.id);
   },
 
-  /**
-   * Fetches all chats for a given user, including participant profiles.
-   */
+  /* Chats Logic */
   async getChats(userId: string): Promise<Chat[]> {
-    const { data: participants } = await supabase
-      .from('chat_participants')
-      .select('chat_id')
-      .eq('user_id', userId);
-    
+    const { data: participants } = await supabase.from('participants').select('chat_id').eq('user_id', userId);
     if (!participants || participants.length === 0) return [];
-    
     const chatIds = participants.map(p => p.chat_id);
-    
-    const { data: chatsData } = await supabase
-      .from('chats')
-      .select(`
-        *,
-        chat_participants (
-          user_id,
-          profiles:user_id (*)
-        )
-      `)
-      .in('id', chatIds)
-      .order('updated_at', { ascending: false });
-      
+    const { data: chatsData } = await supabase.from('chats').select('*, participants:participants(profiles:user_id(*))').in('id', chatIds);
     return (chatsData || []).map((c: any) => ({
-      id: c.id,
-      lastMessage: c.last_message,
-      updatedAt: c.updated_at,
-      participants: c.chat_participants.map((cp: any) => mapProfileToUser(cp.profiles))
+      id: c.id, lastMessage: c.last_message,
+      participants: (c.participants || []).map((p: any) => mapProfileToUser(p.profiles))
     }));
   },
 
-  /**
-   * Fetches all messages belonging to a specific chat ID.
-   */
   async getMessages(chatId: string): Promise<Message[]> {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
-      
+    const { data } = await supabase.from('messages').select('*').eq('chat_id', chatId).order('created_at', { ascending: true });
     return (data || []).map((m: any) => ({
-      id: m.id,
-      chatId: m.chat_id,
-      senderId: m.sender_id,
-      content: m.content,
-      createdAt: m.created_at,
-      isRead: m.is_read
+      id: m.id, chatId: m.chat_id, senderId: m.sender_id, content: m.content, createdAt: m.created_at, isRead: m.is_read
     }));
   },
 
-  /**
-   * Inserts a new message and updates the corresponding chat's last message timestamp.
-   */
   async sendMessage(chatId: string, senderId: string, content: string) {
-    const { error } = await supabase.from('messages').insert([{
-      chat_id: chatId,
-      sender_id: senderId,
-      content
-    }]);
-    if (error) throw error;
-    
-    await supabase.from('chats').update({ 
-      last_message: content, 
-      updated_at: new Date().toISOString() 
-    }).eq('id', chatId);
+    await supabase.from('messages').insert([{ chat_id: chatId, sender_id: senderId, content }]);
+    await supabase.from('chats').update({ last_message: content }).eq('id', chatId);
   },
 
-  /**
-   * Creates a new chat between two users, or returns an existing one if they already share a chat.
-   */
   async createChat(userId1: string, userId2: string): Promise<Chat> {
-    const { data: p1 } = await supabase.from('chat_participants').select('chat_id').eq('user_id', userId1);
-    const { data: p2 } = await supabase.from('chat_participants').select('chat_id').eq('user_id', userId2);
-    
-    const commonChatId = p1?.find(cp1 => p2?.some(cp2 => cp2.chat_id === cp1.chat_id))?.chat_id;
-    
-    if (commonChatId) {
-      const allChats = await this.getChats(userId1);
-      return allChats.find(c => c.id === commonChatId)!;
-    }
-
-    const { data: chat, error } = await supabase.from('chats').insert([{}]).select().single();
-    if (error) throw error;
-    
-    await supabase.from('chat_participants').insert([
-      { chat_id: chat.id, user_id: userId1 },
-      { chat_id: chat.id, user_id: userId2 }
-    ]);
-    
-    const allChats = await this.getChats(userId1);
-    return allChats.find(c => c.id === chat.id)!;
+    const { data: newChat } = await supabase.from('chats').insert([{ last_message: '' }]).select().single();
+    await supabase.from('participants').insert([{ chat_id: newChat.id, user_id: userId1 }, { chat_id: newChat.id, user_id: userId2 }]);
+    const { data: fullChat } = await supabase.from('chats').select('*, participants:participants(profiles:user_id(*))').eq('id', newChat.id).single();
+    return { id: fullChat.id, lastMessage: fullChat.last_message, participants: fullChat.participants.map((p: any) => mapProfileToUser(p.profiles)) };
   },
 
-  /**
-   * Removes a user from a chat. In a real-world scenario, this might also delete the chat if empty.
-   */
   async deleteChat(chatId: string, userId: string) {
-    await supabase.from('chat_participants').delete().eq('chat_id', chatId).eq('user_id', userId);
-  },
-
-  async getAllUsersData(): Promise<UserData[]> {
-    const { data } = await supabase.from('profiles').select('*');
-    return (data || []).map(p => ({ 
-      profile: mapProfileToUser(p), 
-      email: p.email, 
-      id: p.id,
-      password: p.password 
-    }));
-  },
-
-  async deleteUser(id: string) { await supabase.from('profiles').delete().eq('id', id); }
+    await supabase.from('participants').delete().eq('chat_id', chatId).eq('user_id', userId);
+  }
 };

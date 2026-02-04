@@ -1,4 +1,5 @@
 
+
 export interface Annotation {
   id: string;
   quote: string;
@@ -30,6 +31,7 @@ export interface Book {
   content?: string;
   currentPage?: number;
   totalPages?: number;
+  tags?: string[];
 }
 
 export interface UserArchetype {
@@ -78,9 +80,6 @@ export interface Activity {
   comments: Comment[];
 }
 
-export type ImageSize = '1K' | '2K' | '4K';
-export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
-
 export interface MoodCategory {
   id: string;
   label: string;
@@ -89,9 +88,7 @@ export interface MoodCategory {
   description: string;
 }
 
-/**
- * Represents a single message within a chat conversation.
- */
+/* Chat and Message interfaces (keeping for DB service compatibility if needed, but UI is removed) */
 export interface Message {
   id: string;
   chatId: string;
@@ -101,12 +98,12 @@ export interface Message {
   isRead: boolean;
 }
 
-/**
- * Represents a chat conversation between multiple users.
- */
 export interface Chat {
   id: string;
   participants: User[];
   lastMessage?: string;
-  updatedAt: string;
 }
+
+// Added ImageSize and AspectRatio types for Gemini Image Generation integration
+export type ImageSize = '1K' | '2K' | '4K';
+export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';

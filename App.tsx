@@ -56,7 +56,6 @@ const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   
-  // New state for viewing specific profiles
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
 
   useEffect(() => {

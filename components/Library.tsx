@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Book, User, Activity } from '../types';
-import { Plus, BookOpen, Upload, Trash2, Search, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, PenTool, X, Star, Sparkles, Check } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, Search, ChevronRight, Loader2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, PenTool, X, Star, Sparkles, Check, Tag, MessageSquare } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -14,7 +14,6 @@ const PROXIES = [
   'https://api.codetabs.com/v1/proxy?quest=',
 ];
 
-// Curated list for the Recommendations Feed
 const STAFF_PICKS = [
   { id: 1342, title: "Pride and Prejudice", author: "Jane Austen", cover: "https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg" },
   { id: 11, title: "Alice's Adventures in Wonderland", author: "Lewis Carroll", cover: "https://www.gutenberg.org/cache/epub/11/pg11.cover.medium.jpg" },
@@ -54,12 +53,9 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [searchResults, setSearchResults] = useState<GutenbergBook[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Review Modal State
-  const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewBook, setReviewBook] = useState<Book | null>(null);
   const [reviewText, setReviewText] = useState('');
-  const [reviewRating, setReviewRating] = useState(5);
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isPostingReview, setIsPostingReview] = useState(false);
 
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
@@ -67,12 +63,13 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredBooks = useMemo(() => {
-    if (statusFilter === 'all') return books;
-    return books.filter(b => b.status === statusFilter);
+    return books.filter(b => {
+      return statusFilter === 'all' || b.status === statusFilter;
+    });
   }, [books, statusFilter]);
 
   const handleStatusChange = async (book: Book, newStatus: Book['status']) => {
@@ -81,56 +78,49 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       status: newStatus,
       progress: newStatus === 'completed' ? 100 : (newStatus === 'want_to_read' ? 0 : book.progress)
     };
-    
     setBooks(prev => prev.map(b => b.id === book.id ? updatedBook : b));
-    
     try {
-      await db.updateBook(updatedBook);
+      const synced = await db.updateBook(updatedBook, user.id);
+      setBooks(prev => prev.map(b => b.id === synced.id ? synced : b));
     } catch (e) {
       console.error("Failed to update status in DB", e);
-      setBooks(prev => prev.map(b => b.id === book.id ? book : b));
     }
   };
 
-  const handleSubmitReview = async () => {
-      if (!reviewBook || !reviewText.trim()) return;
-      setIsSubmittingReview(true);
-      try {
-          const activity: Activity = {
-              id: '',
-              user: user,
-              book: reviewBook,
-              type: 'review',
-              content: `Оценка: ${'★'.repeat(reviewRating)}${'☆'.repeat(5-reviewRating)}\n\n${reviewText}`,
-              timestamp: '',
-              likes: 0,
-              likedBy: [],
-              comments: []
-          };
-          await db.createActivity(activity);
-          setShowReviewModal(false);
-          setReviewText('');
-          setReviewBook(null);
-      } catch (e) {
-          console.error("Review error", e);
-      } finally {
-          setIsSubmittingReview(false);
-      }
-  };
-
-  const searchClassics = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
+  const addFromCatalog = async (gBook: any) => {
+    if (books.some(b => b.title === gBook.title)) return;
+    setIsUploading(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(searchQuery)}`);
-      if (!response.ok) throw new Error("Сервер каталога временно недоступен");
-      const data = await response.json();
-      setSearchResults(data.results.slice(0, 10));
+      const formats: string[] = gBook.formats ? (Object.entries(gBook.formats)
+        .filter(([key]) => key.toLowerCase().includes('text/plain'))
+        .map(([_, url]) => url as string)) : [];
+      
+      const content = await tryFetchText(gBook.id, formats);
+      const totalPages = Math.max(1, Math.ceil(content.length / CHARS_PER_PAGE));
+      const author = gBook.authors ? gBook.authors.map((a: any) => a.name).join(', ') : gBook.author || 'Неизвестный автор';
+      
+      const bookData: Book = {
+        id: '', 
+        title: gBook.title,
+        author: author,
+        coverUrl: gBook.cover || gBook.formats?.['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.cover.medium.jpg`,
+        progress: 0,
+        status: 'want_to_read',
+        content: content,
+        currentPage: 1,
+        totalPages: totalPages,
+        myRating: 0,
+        annotations: [],
+        tags: []
+      };
+      const savedBook = await db.addBook(bookData, user.id);
+      setBooks(prev => [...prev, savedBook]);
+      setShowAddModal(false);
     } catch (e: any) {
-      setErrorMessage(e.message || "Не удалось загрузить каталог. Проверьте соединение.");
+      setErrorMessage(e.message);
     } finally {
-      setIsSearching(false);
+      setIsUploading(false);
     }
   };
 
@@ -153,95 +143,25 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
               return text.replace(/^\uFEFF/, '');
             }
           }
-        } catch (err) {
-          continue;
-        }
+        } catch (err) { continue; }
       }
     }
     throw new Error("Не удалось загрузить текст.");
   };
 
-  const addFromCatalog = async (gBook: any) => {
-    if (books.some(b => b.title === gBook.title)) return;
-    setIsUploading(true);
+  const searchClassics = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
     setErrorMessage(null);
     try {
-      // Fix: Cast the mapped values to string array to ensure compatibility with tryFetchText signature
-      const formats: string[] = gBook.formats ? (Object.entries(gBook.formats)
-        .filter(([key]) => key.toLowerCase().includes('text/plain'))
-        .map(([_, url]) => url as string)) : [];
-      
-      const content = await tryFetchText(gBook.id, formats);
-      const totalPages = Math.max(1, Math.ceil(content.length / CHARS_PER_PAGE));
-      const author = gBook.authors ? gBook.authors.map((a: any) => a.name).join(', ') : gBook.author || 'Неизвестный автор';
-      
-      const bookData: Book = {
-        id: '', 
-        title: gBook.title,
-        author: author,
-        coverUrl: gBook.cover || gBook.formats?.['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${gBook.id}/pg${gBook.id}.cover.medium.jpg`,
-        progress: 0,
-        status: 'want_to_read',
-        content: content,
-        currentPage: 1,
-        totalPages: totalPages,
-        myRating: 0,
-        annotations: []
-      };
-      const savedBook = await db.addBook(bookData, user.id);
-      setBooks(prev => [...prev, savedBook]);
-      setShowAddModal(false);
-      resetSearch();
+      const response = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error("Сервер каталога временно недоступен");
+      const data = await response.json();
+      setSearchResults(data.results.slice(0, 10));
     } catch (e: any) {
-      setErrorMessage(e.message);
+      setErrorMessage(e.message || "Не удалось загрузить каталог.");
     } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const resetSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt'))) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFileContent(event.target?.result as string);
-        setFileName(file.name);
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const handleAddManual = async () => {
-    if (!newTitle || !newAuthor) return;
-    setIsUploading(true);
-    const totalPages = fileContent ? Math.max(1, Math.ceil(fileContent.length / CHARS_PER_PAGE)) : 1;
-    const newBook: Book = {
-      id: '',
-      title: newTitle,
-      author: newAuthor,
-      coverUrl: `https://picsum.photos/seed/${Date.now()}/200/300`,
-      progress: 0,
-      status: 'want_to_read',
-      content: fileContent || undefined,
-      currentPage: 1,
-      totalPages: totalPages,
-      myRating: 0,
-      annotations: []
-    };
-    try {
-        const savedBook = await db.addBook(newBook, user.id);
-        setBooks(prev => [...prev, savedBook]);
-        setShowAddModal(false);
-        setNewTitle(''); setNewAuthor(''); setFileContent(null); setFileName(null);
-    } catch (e: any) {
-        setErrorMessage("Не удалось добавить книгу.");
-    } finally {
-        setIsUploading(false);
+      setIsSearching(false);
     }
   };
 
@@ -252,36 +172,23 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
           await db.deleteBook(bookToDelete.id);
           setBooks(prev => prev.filter(b => b.id !== bookToDelete.id));
           setBookToDelete(null);
-      } finally {
-          setIsDeleting(false);
-      }
+      } finally { setIsDeleting(false); }
   };
 
-  const StatusSelector = ({ book }: { book: Book }) => (
-    <div className="flex bg-stone-50 dark:bg-stone-800/50 p-1 rounded-xl border border-stone-200 dark:border-stone-700/50">
-      <button 
-        onClick={(e) => { e.stopPropagation(); handleStatusChange(book, 'reading'); }}
-        title="Читаю"
-        className={`p-1.5 rounded-lg transition-all ${book.status === 'reading' ? 'bg-amber-500 text-white shadow-sm' : 'text-stone-400 hover:text-amber-500'}`}
-      >
-        <PlayCircle size={16} />
-      </button>
-      <button 
-        onClick={(e) => { e.stopPropagation(); handleStatusChange(book, 'want_to_read'); }}
-        title="Хочу прочесть"
-        className={`p-1.5 rounded-lg transition-all ${book.status === 'want_to_read' ? 'bg-blue-500 text-white shadow-sm' : 'text-stone-400 hover:text-blue-500'}`}
-      >
-        <Bookmark size={16} />
-      </button>
-      <button 
-        onClick={(e) => { e.stopPropagation(); handleStatusChange(book, 'completed'); }}
-        title="Прочитано"
-        className={`p-1.5 rounded-lg transition-all ${book.status === 'completed' ? 'bg-emerald-500 text-white shadow-sm' : 'text-stone-400 hover:text-emerald-500'}`}
-      >
-        <CheckCircle2 size={16} />
-      </button>
-    </div>
-  );
+  const handlePostReview = async () => {
+    if (!reviewBook || !reviewText.trim()) return;
+    setIsPostingReview(true);
+    try {
+        const activity: Activity = {
+            id: '', user: user, book: reviewBook, type: 'review', content: reviewText,
+            timestamp: 'Только что', likes: 0, likedBy: [], comments: []
+        };
+        await db.createActivity(activity);
+        setReviewText('');
+        setReviewBook(null);
+        alert('Рецензия опубликована в сообществе!');
+    } catch (e) { console.error(e); } finally { setIsPostingReview(false); }
+  };
 
   if (isReading && selectedBook) {
       return (
@@ -289,256 +196,146 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             book={selectedBook} 
             user={user}
             onClose={() => setIsReading(false)} 
-            onUpdateBook={(b) => {
+            onUpdateBook={async (b) => {
                 setSelectedBook(b);
                 setBooks(prev => prev.map(old => old.id === b.id ? b : old));
-                db.updateBook(b).catch(err => console.error("Sync error:", err));
+                if (user.id !== 'guest') {
+                  try {
+                    const synced = await db.updateBook(b, user.id);
+                    // Обновляем состояние читалки и библиотеки данными из БД (UUID)
+                    setSelectedBook(synced);
+                    setBooks(prev => prev.map(old => old.id === synced.id ? synced : old));
+                  } catch (e) { console.error("Sync error:", e); }
+                }
             }} 
         />
       );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-20">
       <ConfirmDialog 
         isOpen={!!bookToDelete}
         title={isDeleting ? "Удаление..." : "Удалить книгу"}
-        message={isDeleting ? "Пожалуйста, подождите..." : `Удалить "${bookToDelete?.title}"? Это действие нельзя отменить.`}
+        message={isDeleting ? "Пожалуйста, подождите..." : `Удалить "${bookToDelete?.title}"?`}
         onConfirm={handleDeleteBook}
         onCancel={() => !isDeleting && setBookToDelete(null)}
       />
 
-      {showReviewModal && reviewBook && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowReviewModal(false)} />
-              <div className="bg-white dark:bg-stone-900 w-full max-w-lg p-10 rounded-[3rem] shadow-2xl relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800">
-                  <div className="flex justify-between items-start mb-8">
-                      <div>
-                          <h3 className="text-3xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2">Написать отзыв</h3>
-                          <p className="text-stone-500">Поделитесь впечатлениями о «{reviewBook.title}»</p>
-                      </div>
-                      <button onClick={() => setShowReviewModal(false)} className="p-2 text-stone-400 hover:text-stone-800 dark:hover:text-stone-100"><X size={24} /></button>
-                  </div>
-                  
-                  <div className="flex justify-center gap-2 mb-8">
-                      {[1,2,3,4,5].map(star => (
-                          <button 
-                            key={star} 
-                            onClick={() => setReviewRating(star)}
-                            className={`transition-all ${star <= reviewRating ? 'text-amber-500 scale-110' : 'text-stone-200'}`}
-                          >
-                              <Star size={32} fill={star <= reviewRating ? 'currentColor' : 'none'} />
-                          </button>
-                      ))}
-                  </div>
-
-                  <textarea 
+      {reviewBook && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReviewBook(null)} />
+            <div className="bg-white dark:bg-stone-900 w-full max-w-xl p-8 rounded-[2.5rem] shadow-2xl relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800">
+                <div className="flex gap-6 mb-6">
+                    <img src={reviewBook.coverUrl} className="w-16 h-24 object-cover rounded-xl shadow-lg" />
+                    <div>
+                        <h3 className="text-xl font-serif font-black dark:text-white">Написать о «{reviewBook.title}»</h3>
+                        <p className="text-stone-400 text-sm font-medium">Ваши мысли будут видны сообществу.</p>
+                    </div>
+                </div>
+                <textarea 
                     value={reviewText}
-                    onChange={(e) => setReviewText(e.target.value)}
-                    placeholder="Что вы думаете об этой книге?.."
-                    className="w-full h-48 p-6 bg-stone-50 dark:bg-stone-800 rounded-2xl border-none outline-none focus:ring-2 ring-stone-200 dark:ring-stone-700 font-serif text-lg mb-8 resize-none dark:text-stone-100"
-                  />
-
-                  <button 
-                    onClick={handleSubmitReview}
-                    disabled={!reviewText.trim() || isSubmittingReview}
-                    className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl hover:scale-105 transition-all disabled:opacity-50"
-                  >
-                      {isSubmittingReview ? <Loader2 size={20} className="animate-spin" /> : <PenTool size={20} />}
-                      Опубликовать в сообществе
-                  </button>
-              </div>
-          </div>
+                    onChange={e => setReviewText(e.target.value)}
+                    placeholder="Поделитесь своими впечатлениями..."
+                    className="w-full h-40 p-4 bg-stone-50 dark:bg-stone-800 border-none outline-none rounded-2xl text-sm dark:text-white mb-6 resize-none"
+                    autoFocus
+                />
+                <div className="flex gap-3">
+                    <button onClick={() => setReviewBook(null)} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 dark:hover:bg-stone-800 rounded-xl transition-colors">Отмена</button>
+                    <button onClick={handlePostReview} disabled={isPostingReview || !reviewText.trim()} className="flex-1 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg flex items-center justify-center gap-2">
+                        {isPostingReview ? <Loader2 size={16} className="animate-spin" /> : <PenTool size={16} />}
+                        Опубликовать
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
         <div className="animate-fade-in-up">
-            <h2 className="text-4xl font-serif font-black text-stone-800 dark:text-stone-100 tracking-tight mb-2">Библиотека</h2>
-            <p className="text-stone-500 dark:text-stone-400">Управляйте своей коллекцией и продолжайте чтение.</p>
+            <h2 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 tracking-tighter mb-2 leading-none">Библиотека</h2>
+            <p className="text-stone-500 dark:text-stone-400 text-lg font-medium">Место, где ваши книги обретают голос.</p>
         </div>
-        <button 
-            onClick={() => { setAddMode('feed'); setShowAddModal(true); }} 
-            className="w-full md:w-auto bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl font-black text-xs uppercase tracking-widest"
-        >
+        <button onClick={() => { setAddMode('feed'); setShowAddModal(true); }} className="w-full md:w-auto bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl font-black text-[10px] uppercase tracking-[0.3em] active:scale-95">
             <Plus size={20} /> <span>Добавить книгу</span>
         </button>
       </div>
 
-      <div className="bg-white dark:bg-stone-900 p-4 rounded-[2rem] border border-stone-100 dark:border-stone-800 mb-10 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex bg-stone-50 dark:bg-stone-800 p-1.5 rounded-2xl">
-            {[
-                { id: 'all', label: 'Все' },
-                { id: 'reading', label: 'Читаю' },
-                { id: 'want_to_read', label: 'Хочу' },
-                { id: 'completed', label: 'Прочитано' }
-            ].map(tab => (
-                <button 
-                    key={tab.id}
-                    onClick={() => setStatusFilter(tab.id)}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === tab.id ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                >
-                    {tab.label}
-                </button>
-            ))}
-        </div>
-
-        <div className="flex gap-2">
-            <button 
-                onClick={() => setViewMode('grid')}
-                className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900' : 'text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800'}`}
-            >
-                <LayoutGrid size={20} />
-            </button>
-            <button 
-                onClick={() => setViewMode('list')}
-                className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900' : 'text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800'}`}
-            >
-                <List size={20} />
-            </button>
-        </div>
+      <div className="bg-white/50 dark:bg-stone-900/50 backdrop-blur-md p-4 rounded-[2rem] border border-stone-100 dark:border-stone-800 mb-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-2xl">
+                {[{ id: 'all', label: 'Все' }, { id: 'reading', label: 'Читаю' }, { id: 'want_to_read', label: 'В планах' }, { id: 'completed', label: 'Прочитано' }].map(tab => (
+                    <button key={tab.id} onClick={() => setStatusFilter(tab.id)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === tab.id ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-md' : 'text-stone-400 hover:text-stone-600'}`}>{tab.label}</button>
+                ))}
+            </div>
+            <div className="flex gap-2">
+                <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900' : 'text-stone-400 hover:bg-white/50 dark:hover:bg-stone-800/50'}`}><LayoutGrid size={20} /></button>
+                <button onClick={() => setViewMode('list')} className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900' : 'text-stone-400 hover:bg-white/50 dark:hover:bg-stone-800/50'}`}><List size={20} /></button>
+            </div>
       </div>
 
-      <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" : "space-y-4"}>
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10" : "space-y-4"}>
         {filteredBooks.map((book, idx) => (
-            <div 
-                key={book.id} 
-                className={`bg-white dark:bg-[#110f0e] border border-stone-100 dark:border-stone-800 group relative overflow-hidden hover:shadow-2xl transition-all animate-scale-in ${viewMode === 'grid' ? 'p-5 rounded-[2.5rem]' : 'p-4 rounded-3xl flex items-center justify-between'}`}
-                style={{ animationDelay: `${idx * 50}ms` }}
-            >
-                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    {book.status === 'completed' && (
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setReviewBook(book);
-                                setShowReviewModal(true);
-                            }}
-                            className="p-2 bg-amber-500 rounded-xl text-white hover:bg-amber-600 transition-colors shadow-sm"
-                            title="Написать отзыв"
-                        >
-                            <PenTool size={16} />
-                        </button>
-                    )}
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setBookToDelete(book);
-                        }}
-                        className="p-2 bg-white/80 dark:bg-stone-800/80 rounded-xl text-stone-400 hover:text-red-500 transition-colors backdrop-blur-sm shadow-sm"
-                    >
-                        <Trash2 size={16} />
-                    </button>
+            <div key={book.id} className={`group relative bg-white dark:bg-[#110f0e] border border-stone-100 dark:border-stone-800 overflow-hidden hover:shadow-2xl transition-all animate-scale-in hover-lift ${viewMode === 'grid' ? 'p-8 rounded-[3.5rem]' : 'p-4 rounded-[2rem] flex items-center justify-between'}`} style={{ animationDelay: `${idx * 50}ms` }}>
+                <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={(e) => { e.stopPropagation(); setReviewBook(book); }} className="p-2.5 bg-white/90 dark:bg-stone-800/90 rounded-xl text-stone-500 hover:text-amber-600 transition-all backdrop-blur-md shadow-lg" title="Написать рецензию"><PenTool size={18} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setBookToDelete(book); }} className="p-2.5 bg-white/90 dark:bg-stone-800/90 rounded-xl text-stone-500 hover:text-rose-600 transition-all backdrop-blur-md shadow-lg" title="Удалить"><Trash2 size={18} /></button>
                 </div>
-
-                <div 
-                    className={`cursor-pointer ${viewMode === 'grid' ? 'flex flex-col sm:flex-row gap-5' : 'flex items-center gap-6 flex-1'}`}
-                    onClick={() => { setSelectedBook(book); setIsReading(true); }} 
-                >
-                    <div className={`${viewMode === 'grid' ? 'w-full sm:w-28 h-40' : 'w-12 h-16'} shrink-0 relative overflow-hidden rounded-2xl shadow-lg`}>
-                        <img src={book.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
-                        <div className="mb-2">
-                            <h3 className={`font-serif font-black leading-snug dark:text-stone-100 truncate group-hover:text-amber-500 transition-colors ${viewMode === 'grid' ? 'text-lg' : 'text-sm'}`}>{book.title}</h3>
-                            <p className="text-[10px] text-stone-400 font-black uppercase tracking-widest mt-1 truncate">{book.author}</p>
-                        </div>
-                        
-                        <div className="flex items-center justify-between gap-4 mt-auto">
-                           {viewMode === 'grid' && (
-                               <div className="flex-1">
-                                   <div className="flex justify-between text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1.5">
-                                       <span>{book.progress}%</span>
-                                   </div>
-                                   <div className="w-full bg-stone-100 dark:bg-stone-800 h-1 rounded-full overflow-hidden">
-                                       <div 
-                                           className={`h-full transition-all duration-1000 ${book.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-600'}`}
-                                           style={{ width: `${book.progress}%` }} 
-                                       />
-                                   </div>
-                               </div>
-                           )}
-                           <StatusSelector book={book} />
+                <div className={`cursor-pointer ${viewMode === 'grid' ? 'flex flex-col gap-8' : 'flex items-center gap-6 flex-1'}`} onClick={() => { setSelectedBook(book); setIsReading(true); }}>
+                    <div className="flex gap-6">
+                        <div className={`${viewMode === 'grid' ? 'w-32 h-48' : 'w-16 h-24'} shrink-0 relative overflow-hidden rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]`}><img src={book.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
+                        <div className="flex-1 flex flex-col justify-center min-w-0"><h3 className={`font-serif font-black leading-tight dark:text-stone-100 truncate group-hover:text-amber-500 transition-colors ${viewMode === 'grid' ? 'text-2xl mb-1' : 'text-lg'}`}>{book.title}</h3><p className="text-[10px] text-stone-400 font-black uppercase tracking-[0.2em]">{book.author}</p>
+                            {viewMode === 'grid' && (
+                                <div className="mt-6 flex items-center gap-4">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-stone-300 dark:text-stone-600">Статус:</div>
+                                    <div className="flex gap-1">{['reading', 'want_to_read', 'completed'].map((st) => (<button key={st} onClick={(e) => { e.stopPropagation(); handleStatusChange(book, st as any); }} className={`p-1.5 rounded-lg transition-all ${book.status === st ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-md' : 'text-stone-300 hover:text-stone-500 dark:hover:text-stone-400'}`}>{st === 'reading' ? <PlayCircle size={14} /> : st === 'want_to_read' ? <Bookmark size={14} /> : <CheckCircle2 size={14} />}</button>))}</div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    {viewMode === 'list' && (
-                        <div className="hidden sm:flex items-center gap-10 pr-10">
-                             <div className="text-right">
-                                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Прогресс</p>
-                                <p className="text-sm font-black text-stone-800 dark:text-white">{book.progress}%</p>
-                             </div>
-                             <ChevronRight className="text-stone-300" />
-                        </div>
-                    )}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-end mb-1"><span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{book.progress}% завершено</span><span className="text-[8px] font-black text-stone-300 uppercase tracking-widest">{book.status === 'completed' ? 'Прочитано' : book.status === 'reading' ? 'В процессе' : 'В листе'}</span></div>
+                        <div className="w-full bg-stone-100 dark:bg-stone-800 h-2 rounded-full overflow-hidden p-0.5 border border-stone-200/50 dark:border-white/5"><div className={`h-full rounded-full transition-all duration-1000 cubic-bezier(0.16, 1, 0.3, 1) ${book.status === 'completed' ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-gradient-to-r from-amber-400 to-orange-500'}`} style={{ width: `${book.progress}%` }} /></div>
+                    </div>
                 </div>
             </div>
         ))}
         {filteredBooks.length === 0 && (
-            <div className="col-span-full py-24 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-[3rem] bg-stone-50/50 dark:bg-stone-900/10">
-                <BookOpen size={64} className="mx-auto mb-6 text-stone-200 dark:text-stone-800" />
-                <p className="text-stone-500 dark:text-stone-400 font-bold uppercase tracking-widest text-sm mb-4">В этой категории пока пусто.</p>
-                <button onClick={() => { setAddMode('feed'); setShowAddModal(true); }} className="text-stone-800 dark:text-stone-100 underline font-black uppercase text-xs tracking-widest">Добавить первую книгу</button>
-            </div>
+            <div className="col-span-full py-32 flex flex-col items-center justify-center border-4 border-dashed border-stone-100 dark:border-stone-800 rounded-[4rem] text-stone-300 dark:text-stone-700 animate-fade-in"><BookOpen size={64} className="mb-6 opacity-20" /><p className="font-serif font-black text-2xl mb-2">Здесь пока тишина...</p><p className="text-sm font-bold uppercase tracking-widest opacity-40">Наполните свою полку новыми историями</p></div>
         )}
       </div>
 
       {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => !isUploading && setShowAddModal(false)} />
-              <div className="bg-[#110f0e] rounded-[3rem] w-full max-w-xl relative z-10 shadow-2xl animate-scale-in border border-stone-800 overflow-hidden">
-                  <div className="flex bg-[#1c1917]/50 border-b border-stone-800">
-                      <button onClick={() => setAddMode('feed')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'feed' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Sparkles size={16} /> Рекомендации</button>
-                      <button onClick={() => setAddMode('catalog')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'catalog' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Search size={16} /> Поиск</button>
-                      <button onClick={() => setAddMode('upload')} className={`flex-1 py-6 font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${addMode === 'upload' ? 'bg-white text-black' : 'text-stone-400 hover:text-stone-200'}`}><Upload size={16} /> Загрузка</button>
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-xl transition-all duration-500" onClick={() => !isUploading && setShowAddModal(false)} />
+              <div className="bg-white dark:bg-[#110f0e] rounded-[3.5rem] w-full max-w-2xl relative z-10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] animate-scale-in border border-stone-100 dark:border-stone-800 overflow-hidden">
+                  <div className="flex bg-stone-50 dark:bg-[#1c1917]/50 border-b border-stone-100 dark:border-stone-800">
+                      <button onClick={() => setAddMode('feed')} className={`flex-1 py-8 font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 ${addMode === 'feed' ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white' : 'text-stone-400 hover:text-stone-600'}`}><Sparkles size={18} /> Топ-книг</button>
+                      <button onClick={() => setAddMode('catalog')} className={`flex-1 py-8 font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 ${addMode === 'catalog' ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white' : 'text-stone-400 hover:text-stone-600'}`}><Search size={18} /> Каталог</button>
+                      <button onClick={() => setAddMode('upload')} className={`flex-1 py-8 font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 ${addMode === 'upload' ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white' : 'text-stone-400 hover:text-stone-600'}`}><Upload size={18} /> Загрузить</button>
                   </div>
-                  <div className="p-10">
+                  <div className="p-12">
                       {addMode === 'feed' ? (
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500">Выбор редакции</h4>
-                                  <div className="flex items-center gap-2 text-amber-500 text-[10px] font-black uppercase tracking-widest animate-pulse">
-                                      <Sparkles size={12} /> Популярное сейчас
+                          <div className="grid grid-cols-2 gap-6 max-h-[450px] overflow-y-auto custom-scrollbar pr-2">
+                              {STAFF_PICKS.map(pick => (
+                                  <div key={pick.id} onClick={() => !isUploading && addFromCatalog(pick)} className="p-5 bg-stone-50 dark:bg-stone-900 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-all flex gap-5 items-center group relative overflow-hidden">
+                                      <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><Plus size={16} className="text-amber-500" /></div>
+                                      <img src={pick.cover} className="w-14 h-20 object-cover rounded-xl shadow-lg group-hover:scale-105 transition-transform" />
+                                      <div className="min-w-0 flex-1"><h5 className="text-stone-900 dark:text-white font-serif font-black text-sm truncate mb-1">{pick.title}</h5><p className="text-[9px] font-black text-stone-400 uppercase truncate">от {pick.author}</p></div>
                                   </div>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                                  {STAFF_PICKS.map(pick => {
-                                      const isOwned = books.some(b => b.title === pick.title);
-                                      return (
-                                          <div 
-                                              key={pick.id} 
-                                              onClick={() => !isUploading && !isOwned && addFromCatalog(pick)}
-                                              className={`group p-4 bg-[#1c1917]/50 rounded-3xl border border-stone-800 transition-all ${isOwned ? 'opacity-50 grayscale cursor-default' : 'hover:bg-white/5 hover:border-amber-500/50 cursor-pointer'}`}
-                                          >
-                                              <div className="flex gap-4 items-center">
-                                                  <img src={pick.cover} className="w-12 h-18 object-cover rounded-lg shadow-lg group-hover:scale-110 transition-transform" />
-                                                  <div className="flex-1 min-w-0">
-                                                      <h5 className="text-white font-serif font-bold text-sm truncate">{pick.title}</h5>
-                                                      <p className="text-[9px] font-black text-stone-500 uppercase truncate mb-2">{pick.author}</p>
-                                                      {isOwned ? (
-                                                          <span className="flex items-center gap-1 text-emerald-500 text-[8px] font-black uppercase tracking-widest"><Check size={10} /> В библиотеке</span>
-                                                      ) : (
-                                                          <span className="text-amber-500 text-[8px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Добавить +</span>
-                                                      )}
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
+                              ))}
                           </div>
                       ) : addMode === 'catalog' ? (
-                          <div className="space-y-6">
-                              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500" size={20} /><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchClassics()} placeholder="Название или автор..." className="w-full pl-12 pr-4 py-4 bg-[#1c1917] border border-[#292524] rounded-2xl outline-none focus:ring-2 ring-blue-500/40 text-white transition-all placeholder:text-stone-600" /></div>
-                              <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-3">{isSearching ? <div className="flex flex-col items-center py-10 gap-3"><Loader2 className="animate-spin text-amber-500" /><p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Ищем...</p></div> : searchResults.map(res => (<div key={res.id} onClick={() => !isUploading && addFromCatalog(res)} className="flex items-center gap-4 p-4 bg-[#1c1917]/50 rounded-[1.5rem] hover:bg-[#1c1917] border border-transparent hover:border-amber-500/50 cursor-pointer transition-all group"><img src={res.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${res.id}/pg${res.id}.cover.small.jpg`} className="w-10 h-14 object-cover rounded-md" alt="" /><div className="flex-1 min-w-0"><h4 className="font-serif font-bold text-stone-100 text-sm truncate">{res.title}</h4><p className="text-[9px] font-black text-stone-500 uppercase tracking-widest truncate">{res.authors.map((a: any) => a.name).join(', ')}</p></div><ChevronRight size={16} className="text-stone-700" /></div>))}</div>
+                          <div className="space-y-8">
+                              <div className="relative group"><Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-amber-500 transition-colors" size={24} /><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchClassics()} placeholder="Поиск по мировым шедеврам..." className="w-full pl-16 pr-6 py-6 bg-stone-50 dark:bg-stone-900 border border-stone-100 dark:border-stone-800 rounded-[2rem] outline-none focus:ring-4 ring-amber-500/10 text-stone-900 dark:text-white transition-all placeholder:text-stone-300 font-medium text-lg" /></div>
+                              <div className="max-h-[350px] overflow-y-auto custom-scrollbar space-y-4 pr-2">{isSearching ? <div className="flex flex-col items-center py-16 gap-4"><Loader2 className="animate-spin text-amber-500" size={32} /><p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Ищем в архивах...</p></div> : searchResults.map(res => (<div key={res.id} onClick={() => !isUploading && addFromCatalog(res)} className="flex items-center gap-6 p-5 bg-stone-50 dark:bg-stone-900 rounded-[2.5rem] hover:bg-white dark:hover:bg-stone-800 border-2 border-transparent hover:border-amber-500/20 cursor-pointer transition-all group"><img src={res.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${res.id}/pg${res.id}.cover.small.jpg`} className="w-12 h-18 object-cover rounded-xl shadow-md" alt="" /><div className="flex-1 min-w-0"><h4 className="font-serif font-black text-stone-900 dark:text-stone-100 text-lg truncate group-hover:text-amber-500 transition-colors">{res.title}</h4><p className="text-[10px] font-black text-stone-400 uppercase mt-1">Добавить в дневник +</p></div></div>))}</div>
                           </div>
                       ) : (
-                          <div className="space-y-4">
-                              <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Название" className="w-full p-4 bg-[#1c1917] border border-[#292524] rounded-2xl outline-none text-white" />
-                              <input value={newAuthor} onChange={e => setNewAuthor(e.target.value)} placeholder="Автор" className="w-full p-4 bg-[#1c1917] border border-[#292524] rounded-2xl outline-none text-white" />
-                              <div onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer ${fileName ? 'bg-amber-500/5 border-amber-500/50' : 'bg-[#1c1917] border-stone-800'}`}><input type="file" ref={fileInputRef} className="hidden" accept=".txt" onChange={handleFileChange} />{fileName ? <div className="text-amber-500 font-black text-[10px] uppercase truncate">{fileName}</div> : <div className="text-stone-500 text-[10px] font-black uppercase flex items-center justify-center gap-2"><Upload size={16} /> Выбрать .txt</div>}</div>
-                              <button onClick={handleAddManual} disabled={!newTitle || isUploading} className="w-full py-5 mt-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50">{isUploading ? <Loader2 size={20} className="animate-spin" /> : 'Добавить'}</button>
+                          <div className="space-y-6">
+                              <div className="grid grid-cols-2 gap-4"><input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Название книги" className="p-5 bg-stone-50 dark:bg-stone-900 border border-stone-100 dark:border-stone-800 rounded-2xl outline-none text-stone-900 dark:text-white font-medium focus:ring-2 ring-amber-500/20" /><input value={newAuthor} onChange={e => setNewAuthor(e.target.value)} placeholder="Автор" className="p-5 bg-stone-50 dark:bg-stone-900 border border-stone-100 dark:border-stone-800 rounded-2xl outline-none text-stone-900 dark:text-white font-medium focus:ring-2 ring-amber-500/20" /></div>
+                              <div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed rounded-[2.5rem] p-12 text-center cursor-pointer bg-stone-50 dark:bg-stone-900 border-stone-100 dark:border-stone-800 hover:border-amber-500/40 transition-all group"><input type="file" ref={fileInputRef} className="hidden" accept=".txt" onChange={res => { const f = res.target.files?.[0]; if(f) { const r = new FileReader(); r.onload = e => { setFileContent(e.target?.result as string); setFileName(f.name); }; r.readAsText(f); } }} />{fileName ? <div className="text-amber-500 font-black text-lg animate-fade-in truncate">{fileName}</div> : <div className="text-stone-400 font-black uppercase tracking-widest text-xs flex flex-col items-center gap-4"><Upload size={40} className="text-stone-200 group-hover:text-amber-500 transition-colors" /> Выбрать файл .txt</div>}</div>
+                              <button onClick={async () => { if(!newTitle) return; setIsUploading(true); const newBook: Book = { id: '', title: newTitle, author: newAuthor, coverUrl: `https://picsum.photos/seed/${Date.now()}/400/600`, progress: 0, status: 'want_to_read', content: fileContent || undefined, currentPage: 1, totalPages: fileContent ? Math.ceil(fileContent.length/CHARS_PER_PAGE) : 1, myRating: 0, annotations: [], tags: [] }; try { const saved = await db.addBook(newBook, user.id); setBooks(prev => [...prev, saved]); setShowAddModal(false); } finally { setIsUploading(false); } }} className="w-full py-6 mt-6 bg-stone-900 dark:bg-white text-white dark:text-stone-900 rounded-[2rem] font-black uppercase text-sm tracking-[0.4em] shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50">{isUploading ? <Loader2 size={24} className="animate-spin mx-auto" /> : 'Внести в реестр'}</button>
                           </div>
                       )}
-                      {errorMessage && <div className="mt-6 p-4 bg-red-500/10 text-red-500 rounded-2xl text-[10px] font-black uppercase">{errorMessage}</div>}
                   </div>
               </div>
           </div>
