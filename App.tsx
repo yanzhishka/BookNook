@@ -22,7 +22,10 @@ const GUEST_USER: User = {
   bio: 'Любитель книг и тихих вечеров.',
   booksReadThisYear: 0,
   joinedDate: new Date().toLocaleDateString(),
-  streakDays: 0
+  streakDays: 0,
+  // Fix: Adding required User properties
+  xp: 0,
+  level: 1
 };
 
 const TAB_STORAGE_KEY = 'bnook_active_tab';

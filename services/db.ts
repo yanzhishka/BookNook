@@ -17,6 +17,7 @@ const mapProfileToUser = (profile: any): User => ({
   name: profile.name || 'User',
   handle: profile.handle || profile.email?.split('@')[0] || 'user',
   avatar: profile.avatar || `https://ui-avatars.com/api/?name=User&background=random`,
+  // Fix: Map banner_url from database to bannerUrl in User interface
   bannerUrl: profile.banner_url,
   bio: profile.bio,
   location: profile.location,
@@ -24,7 +25,10 @@ const mapProfileToUser = (profile: any): User => ({
   booksReadThisYear: 0,
   streakDays: profile.streak_days || 0,
   totalReadingTime: profile.total_reading_time || 0,
-});
+  // Fix: Adding missing xp and level properties to satisfy User interface
+  xp: profile.xp || 0,
+  level: profile.level || 1,
+} as User);
 
 const mapDbBookToBook = (b: any, allQuotes: any[] = []): Book => {
   const bookQuotes = allQuotes

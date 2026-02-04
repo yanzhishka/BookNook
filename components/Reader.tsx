@@ -1,38 +1,21 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Book, Annotation, User, Activity } from '../types';
-import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Share2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer, Settings2, Type as TypeIcon, Palette } from 'lucide-react';
+import { Book, Annotation, User } from '../types';
+import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer, Type as TypeIcon, Palette } from 'lucide-react';
 import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
 
 const ANNOTATION_COLORS = [
-    { name: 'amber', bg: 'bg-amber-200/50', hex: '#fde68a', text: 'text-amber-900', border: 'border-amber-400', sideBg: 'bg-amber-50 dark:bg-amber-900/20' },
-    { name: 'rose', bg: 'bg-rose-200/50', hex: '#fecdd3', text: 'text-rose-900', border: 'border-rose-400', sideBg: 'bg-rose-50 dark:bg-rose-900/20' },
-    { name: 'emerald', bg: 'bg-emerald-200/50', hex: '#a7f3d0', text: 'text-emerald-900', border: 'border-emerald-400', sideBg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { name: 'indigo', bg: 'bg-indigo-200/50', hex: '#c7d2fe', text: 'text-indigo-900', border: 'border-indigo-400', sideBg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-    { name: 'sky', bg: 'bg-sky-200/50', hex: '#bae6fd', text: 'text-sky-900', border: 'border-sky-400', sideBg: 'bg-sky-50 dark:bg-sky-900/20' },
-    { name: 'violet', bg: 'bg-violet-200/50', hex: '#ddd6fe', text: 'text-violet-900', border: 'border-violet-400', sideBg: 'bg-violet-50 dark:bg-violet-900/20' },
-    { name: 'lime', bg: 'bg-lime-200/50', hex: '#d9f99d', text: 'text-lime-900', border: 'border-lime-400', sideBg: 'bg-lime-50 dark:bg-lime-900/20' },
-    { name: 'orange', bg: 'bg-orange-200/50', hex: '#fed7aa', text: 'text-orange-900', border: 'border-orange-400', sideBg: 'bg-orange-50 dark:bg-orange-900/20' },
+    { name: 'amber', bg: 'bg-amber-200/50', hex: '#fde68a', text: 'text-amber-900' },
+    { name: 'rose', bg: 'bg-rose-200/50', hex: '#fecdd3', text: 'text-rose-900' },
+    { name: 'emerald', bg: 'bg-emerald-200/50', hex: '#a7f3d0', text: 'text-emerald-900' },
+    { name: 'sky', bg: 'bg-sky-200/50', hex: '#bae6fd', text: 'text-sky-900' },
 ];
 
 const AMBIENT_SOUNDS = [
     { id: 'rain', label: 'Дождь', url: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3' },
     { id: 'forest', label: 'Лес', url: 'https://assets.mixkit.co/active_storage/sfx/2434/2434-preview.mp3' },
-];
-
-const TEXT_THEMES = [
-    { id: 'classic', label: 'Классика', bg: 'bg-[#FDFCFB]', darkBg: 'dark:bg-[#0C0A09]', text: 'text-stone-800', darkText: 'dark:text-stone-100' },
-    { id: 'cream', label: 'Крем', bg: 'bg-[#F9F4E8]', darkBg: 'dark:bg-[#1A1814]', text: 'text-[#433422]', darkText: 'dark:text-[#D9CDB8]' },
-    { id: 'sepia', label: 'Сепия', bg: 'bg-[#EBDCC5]', darkBg: 'dark:bg-[#1C150D]', text: 'text-[#5F4B32]', darkText: 'dark:text-[#A68B6A]' },
-    { id: 'obsidian', label: 'Обсидиан', bg: 'bg-[#050505]', darkBg: 'dark:bg-[#050505]', text: 'text-[#999999]', darkText: 'dark:text-[#999999]' },
-];
-
-const FONT_FAMILIES = [
-    { id: 'serif', label: 'Serif', css: 'font-serif' },
-    { id: 'sans', label: 'Sans', css: 'font-sans' },
-    { id: 'mono', label: 'Mono', css: 'font-mono' },
 ];
 
 interface ReaderProps {
@@ -48,296 +31,155 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
-  const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null);
-  const [isSharingNoteId, setIsSharingNoteId] = useState<string | null>(null);
   
-  const bookStateRef = useRef<Book>(book);
-  useEffect(() => { bookStateRef.current = book; }, [book]);
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [activeSound, setActiveSound] = useState<string | null>(null);
+  const [volume, setVolume] = useState(0.3);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [focusTime, setFocusTime] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
-  const [isZenMode, setIsZenMode] = useState(false);
-  const [activeSound, setActiveSound] = useState<string | null>(null);
-  const [showSoundMenu, setShowSoundMenu] = useState(false);
-  const [showTextMenu, setShowTextMenu] = useState(false);
-  const [volume, setVolume] = useState(0.4);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [stopwatchTime, setStopwatchTime] = useState(0);
-  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
-
-  const [fontSize, setFontSize] = useState(20);
-  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0]);
-  const [textTheme, setTextTheme] = useState(TEXT_THEMES[0]);
-
-  const lastSyncTime = useRef<number>(Date.now());
-
-  const syncReadingTime = useCallback(async () => {
-    if (user.id === 'guest') return;
-    const now = Date.now();
-    const sessionSeconds = Math.floor((now - lastSyncTime.current) / 1000);
-    if (sessionSeconds <= 0) return;
-    const updatedUser = { ...user, totalReadingTime: (user.totalReadingTime || 0) + sessionSeconds };
-    lastSyncTime.current = now;
-    await db.updateUserProfile(updatedUser);
-  }, [user]);
-
-  useEffect(() => {
-    const timer = setInterval(() => syncReadingTime(), 30000);
-    return () => { clearInterval(timer); syncReadingTime(); };
-  }, [syncReadingTime]);
-
   useEffect(() => {
     let interval: any;
-    if (isStopwatchRunning) interval = setInterval(() => setStopwatchTime(prev => prev + 1), 1000);
+    if (isZenMode) {
+      interval = setInterval(() => setFocusTime(prev => prev + 1), 1000);
+    }
     return () => clearInterval(interval);
-  }, [isStopwatchRunning]);
+  }, [isZenMode]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (activeSound) {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      if (activeSound) {
         const sound = AMBIENT_SOUNDS.find(s => s.id === activeSound);
         if (sound) {
-            audio.src = sound.url;
-            audio.load();
-            audio.play().catch(() => {});
+          audioRef.current.src = sound.url;
+          audioRef.current.play().catch(e => console.log("Audio play blocked", e));
         }
-    } else {
-        audio.pause();
-        audio.src = "";
+      } else {
+        audioRef.current.pause();
+      }
     }
-  }, [activeSound]);
+  }, [activeSound, volume]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  useEffect(() => {
-    const totalPages = book.totalPages || 1;
-    const progress = Math.round((currentPage / totalPages) * 100);
-    
-    if (bookStateRef.current.currentPage === currentPage && bookStateRef.current.progress === progress) return;
-    
-    onUpdateBook({ 
-        ...bookStateRef.current, 
-        currentPage, 
-        progress 
-    });
-  }, [currentPage, onUpdateBook]); 
-
-  const handleTextSelection = () => {
-    const winSel = window.getSelection();
-    if (winSel && winSel.toString().trim().length > 0 && containerRef.current) {
-      const range = winSel.getRangeAt(0);
+  const handleSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim() && containerRef.current) {
+      const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       const parentRect = containerRef.current.getBoundingClientRect();
-      setSelection({ text: winSel.toString(), top: rect.top - parentRect.top, left: rect.left - parentRect.left + rect.width / 2 });
-    } else setSelection(null);
-  };
-
-  const saveAnnotation = () => {
-    if (!selection || !noteText.trim()) return;
-    const newAnn: Annotation = { 
-      id: Date.now().toString(), 
-      quote: selection.text, 
-      comment: noteText, 
-      color: selectedColor.name, 
-      timestamp: Date.now() 
-    };
-    
-    const updatedAnnotations = [newAnn, ...(bookStateRef.current.annotations || [])];
-    onUpdateBook({ ...bookStateRef.current, annotations: updatedAnnotations });
-    
-    setNoteText(''); 
-    setIsAddingNote(false); 
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
-  };
-
-  const deleteAnnotation = async (annId: string) => {
-    const updatedAnnotations = (bookStateRef.current.annotations || []).filter(a => a.id !== annId);
-    onUpdateBook({ ...bookStateRef.current, annotations: updatedAnnotations });
-    
-    if (user.id !== 'guest') {
-      await db.deleteAnnotation(annId);
+      setSelection({
+        text: sel.toString(),
+        top: rect.top - parentRect.top,
+        left: rect.left - parentRect.left + rect.width / 2
+      });
+    } else {
+      setSelection(null);
     }
   };
 
-  const handleShareToFeed = async (ann: Annotation) => {
-    if (user.id === 'guest') return;
-    setIsSharingNoteId(ann.id);
-    try {
-      await db.shareAnnotation(user, bookStateRef.current, ann);
-      alert("Опубликовано в сообществе!");
-    } catch (e) { console.error("Failed to share annotation", e); } finally { setIsSharingNoteId(null); }
+  const saveNote = () => {
+    if (!selection || !noteText.trim()) return;
+    const newAnn: Annotation = {
+      id: Date.now().toString(),
+      quote: selection.text,
+      comment: noteText,
+      color: selectedColor.name,
+      timestamp: Date.now()
+    };
+    onUpdateBook({ ...book, annotations: [...(book.annotations || []), newAnn] });
+    setIsAddingNote(false);
+    setNoteText('');
+    setSelection(null);
   };
 
   return (
-    <div ref={containerRef} className={`fixed inset-0 z-50 transition-all duration-700 overflow-hidden flex flex-col ${textTheme.bg} ${textTheme.darkBg}`}>
+    <div ref={containerRef} className={`fixed inset-0 z-[100] transition-all duration-700 flex flex-col ${isZenMode ? 'bg-stone-950 text-stone-400' : 'bg-[#fcfaf7] dark:bg-stone-950 text-stone-900 dark:text-stone-100'}`}>
       <audio ref={audioRef} loop />
       
-      <header className={`h-16 px-6 border-b transition-all duration-500 flex items-center justify-between z-10 bg-inherit ${isZenMode ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0 border-stone-200 dark:border-stone-800'}`}>
+      {/* Dynamic Header */}
+      <header className={`h-20 px-10 border-b border-stone-200/50 dark:border-stone-800/50 flex items-center justify-between transition-opacity duration-500 ${isZenMode ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
         <div className="flex items-center gap-6">
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"><ChevronLeft size={24} className="text-stone-600 dark:text-stone-400" /></button>
+          <button onClick={onClose} className="p-3 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-2xl transition-all"><ChevronLeft size={24} /></button>
           <div>
-            <h2 className={`font-serif font-bold ${textTheme.text} ${textTheme.darkText} text-lg leading-tight truncate max-w-[200px] sm:max-w-md`}>{book.title}</h2>
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{book.author}</p>
+            <h2 className="font-serif font-black text-xl truncate max-w-xs">{book.title}</h2>
+            <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">{currentPage} / {book.totalPages}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-             <button onClick={() => { setShowTextMenu(!showTextMenu); setShowSoundMenu(false); }} className={`p-3 rounded-xl transition-all ${showTextMenu ? 'bg-amber-500 text-white' : 'bg-stone-100 dark:bg-stone-900 text-stone-400'}`}><TypeIcon size={18} /></button>
-             <button onClick={() => { setIsZenMode(true); setIsStopwatchRunning(true); }} className="px-4 py-2 bg-stone-100 dark:bg-stone-900 text-stone-400 rounded-xl hover:scale-105 transition-all text-[10px] font-black uppercase tracking-widest border border-stone-200 dark:border-stone-800"><Maximize2 size={16} /></button>
+        
+        <div className="flex items-center gap-4">
+          {isZenMode && <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl font-mono text-xs text-amber-500"><Timer size={14}/> {formatTime(focusTime)}</div>}
+          <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-2xl">
+            {AMBIENT_SOUNDS.map(s => (
+              <button key={s.id} onClick={() => setActiveSound(activeSound === s.id ? null : s.id)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeSound === s.id ? 'bg-amber-500 text-white' : 'text-stone-400'}`}>{s.label}</button>
+            ))}
+          </div>
+          <button onClick={() => setIsZenMode(!isZenMode)} className={`p-3 rounded-2xl transition-all ${isZenMode ? 'bg-amber-500 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-400'}`}><Maximize2 size={20}/></button>
         </div>
       </header>
 
-      {showTextMenu && (
-        <div className="absolute top-20 right-6 z-[120] bg-white dark:bg-stone-900 p-6 rounded-[2.5rem] shadow-2xl border border-stone-100 dark:border-stone-800 w-72 animate-scale-in">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-6">Типографика</h4>
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-bold text-stone-400 uppercase"><span>Размер</span><span>{fontSize}px</span></div>
-                    <input type="range" min="14" max="36" value={fontSize} onChange={e => setFontSize(parseInt(e.target.value))} className="w-full accent-amber-500" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                    {FONT_FAMILIES.map(f => (<button key={f.id} onClick={() => setFontFamily(f)} className={`py-2 text-[10px] font-black uppercase rounded-lg border transition-all ${fontFamily.id === f.id ? 'bg-stone-900 text-white border-transparent' : 'border-stone-100 dark:border-stone-800 text-stone-400'}`}>{f.label}</button>))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    {TEXT_THEMES.map(t => (<button key={t.id} onClick={() => setTextTheme(t)} className={`flex items-center gap-2 p-2 rounded-xl border text-[10px] font-bold transition-all ${textTheme.id === t.id ? 'border-amber-500' : 'border-stone-100 dark:border-stone-800'}`}><div className={`w-4 h-4 rounded-full border border-stone-200 ${t.bg}`} /> {t.label}</button>))}
-                </div>
+      <div className="flex-1 overflow-hidden flex relative">
+        <main className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-1000 ${isZenMode ? 'max-w-4xl mx-auto py-24 px-16' : 'p-12 md:p-20'}`} ref={textRef}>
+          <div 
+            className={`max-w-3xl mx-auto leading-[2.2] whitespace-pre-line font-serif selection:bg-amber-500/20 transition-all duration-500 ${isZenMode ? 'text-2xl text-stone-300' : 'text-xl'}`}
+            onMouseUp={handleSelection}
+          >
+            {book.content?.slice((currentPage - 1) * CHARS_PER_PAGE, currentPage * CHARS_PER_PAGE)}
+          </div>
+          
+          <div className="max-w-3xl mx-auto mt-20 flex justify-between items-center border-t border-stone-200 dark:border-stone-800 pt-10">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors"><ChevronLeft size={16}/> Назад</button>
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-1 w-32 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${(currentPage / book.totalPages!) * 100}%` }}></div>
+              </div>
             </div>
+            <button onClick={() => setCurrentPage(p => Math.min(book.totalPages!, p+1))} className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors">Вперед <ChevronRight size={16}/></button>
+          </div>
+        </main>
+
+        {!isZenMode && (
+          <aside className="w-96 border-l border-stone-200/50 dark:border-stone-800/50 bg-white dark:bg-stone-900 flex flex-col shrink-0 animate-slide-in-right">
+            <div className="p-8 border-b border-stone-100 dark:border-stone-800"><h3 className="font-serif font-black text-xl">Заметки</h3></div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              {book.annotations?.map(ann => (
+                <div key={ann.id} className="p-6 rounded-[2rem] bg-stone-50 dark:bg-stone-850 border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all">
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full mb-3 inline-block bg-${ann.color}-200/50 text-${ann.color}-900`}>Цитата</span>
+                  <p className="text-xs text-stone-400 italic mb-4 line-clamp-3">«{ann.quote}»</p>
+                  <p className="text-sm font-medium">{ann.comment}</p>
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {selection && (
+        <div className="fixed z-[200] animate-scale-in" style={{ top: selection.top - 60, left: selection.left, transform: 'translateX(-50%)' }}>
+          <button onClick={() => setIsAddingNote(true)} className="bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:scale-110 transition-all ring-4 ring-white/10"><MessageSquarePlus size={16}/> Заметка</button>
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden flex relative">
-        <div className={`flex-1 overflow-y-auto custom-scrollbar flex flex-col items-stretch transition-all duration-700 ${isZenMode ? 'max-w-4xl mx-auto' : ''}`} ref={textRef}>
-          <div className={`py-12 flex-1 relative mx-auto transition-all duration-500 ${isZenMode ? 'px-16 sm:px-24' : 'max-w-3xl px-8 sm:px-12'}`} onMouseUp={handleTextSelection}>
-             <div className={`whitespace-pre-line leading-[2] ${fontFamily.css} selection:bg-amber-500/20 transition-all duration-500 ${textTheme.text} ${textTheme.darkText}`} style={{ fontSize: `${fontSize}px` }}>
-                {book.content ? (
-                    (() => {
-                        const start = (currentPage - 1) * CHARS_PER_PAGE;
-                        const end = start + CHARS_PER_PAGE;
-                        const pageText = book.content.slice(start, end);
-                        const pageAnnotations = (book.annotations || []).filter(ann => pageText.includes(ann.quote));
-                        if (pageAnnotations.length === 0) return pageText;
-                        let segments: { text: string; annotation?: Annotation }[] = [{ text: pageText }];
-                        pageAnnotations.forEach(ann => {
-                            const nextSegments: { text: string; annotation?: Annotation }[] = [];
-                            segments.forEach(seg => {
-                                if (seg.annotation) nextSegments.push(seg);
-                                else {
-                                    const parts = seg.text.split(ann.quote);
-                                    parts.forEach((part, i) => {
-                                        if (part) nextSegments.push({ text: part });
-                                        if (i < parts.length - 1) nextSegments.push({ text: ann.quote, annotation: ann });
-                                    });
-                                }
-                            });
-                            segments = nextSegments;
-                        });
-                        return segments.map((seg, i) => seg.annotation ? (
-                            <mark key={i} onMouseEnter={() => setHoveredNoteId(seg.annotation!.id)} onMouseLeave={() => setHoveredNoteId(null)} className={`cursor-help transition-all duration-300 rounded-sm px-0.5 ${(ANNOTATION_COLORS.find(c => c.name === seg.annotation?.color) || ANNOTATION_COLORS[0]).bg} ${(ANNOTATION_COLORS.find(c => c.name === seg.annotation?.color) || ANNOTATION_COLORS[0]).text} ${hoveredNoteId === seg.annotation.id ? 'ring-2 ring-offset-2 ring-stone-400 scale-105' : ''}`}>{seg.text}</mark>
-                        ) : <span key={i}>{seg.text}</span>);
-                    })()
-                ) : "Текст отсутствует."}
-             </div>
-          </div>
-          
-          <div className={`w-full py-8 flex items-center justify-between mt-auto mx-auto transition-all duration-500 ${isZenMode ? 'max-w-4xl px-16' : 'max-w-3xl px-8 border-t border-stone-100 dark:border-stone-800'}`}>
-              <button onClick={() => { setCurrentPage(prev => Math.max(1, prev-1)); textRef.current?.scrollTo(0, 0); }} disabled={currentPage === 1} className={`flex items-center gap-2 px-4 py-2 transition-colors font-medium disabled:opacity-30 ${isZenMode ? 'text-stone-400 hover:text-white' : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-100'}`}><ChevronLeft size={20} /> <span>Назад</span></button>
-              <div className="flex flex-col items-center">
-                  <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors ${isZenMode ? 'text-stone-500' : 'text-stone-400'}`}>{currentPage} / {book.totalPages || 1}</div>
-                  <div className={`w-48 h-1 rounded-full overflow-hidden ${isZenMode ? 'bg-white/10' : 'bg-stone-100 dark:bg-stone-800'}`}><div className={`h-full transition-all duration-300 ${isZenMode ? 'bg-white' : 'bg-stone-400'}`} style={{ width: `${(currentPage / (book.totalPages || 1)) * 100}%` }} /></div>
-              </div>
-              <button onClick={() => { setCurrentPage(prev => Math.min(book.totalPages || 1, prev+1)); textRef.current?.scrollTo(0, 0); }} disabled={currentPage === (book.totalPages || 1)} className={`flex items-center gap-2 px-4 py-2 transition-colors font-medium disabled:opacity-30 ${isZenMode ? 'text-stone-400 hover:text-white' : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-100'}`}><span>Вперед</span> <ChevronRight size={20} /></button>
+      {isAddingNote && (
+        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in" onClick={() => setIsAddingNote(false)}>
+          <div className="bg-white dark:bg-stone-900 p-10 rounded-[3rem] w-full max-w-lg shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <h3 className="font-serif font-black text-3xl mb-8">Новая заметка</h3>
+            <div className="bg-stone-50 dark:bg-stone-800 p-6 rounded-3xl border border-stone-100 dark:border-stone-700 mb-8"><p className="text-stone-400 italic text-sm">«{selection?.text}»</p></div>
+            <div className="flex gap-2 mb-8">
+              {ANNOTATION_COLORS.map(c => (<button key={c.name} onClick={() => setSelectedColor(c)} className={`w-8 h-8 rounded-full transition-transform hover:scale-125 ${selectedColor.name === c.name ? 'ring-4 ring-amber-500/30' : ''}`} style={{ background: c.hex }} />))}
+            </div>
+            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Ваши мысли..." className="w-full h-40 bg-stone-50 dark:bg-stone-800 border-none rounded-3xl p-6 outline-none focus:ring-4 ring-amber-500/10 mb-8 resize-none" autoFocus />
+            <div className="flex gap-4">
+              <button onClick={() => setIsAddingNote(false)} className="flex-1 py-4 font-bold text-stone-400">Отмена</button>
+              <button onClick={saveNote} disabled={!noteText.trim()} className="flex-1 py-4 bg-stone-900 dark:bg-white text-white dark:text-stone-900 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-30">Сохранить</button>
+            </div>
           </div>
         </div>
-
-        <aside className={`w-80 md:w-96 bg-white dark:bg-stone-950 border-l border-stone-200 dark:border-stone-800 h-full z-20 flex flex-col transition-all duration-700 ${isZenMode ? 'translate-x-full absolute right-0' : 'relative'}`}>
-             <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center shrink-0"><h3 className="font-bold text-stone-800 dark:text-stone-100 flex items-center gap-2"><Bookmark size={18} className="text-stone-400" /> Мои заметки</h3></div>
-             <div className="overflow-y-auto flex-1 p-4 space-y-4 custom-scrollbar">
-                 {book.annotations?.length === 0 ? <div className="py-20 text-center px-6"><MessageSquarePlus size={32} className="mx-auto mb-3 text-stone-200 dark:text-stone-800" /><p className="text-stone-400 text-sm">Выделите текст, чтобы создать заметку.</p></div> : book.annotations?.map((ann) => {
-                        const theme = ANNOTATION_COLORS.find(c => c.name === ann.color) || ANNOTATION_COLORS[0];
-                        return (
-                            <div key={ann.id} onMouseEnter={() => setHoveredNoteId(ann.id)} onMouseLeave={() => setHoveredNoteId(null)} className={`p-4 rounded-2xl border transition-all duration-300 group animate-fade-in relative ${theme.sideBg} ${theme.border} ${hoveredNoteId === ann.id ? 'shadow-lg scale-[1.02]' : 'shadow-sm'}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${theme.bg} ${theme.text}`}>Цитата</span>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => handleShareToFeed(ann)} disabled={isSharingNoteId === ann.id} className="p-1.5 text-amber-500 hover:text-amber-600 transition-all" title="Поделиться в ленте">{isSharingNoteId === ann.id ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}</button>
-                                        <button onClick={() => deleteAnnotation(ann.id)} className="p-1.5 text-stone-400 hover:text-red-500 transition-all" title="Удалить"><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-stone-500 italic mb-2 line-clamp-3 leading-relaxed border-l-2 pl-3 border-stone-200 dark:border-stone-700">{ann.quote}</p>
-                                <p className="text-stone-800 dark:text-stone-200 text-sm leading-relaxed font-medium">{ann.comment}</p>
-                            </div>
-                        );
-                    })
-                 }
-             </div>
-        </aside>
-
-        {isZenMode && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-stone-900/60 backdrop-blur-2xl border border-white/10 p-2 rounded-3xl animate-fade-in-up z-[60] shadow-2xl">
-                <button onClick={() => { setIsZenMode(false); setIsStopwatchRunning(false); setActiveSound(null); }} className="p-3 text-white/60 hover:text-white transition-all hover:bg-white/10 rounded-2xl" title="Выйти"><Minimize2 size={20} /></button>
-                <div className="w-px h-6 bg-white/10 mx-1"></div>
-                <div className="relative">
-                    <button onClick={() => { setShowSoundMenu(!showSoundMenu); setShowTextMenu(false); }} className={`p-3 transition-all rounded-2xl ${activeSound ? 'text-amber-400 bg-amber-400/10' : 'text-white/60 hover:text-white hover:bg-white/10'}`}><Volume2 size={20} /></button>
-                    {showSoundMenu && (
-                        <div className="absolute bottom-16 left-0 bg-stone-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 w-64 shadow-2xl animate-scale-in space-y-4">
-                            <div className="space-y-2">{AMBIENT_SOUNDS.map(s => (<button key={s.id} onClick={() => {setActiveSound(s.id); setShowSoundMenu(false);}} className={`w-full text-left p-2.5 hover:bg-white/10 rounded-xl text-xs flex items-center gap-2 ${activeSound === s.id ? 'text-amber-400' : 'text-white/80'}`}><Music size={14} /> {s.label}</button>))}</div>
-                        </div>
-                    )}
-                </div>
-                <div className="w-px h-6 bg-white/10 mx-1"></div>
-                <div className="flex items-center gap-3 px-4 text-white font-mono text-sm min-w-[100px] justify-center"><button onClick={() => setIsStopwatchRunning(!isStopwatchRunning)} className={`transition-all ${isStopwatchRunning ? 'text-rose-500 animate-pulse' : 'text-white/40'}`}><Timer size={18} /></button><span className="tabular-nums font-bold tracking-wider">{formatTime(stopwatchTime)}</span></div>
-            </div>
-        )}
-
-        {selection && !isAddingNote && !isZenMode && (
-            <div className="fixed z-[100] animate-scale-in" style={{ top: `${selection.top - 60}px`, left: `${selection.left}px`, transform: 'translateX(-50%)' }}>
-                <button onClick={() => setIsAddingNote(true)} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 font-bold hover:scale-110 transition-all ring-4 ring-white/10"><MessageSquarePlus size={18} /> <span className="text-sm">Заметка</span></button>
-            </div>
-        )}
-
-        {isAddingNote && (
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-[110] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsAddingNote(false)}>
-                 <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl shadow-2xl w-full max-w-md animate-scale-in border border-stone-100 dark:border-stone-800" onClick={e => e.stopPropagation()}>
-                     <h3 className="font-serif font-bold text-xl text-stone-800 dark:text-white mb-6">Создать заметку</h3>
-                     <div className="bg-stone-50 dark:bg-stone-950 p-4 rounded-xl border border-stone-100 dark:border-stone-800 mb-6 max-h-32 overflow-y-auto"><p className="text-stone-400 italic text-sm leading-relaxed">"{selection?.text}"</p></div>
-                     
-                     <div className="mb-6">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 block flex items-center gap-2"><Palette size={12} /> Цвет выделения</label>
-                        <div className="flex flex-wrap gap-2">
-                            {ANNOTATION_COLORS.map(color => (
-                                <button
-                                    key={color.name}
-                                    onClick={() => setSelectedColor(color)}
-                                    className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 relative flex items-center justify-center ${selectedColor.name === color.name ? 'border-stone-900 dark:border-white scale-110 shadow-lg' : 'border-transparent'}`}
-                                    style={{ backgroundColor: color.hex }}
-                                    title={color.name}
-                                >
-                                    {selectedColor.name === color.name && <Check size={14} className={color.text} />}
-                                </button>
-                            ))}
-                        </div>
-                     </div>
-
-                     <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="О чем вы думаете?.." className="w-full p-4 bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-2xl h-32 resize-none mb-6 outline-none focus:ring-2 focus:ring-stone-500 transition-all dark:text-white" autoFocus />
-                     
-                     <div className="flex gap-3">
-                         <button onClick={() => setIsAddingNote(false)} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 dark:hover:bg-stone-800 rounded-xl transition-colors">Отмена</button>
-                         <button onClick={saveAnnotation} disabled={!noteText.trim()} className="flex-1 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold shadow-lg disabled:opacity-30">Сохранить</button>
-                     </div>
-                 </div>
-            </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

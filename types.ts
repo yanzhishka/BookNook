@@ -1,5 +1,4 @@
 
-
 export interface Annotation {
   id: string;
   quote: string;
@@ -18,6 +17,18 @@ export interface Quote {
   timestamp: number;
 }
 
+/**
+ * Interface for activity comments
+ */
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -32,14 +43,7 @@ export interface Book {
   currentPage?: number;
   totalPages?: number;
   tags?: string[];
-}
-
-export interface UserArchetype {
-  title: string;
-  description: string;
-  traits: string[];
-  color: string;
-  icon: string;
+  collectionId?: string;
 }
 
 export interface User {
@@ -55,17 +59,20 @@ export interface User {
   booksReadThisYear: number;
   totalBooksRead?: number;
   streakDays?: number;
-  totalReadingTime?: number; // в секундах
-  archetype?: UserArchetype;
+  totalReadingTime?: number; 
+  xp: number;
+  level: number;
 }
 
-export interface Comment {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  text: string;
-  timestamp: string;
+/**
+ * AI-generated reader personality
+ */
+export interface UserArchetype {
+  title: string;
+  description: string;
+  traits: string[];
+  color: string;
+  icon: string;
 }
 
 export interface Activity {
@@ -80,15 +87,12 @@ export interface Activity {
   comments: Comment[];
 }
 
-export interface MoodCategory {
+export interface Chat {
   id: string;
-  label: string;
-  emoji: string;
-  color: string;
-  description: string;
+  lastMessage: string;
+  participants: User[];
 }
 
-/* Chat and Message interfaces (keeping for DB service compatibility if needed, but UI is removed) */
 export interface Message {
   id: string;
   chatId: string;
@@ -98,12 +102,29 @@ export interface Message {
   isRead: boolean;
 }
 
-export interface Chat {
-  id: string;
-  participants: User[];
-  lastMessage?: string;
-}
-
-// Added ImageSize and AspectRatio types for Gemini Image Generation integration
+/**
+ * Image generation configuration types
+ */
 export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
+
+/**
+ * User-created book collections
+ */
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string;
+  bookIds: string[];
+}
+
+/**
+ * Mood category for book recommendations
+ */
+export interface MoodCategory {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+}
