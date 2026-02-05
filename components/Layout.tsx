@@ -17,7 +17,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-    children, activeTab, onTabChange, user, currentTheme, setTheme, onLogout, isGuest, onLoginClick
+    children, activeTab, onTabChange, user, currentTheme, setTheme, isGuest, onLoginClick
 }) => {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home, restricted: true },

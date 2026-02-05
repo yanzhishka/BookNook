@@ -1,12 +1,12 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Book, User } from '../types';
 import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
-const CHARS_PER_PAGE = 2500;
+
 
 // Fix: Defined LibraryProps interface
 interface LibraryProps {
@@ -18,7 +18,7 @@ interface LibraryProps {
 export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);

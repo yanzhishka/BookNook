@@ -27,7 +27,7 @@ interface ReaderProps {
 }
 
 // Destructured user from props in Reader component
-export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
+export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);

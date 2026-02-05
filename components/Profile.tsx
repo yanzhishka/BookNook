@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Book } from '../types';
 // Added Lock to the imports from lucide-react to avoid shadowing by global type
 import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock } from 'lucide-react';
