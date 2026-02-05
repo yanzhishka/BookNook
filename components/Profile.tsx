@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { User, Book, UserArchetype } from '../types';
-import { MapPin, Calendar, Edit3, BookOpen, Award, Flame, Camera, ShieldAlert, Trash2, BarChart3, History, Lock, Sparkles, Loader2, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
-import { db, UserData } from '../services/db';
-import { analyzeReadingArchetype } from '../services/geminiService';
+import { User, Book } from '../types';
+// Added Lock to the imports from lucide-react to avoid shadowing by global type
+import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock } from 'lucide-react';
+import { db } from '../services/db';
 
 interface ProfileProps {
   user: User;
@@ -23,8 +23,6 @@ interface Achievement {
     goal: number;
 }
 
-const ADMIN_EMAIL = 'nme030609@gmail.com';
-
 const formatReadingTime = (seconds: number) => {
   if (!seconds) return '0м';
   const hours = Math.floor(seconds / 3600);
@@ -42,17 +40,10 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
 
   const [activeTab, setActiveTab] = useState<'info' | 'stats' | 'achievements'>('info');
   const [isEditing, setIsEditing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editLocation, setEditLocation] = useState('');
-
-  const [allUsers, setAllUsers] = useState<UserData[]>([]);
-  const isAdmin = currentUser.handle === ADMIN_EMAIL && isOwnProfile;
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOwnProfile) {
@@ -86,7 +77,6 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
     for (let i = 0; i < days; i++) {
         const date = new Date();
         date.setDate(today.getDate() - (days - 1 - i));
-        // Mocking values based on seed + streak
         const intensity = (i % 7 === 0 || i % 5 === 0) ? Math.floor(Math.random() * 4) + 1 : 0;
         data.push({ date, intensity });
     }
@@ -186,6 +176,7 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in-up">
                     {achievements.map((ach) => (
                         <div key={ach.id} className={`p-8 rounded-[2.5rem] border transition-all duration-500 flex gap-6 items-center group relative overflow-hidden ${ach.isUnlocked ? 'bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-xl' : 'bg-stone-50/50 dark:bg-stone-900/30 border-dashed border-stone-200 dark:border-stone-800 opacity-60 grayscale'}`}>
+                            {/* Lock icon correctly used here after import fix */}
                             <div className="text-5xl shrink-0 filter group-hover:scale-110 transition-transform relative z-10">{ach.isUnlocked ? ach.icon : <div className="p-3 bg-stone-100 dark:bg-stone-800 rounded-2xl"><Lock size={24} className="text-stone-400" /></div>}</div>
                             <div className="flex-1 relative z-10"><h4 className="font-serif font-bold text-lg text-stone-800 dark:text-stone-100 leading-tight mb-1">{ach.title}</h4><p className="text-xs text-stone-500 dark:text-stone-400 font-medium mb-3">{ach.desc}</p>{ach.isUnlocked && <span className="inline-block text-[9px] font-black uppercase tracking-widest text-emerald-500 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">Разблокировано</span>}</div>
                         </div>

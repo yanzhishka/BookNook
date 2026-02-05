@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+// Added User import
 import { Book, Annotation, User } from '../types';
-import { ChevronLeft, ChevronRight, Bookmark, MessageSquarePlus, Trash2, Check, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Music, Timer, Type as TypeIcon, Palette } from 'lucide-react';
-import { db } from '../services/db';
+import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer } from 'lucide-react';
 
 const CHARS_PER_PAGE = 2500;
 
@@ -20,11 +20,13 @@ const AMBIENT_SOUNDS = [
 
 interface ReaderProps {
   book: Book;
+  // Added user property to ReaderProps to match usage in Library.tsx
   user: User;
   onClose: () => void;
   onUpdateBook: (book: Book) => void;
 }
 
+// Destructured user from props in Reader component
 export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
@@ -34,7 +36,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   
   const [isZenMode, setIsZenMode] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
-  const [volume, setVolume] = useState(0.3);
+  const volume = 0.3;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [focusTime, setFocusTime] = useState(0);
 
