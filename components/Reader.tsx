@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-// Added User import
-import { Book, Annotation, User } from '../types';
+import { Book, Annotation } from '../types';
 import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer } from 'lucide-react';
 
 const CHARS_PER_PAGE = 2500;
@@ -20,13 +19,10 @@ const AMBIENT_SOUNDS = [
 
 interface ReaderProps {
   book: Book;
-  // Added user property to ReaderProps to match usage in Library.tsx
-  user: User;
   onClose: () => void;
   onUpdateBook: (book: Book) => void;
 }
 
-// Destructured user from props in Reader component
 export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);

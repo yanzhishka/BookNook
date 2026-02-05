@@ -6,9 +6,6 @@ import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
-
-
-// Fix: Defined LibraryProps interface
 interface LibraryProps {
   books: Book[];
   setBooks: React.Dispatch<React.SetStateAction<Book[]>>;
@@ -18,7 +15,7 @@ interface LibraryProps {
 export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
-  const [setShowAddModal] = useState(false);
+  const [, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
@@ -41,7 +38,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       return (
         <Reader 
             book={selectedBook} 
-            user={user}
             onClose={() => setIsReading(false)} 
             onUpdateBook={(b) => {
                 setSelectedBook(b);
@@ -56,7 +52,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     <div className="max-w-7xl mx-auto pb-32 px-4 space-y-12">
       <ConfirmDialog isOpen={!!bookToDelete} title="Удалить книгу?" message={`Вы собираетесь навсегда удалить "${bookToDelete?.title}" из вашей истории.`} onConfirm={async () => { if(bookToDelete) { await db.deleteBook(bookToDelete.id); setBooks(prev => prev.filter(b => b.id !== bookToDelete.id)); setBookToDelete(null); } }} onCancel={() => setBookToDelete(null)} />
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="space-y-3">
             <h2 className="text-5xl md:text-6xl font-serif font-black text-stone-900 dark:text-stone-50 tracking-tighter leading-none">Библиотека</h2>
@@ -68,7 +63,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
           </div>
       </div>
 
-      {/* Controls */}
       <div className="bg-white/50 dark:bg-stone-900/50 backdrop-blur-xl p-4 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-6">
           <div className="flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-2xl">
               {[{ id: 'all', label: 'Все' }, { id: 'reading', label: 'Читаю' }, { id: 'want_to_read', label: 'В планах' }, { id: 'completed', label: 'Прочитано' }].map(tab => (
@@ -83,7 +77,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
           </div>
       </div>
 
-      {/* Books Grid */}
       <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" : "space-y-4"}>
           {filteredBooks.map((book, idx) => (
               <div key={book.id} className={`group relative bg-white dark:bg-stone-900 rounded-[3rem] border border-stone-100 dark:border-stone-800 overflow-hidden hover-lift transition-all animate-scale-in`} style={{ animationDelay: `${idx * 50}ms` }}>
