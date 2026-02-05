@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Book, Activity } from '../types';
-import { BookOpen, ArrowRight, Quote as QuoteIcon, Clock, Flame, Activity as ActivityIcon, Target, Zap, ChevronRight } from 'lucide-react';
+import { BookOpen, ArrowRight, Clock, Flame, Activity as ActivityIcon, Target, Zap, ChevronRight } from 'lucide-react';
 import { db } from '../services/db';
 
 interface DashboardProps {
