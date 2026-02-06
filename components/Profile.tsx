@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Book } from '../types';
-import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock, Camera, Image as ImageIcon, Upload, X, Check } from 'lucide-react';
+import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock, Camera, Image as ImageIcon, X, Check } from 'lucide-react';
 import { db } from '../services/db';
 
 interface ProfileProps {

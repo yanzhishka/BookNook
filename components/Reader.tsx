@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User } from '../types';
-import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, Trash2, Share2, Loader2, Check, Target, Settings2, Minus, Plus as PlusIcon, Type } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, Trash2, Share2, Loader2, Check, Target, Minus, Plus as PlusIcon, Type } from 'lucide-react';
 import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
