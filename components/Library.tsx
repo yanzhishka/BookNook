@@ -38,6 +38,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       return (
         <Reader 
             book={selectedBook} 
+            user={user}
             onClose={() => setIsReading(false)} 
             onUpdateBook={(b) => {
                 setSelectedBook(b);

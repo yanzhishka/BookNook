@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Book } from '../types';
-// Added Lock to the imports from lucide-react to avoid shadowing by global type
-import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock } from 'lucide-react';
+import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock, Camera, Image as ImageIcon, Upload, X, Check } from 'lucide-react';
 import { db } from '../services/db';
 
 interface ProfileProps {
@@ -44,6 +43,10 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editLocation, setEditLocation] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fileInputAvatarRef = useRef<HTMLInputElement>(null);
+  const fileInputBannerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOwnProfile) {
@@ -90,13 +93,49 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
     { id: 'marathon', icon: '🏃', title: 'Марафонец', desc: '1 час чтения', goal: 3600, progress: profileUser.totalReadingTime || 0, isUnlocked: (profileUser.totalReadingTime || 0) >= 3600 },
   ], [completedBooks, profileUser.streakDays, totalAnnotations, profileUser.totalReadingTime]);
 
-  const handleSave = async () => {
-    const updatedUser = { ...profileUser, name: editName, bio: editBio, location: editLocation };
-    onUpdateUser(updatedUser); 
-    await db.updateUserProfile(updatedUser); 
-    setProfileUser(updatedUser);
-    setIsEditing(false);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Файл слишком большой. Пожалуйста, выберите изображение меньше 5MB.");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setProfileUser(prev => ({
+          ...prev,
+          [type === 'avatar' ? 'avatar' : 'bannerUrl']: result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updatedUser = { ...profileUser, name: editName, bio: editBio, location: editLocation };
+      await db.updateUserProfile(updatedUser); 
+      onUpdateUser(updatedUser); 
+      setProfileUser(updatedUser);
+      setIsEditing(false);
+    } catch (e: any) {
+      console.error("Failed to save profile", e);
+      alert(`Не удалось сохранить профиль: ${e.message || "Ошибка соединения"}. Попробуйте использовать изображение меньшего размера.`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelEdit = () => {
+    setProfileUser(currentUser); // Revert image changes
+    setEditName(currentUser.name);
+    setEditBio(currentUser.bio || '');
+    setEditLocation(currentUser.location || '');
+    setIsEditing(false);
+  }
 
   if (isLoadingProfile) return (
       <div className="flex flex-col items-center justify-center min-h-[500px] animate-fade-in"><Loader2 className="animate-spin text-amber-500 mb-4" size={40} /></div>
@@ -104,39 +143,91 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
-      <div className="relative w-full h-64 mb-24">
-        <div className="absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl bg-stone-200 dark:bg-stone-800">
-            <img src={profileUser.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover" />
+      <input type="file" ref={fileInputBannerRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
+      <input type="file" ref={fileInputAvatarRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
+
+      {/* Banner Section */}
+      <div className="relative w-full h-64 mb-24 group">
+        <div className={`absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl bg-stone-200 dark:bg-stone-800 transition-all ${isEditing ? 'ring-4 ring-amber-500/50' : ''}`}>
+            <img src={profileUser.bannerUrl || "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=2070&auto=format&fit=crop"} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
         </div>
-        <div className="absolute -bottom-16 left-10 z-20">
-            <div className="w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800"><img src={profileUser.avatar} alt={profileUser.name} className="w-full h-full object-cover" /></div>
+        
+        {isEditing && (
+          <button 
+            onClick={() => fileInputBannerRef.current?.click()}
+            className="absolute top-6 right-6 bg-black/50 backdrop-blur-md text-white p-3 rounded-2xl hover:bg-black/70 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-lg border border-white/10 z-30"
+          >
+            <ImageIcon size={18} /> Изменить обложку
+          </button>
+        )}
+
+        {/* Avatar Section */}
+        <div className="absolute -bottom-16 left-10 z-20 group/avatar">
+            <div className={`w-40 h-40 rounded-[2.5rem] border-[6px] border-stone-50 dark:border-stone-950 shadow-2xl overflow-hidden bg-white dark:bg-stone-800 relative ${isEditing ? 'cursor-pointer' : ''}`}>
+              <img src={profileUser.avatar} alt={profileUser.name} className="w-full h-full object-cover" />
+              {isEditing && (
+                <div 
+                  onClick={() => fileInputAvatarRef.current?.click()}
+                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity"
+                >
+                  <Camera size={32} className="text-white" />
+                </div>
+              )}
+            </div>
+            {isEditing && (
+               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-[9px] px-3 py-1 rounded-full font-bold uppercase tracking-widest shadow-lg whitespace-nowrap">
+                  Изменить
+               </div>
+            )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8">
             <div className="flex justify-between items-start mb-10">
-                <div className="flex-1">
+                <div className="flex-1 max-w-2xl">
                     {isEditing ? (
-                        <input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-4xl font-serif font-black text-stone-900 dark:text-stone-100 bg-transparent border-b-2 border-stone-200 dark:border-stone-700 outline-none pb-2 mb-4 w-full" />
+                        <div className="space-y-4 animate-fade-in-up">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1 block">Имя</label>
+                              <input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-4xl font-serif font-black text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800 rounded-xl px-4 py-2 w-full outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ваше имя" />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1 block">О себе</label>
+                               <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} className="text-base text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-xl px-4 py-3 w-full outline-none focus:ring-2 focus:ring-amber-500/50 resize-none h-24" placeholder="Расскажите о своих литературных вкусах..." />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1 block">Локация</label>
+                               <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="text-sm font-bold text-stone-500 bg-stone-100 dark:bg-stone-800 rounded-xl px-4 py-2 w-full outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Город, Страна" />
+                            </div>
+                        </div>
                     ) : (
-                        <h1 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2 tracking-tighter flex items-center gap-4 flex-wrap">{profileUser.name}</h1>
+                        <>
+                            <h1 className="text-5xl font-serif font-black text-stone-900 dark:text-stone-100 mb-2 tracking-tighter flex items-center gap-4 flex-wrap">{profileUser.name}</h1>
+                            <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-xs mb-4">{profileUser.handle} • {profileUser.location || 'Где-то в книжном мире'}</p>
+                            {profileUser.bio && <p className="text-lg text-stone-600 dark:text-stone-300 leading-relaxed max-w-xl">«{profileUser.bio}»</p>}
+                        </>
                     )}
-                    <p className="text-stone-400 font-bold uppercase tracking-[0.2em] text-xs">{profileUser.handle}</p>
                 </div>
                 {isOwnProfile && (
                     isEditing ? (
-                        <div className="flex gap-3"><button onClick={() => setIsEditing(false)} className="px-6 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 font-bold text-sm">Отмена</button><button onClick={handleSave} className="px-8 py-3 rounded-2xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-black text-sm shadow-xl">Сохранить</button></div>
+                        <div className="flex gap-3 flex-col sm:flex-row">
+                          <button onClick={cancelEdit} className="px-6 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"><X size={16}/> Отмена</button>
+                          <button onClick={handleSave} disabled={isSaving} className="px-8 py-3 rounded-2xl bg-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-amber-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                             {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />} 
+                             Сохранить
+                          </button>
+                        </div>
                     ) : (
-                        <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all"><Edit3 size={20}/></button>
+                        <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all hover:scale-110 shadow-sm"><Edit3 size={20}/></button>
                     )
                 )}
             </div>
 
-            <div className="flex border-b border-stone-100 dark:border-stone-800 mb-10 gap-8">
+            <div className="flex border-b border-stone-100 dark:border-stone-800 mb-10 gap-8 overflow-x-auto pb-1">
                 {[{ id: 'info', label: 'Обзор', icon: History }, { id: 'stats', label: 'Статистика', icon: BarChart3 }, { id: 'achievements', label: 'Достижения', icon: Award }].map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative ${activeTab === tab.id ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400'}`}><tab.icon size={16} /> {tab.label}{activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-stone-900 dark:bg-stone-100 rounded-full animate-scale-in" />}</button>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative whitespace-nowrap ${activeTab === tab.id ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 hover:text-stone-600'}`}><tab.icon size={16} /> {tab.label}{activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-stone-900 dark:bg-stone-100 rounded-full animate-scale-in" />}</button>
                 ))}
             </div>
 

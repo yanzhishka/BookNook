@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Book, Annotation } from '../types';
-import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Book, Annotation, User } from '../types';
+import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, Trash2, Share2, Loader2, Check, Target } from 'lucide-react';
+import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
 
@@ -19,16 +20,21 @@ const AMBIENT_SOUNDS = [
 
 interface ReaderProps {
   book: Book;
+  user: User;
   onClose: () => void;
   onUpdateBook: (book: Book) => void;
 }
 
-export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
+export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
+  const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
+  const [sharedNoteId, setSharedNoteId] = useState<string | null>(null);
   
   const [isZenMode, setIsZenMode] = useState(false);
   const [activeSound, setActiveSound] = useState<string | null>(null);
@@ -38,6 +44,34 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+
+  // Helper to sync page and progress
+  const handlePageChange = useCallback((newPage: number) => {
+    const total = book.totalPages || 1;
+    const clampedPage = Math.max(1, Math.min(total, newPage));
+    
+    if (clampedPage === currentPage) return;
+
+    setCurrentPage(clampedPage);
+    
+    // Calculate new progress percentage
+    const newProgress = Math.floor((clampedPage / total) * 100);
+    
+    // Determine status
+    let newStatus = book.status;
+    if (clampedPage === total) {
+      newStatus = 'completed';
+    } else if (clampedPage > 1) {
+      newStatus = 'reading';
+    }
+
+    onUpdateBook({
+      ...book,
+      currentPage: clampedPage,
+      progress: newProgress,
+      status: newStatus as any
+    });
+  }, [book, currentPage, onUpdateBook]);
 
   useEffect(() => {
     let interval: any;
@@ -95,6 +129,87 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
     setSelection(null);
   };
 
+  const handleDeleteNote = async (annId: string) => {
+    const updatedAnnotations = (book.annotations || []).filter(a => a.id !== annId);
+    onUpdateBook({ ...book, annotations: updatedAnnotations });
+    try {
+      await db.deleteAnnotation(annId);
+    } catch (e) {
+      console.error("Failed to delete annotation from DB:", e);
+    }
+  };
+
+  const handleShareNote = async (ann: Annotation) => {
+    if (sharingNoteId) return;
+    setSharingNoteId(ann.id);
+    try {
+      await db.shareAnnotation(user, book, ann);
+      setSharedNoteId(ann.id);
+      setTimeout(() => setSharedNoteId(null), 3000);
+    } catch (e) {
+      console.error("Failed to share annotation:", e);
+    } finally {
+      setSharingNoteId(null);
+    }
+  };
+
+  const navigateToAnnotation = (ann: Annotation) => {
+    if (!book.content || !ann.quote) return;
+    
+    // Find absolute index of the quote
+    const index = book.content.indexOf(ann.quote);
+    if (index === -1) return;
+
+    // Calculate target page
+    const targetPage = Math.floor(index / CHARS_PER_PAGE) + 1;
+    handlePageChange(targetPage);
+
+    // Set active and hovered to trigger highlight
+    setActiveAnnotationId(ann.id);
+    setHoveredAnnotationId(ann.id);
+
+    // Briefly pulse the focus
+    setTimeout(() => {
+        setActiveAnnotationId(null);
+    }, 2000);
+
+    // Scroll main area to top if needed, though most reading apps just change page
+    textRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const renderContentWithHighlights = () => {
+    const pageText = book.content?.slice((currentPage - 1) * CHARS_PER_PAGE, currentPage * CHARS_PER_PAGE) || "";
+    
+    if (!hoveredAnnotationId && !activeAnnotationId) return pageText;
+
+    const highlightId = hoveredAnnotationId || activeAnnotationId;
+    const ann = book.annotations?.find(a => a.id === highlightId);
+    if (!ann || !ann.quote) return pageText;
+
+    const index = pageText.indexOf(ann.quote);
+    if (index === -1) return pageText;
+
+    const colorConfig = ANNOTATION_COLORS.find(c => c.name === ann.color) || ANNOTATION_COLORS[0];
+    const isPulsing = activeAnnotationId === ann.id;
+
+    return (
+      <>
+        {pageText.slice(0, index)}
+        <mark 
+          className={`
+            transition-all duration-500 rounded px-1 -mx-1 py-0.5
+            ${colorConfig.bg} ${colorConfig.text}
+            ${isPulsing ? 'animate-pulse ring-4' : 'ring-2 shadow-[0_0_15px_rgba(245,158,11,0.2)]'}
+            ring-amber-500/20 bg-opacity-80 dark:bg-opacity-40
+          `}
+        >
+          {ann.quote}
+        </mark>
+        {pageText.slice(index + ann.quote.length)}
+      </>
+    );
+  };
+
   return (
     <div ref={containerRef} className={`fixed inset-0 z-[100] transition-all duration-700 flex flex-col ${isZenMode ? 'bg-stone-950 text-stone-400' : 'bg-[#fcfaf7] dark:bg-stone-950 text-stone-900 dark:text-stone-100'}`}>
       <audio ref={audioRef} loop />
@@ -126,29 +241,76 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
             className={`max-w-3xl mx-auto leading-[2.2] whitespace-pre-line font-serif selection:bg-amber-500/20 transition-all duration-500 ${isZenMode ? 'text-2xl text-stone-300' : 'text-xl'}`}
             onMouseUp={handleSelection}
           >
-            {book.content?.slice((currentPage - 1) * CHARS_PER_PAGE, currentPage * CHARS_PER_PAGE)}
+            {renderContentWithHighlights()}
           </div>
           
           <div className="max-w-3xl mx-auto mt-20 flex justify-between items-center border-t border-stone-200 dark:border-stone-800 pt-10">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors"><ChevronLeft size={16}/> Назад</button>
+            <button 
+              onClick={() => handlePageChange(currentPage - 1)} 
+              disabled={currentPage <= 1}
+              className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors disabled:opacity-20"
+            >
+              <ChevronLeft size={16}/> Назад
+            </button>
             <div className="flex flex-col items-center gap-2">
               <div className="h-1 w-32 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 transition-all" style={{ width: `${(currentPage / book.totalPages!) * 100}%` }}></div>
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${(currentPage / (book.totalPages || 1)) * 100}%` }}></div>
               </div>
             </div>
-            <button onClick={() => setCurrentPage(p => Math.min(book.totalPages!, p+1))} className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors">Вперед <ChevronRight size={16}/></button>
+            <button 
+              onClick={() => handlePageChange(currentPage + 1)} 
+              disabled={currentPage >= (book.totalPages || 1)}
+              className="flex items-center gap-3 font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 transition-colors disabled:opacity-20"
+            >
+              Вперед <ChevronRight size={16}/>
+            </button>
           </div>
         </main>
 
         {!isZenMode && (
           <aside className="w-96 border-l border-stone-200/50 dark:border-stone-800/50 bg-white dark:bg-stone-900 flex flex-col shrink-0 animate-slide-in-right">
-            <div className="p-8 border-b border-stone-100 dark:border-stone-800"><h3 className="font-serif font-black text-xl">Заметки</h3></div>
+            <div className="p-8 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+              <h3 className="font-serif font-black text-xl">Заметки</h3>
+              <div className="text-[10px] font-black uppercase text-stone-400">{book.annotations?.length || 0} шт.</div>
+            </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
               {book.annotations?.map(ann => (
-                <div key={ann.id} className="p-6 rounded-[2rem] bg-stone-50 dark:bg-stone-850 border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all">
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full mb-3 inline-block bg-${ann.color}-200/50 text-${ann.color}-900`}>Цитата</span>
-                  <p className="text-xs text-stone-400 italic mb-4 line-clamp-3">«{ann.quote}»</p>
-                  <p className="text-sm font-medium">{ann.comment}</p>
+                <div 
+                  key={ann.id} 
+                  onMouseEnter={() => setHoveredAnnotationId(ann.id)}
+                  onMouseLeave={() => setHoveredAnnotationId(null)}
+                  onClick={() => navigateToAnnotation(ann)}
+                  className={`
+                    p-6 rounded-[2rem] bg-stone-50 dark:bg-stone-850 border shadow-sm transition-all duration-300 relative group/ann cursor-pointer
+                    ${hoveredAnnotationId === ann.id ? 'border-amber-500/50 shadow-lg scale-[1.02] bg-white dark:bg-stone-800' : 'border-stone-100 dark:border-stone-800 hover:border-stone-200 dark:hover:border-stone-700'}
+                  `}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-${ann.color}-200/50 text-${ann.color}-900`}>Цитата</span>
+                    
+                    <div className="flex gap-1 opacity-0 group-hover/ann:opacity-100 transition-opacity">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleShareNote(ann); }}
+                        title="Поделиться в ленте"
+                        className={`p-2 rounded-xl transition-all ${sharedNoteId === ann.id ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-stone-800 text-stone-400 hover:text-amber-500'}`}
+                      >
+                        {sharingNoteId === ann.id ? <Loader2 size={14} className="animate-spin" /> : sharedNoteId === ann.id ? <Check size={14} /> : <Share2 size={14} />}
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteNote(ann.id); }}
+                        title="Удалить навсегда"
+                        className="p-2 bg-white dark:bg-stone-800 text-stone-400 hover:text-red-500 rounded-xl transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-stone-400 italic mb-4 line-clamp-3 leading-relaxed">«{ann.quote}»</p>
+                  <div className="flex justify-between items-end">
+                    <p className="text-sm font-medium text-stone-800 dark:text-stone-200 flex-1">{ann.comment}</p>
+                    <Target size={14} className="text-stone-300 group-hover/ann:text-amber-500 transition-colors ml-2" />
+                  </div>
                 </div>
               ))}
             </div>

@@ -17,7 +17,6 @@ const mapProfileToUser = (profile: any): User => ({
   name: profile.name || 'User',
   handle: profile.handle || profile.email?.split('@')[0] || 'user',
   avatar: profile.avatar || `https://ui-avatars.com/api/?name=User&background=random`,
-  // Fix: Map banner_url from database to bannerUrl in User interface
   bannerUrl: profile.banner_url,
   bio: profile.bio,
   location: profile.location,
@@ -25,7 +24,6 @@ const mapProfileToUser = (profile: any): User => ({
   booksReadThisYear: 0,
   streakDays: profile.streak_days || 0,
   totalReadingTime: profile.total_reading_time || 0,
-  // Fix: Adding missing xp and level properties to satisfy User interface
   xp: profile.xp || 0,
   level: profile.level || 1,
 } as User);
@@ -224,7 +222,6 @@ export const db = {
       try {
         const { data, error } = await supabase.from('quotes').upsert([payload]).select().single();
         if (error) throw error;
-        // КРИТИЧНО: Возвращаем объект с book_id, чтобы mapDbBookToBook мог его отфильтровать
         updatedAnnotations.push({
           ...ann,
           id: data.id,
@@ -272,10 +269,15 @@ export const db = {
   },
 
   async updateUserProfile(user: User) {
-    await supabase.from('profiles').update({ 
+    const { error } = await supabase.from('profiles').update({ 
       name: user.name, bio: user.bio, location: user.location, avatar: user.avatar, 
-      banner_url: user.bannerUrl, total_reading_time: user.totalReadingTime
+      banner_url: user.bannerUrl
     }).eq('id', user.id);
+
+    if (error) {
+      console.error("Supabase update error:", error);
+      throw error;
+    }
   },
 
   /* Chats Logic */
