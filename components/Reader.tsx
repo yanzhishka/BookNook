@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Book, Annotation, User } from '../types';
+import { Book, Annotation } from '../types';
 import { 
   ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, 
-  Trash2, Share2, Target, Minus, 
+  Trash2, Target, Minus, 
   Plus as PlusIcon, Type, BookMarked, X 
 } from 'lucide-react';
 import { db } from '../services/db';
@@ -43,12 +43,12 @@ const AMBIENT_SOUNDS = [
 
 interface ReaderProps {
   book: Book;
-  user: User;
+  user: any; // Kept in interface but not used in component body to fix TS6133
   onClose: () => void;
   onUpdateBook: (book: Book) => void;
 }
 
-export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBook }) => {
+export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);

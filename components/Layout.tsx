@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Users, Sun, Moon, Home, Sparkles, User as UserIcon } from 'lucide-react';
+import { BookOpen, Users, Sun, Moon, Home, Sparkles } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
 

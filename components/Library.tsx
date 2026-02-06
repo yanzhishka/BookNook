@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Book, User } from '../types';
-import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';

@@ -132,7 +132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
 
           <div className="bg-white dark:bg-stone-900 p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm flex items-center gap-4 md:gap-6 group">
             <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 dark:bg-amber-900/20 rounded-xl md:rounded-2xl flex items-center justify-center text-amber-500 shrink-0">
-              <Target size={24} md:size={32} />
+              <Target className="w-6 h-6 md:w-8 md:h-8" />
             </div>
             <div className="flex-1">
               <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Цель на год</h4>
@@ -150,7 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
         <div className="bg-white dark:bg-stone-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm space-y-6 md:space-y-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 md:gap-4">
-              <Zap className="text-amber-500" size={20} md:size={24} />
+              <Zap className="text-amber-500 w-5 h-5 md:w-6 md:h-6" />
               <h3 className="font-serif font-black text-lg md:text-xl text-stone-800 dark:text-stone-100">Статистика</h3>
             </div>
             <button onClick={() => onNavigate('profile')} className="text-stone-400 hover:text-stone-900"><ChevronRight size={20}/></button>
@@ -170,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
 
         <div className="bg-white dark:bg-stone-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 shadow-sm space-y-6 md:space-y-8 lg:col-span-2">
           <div className="flex items-center gap-3 md:gap-4">
-            <ActivityIcon className="text-amber-500" size={20} md:size={24} />
+            <ActivityIcon className="text-amber-500 w-5 h-5 md:w-6 md:h-6" />
             <h3 className="font-serif font-black text-lg md:text-xl text-stone-800 dark:text-stone-100">Сообщество</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
