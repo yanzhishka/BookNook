@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Users, Sun, Moon, Home, Sparkles } from 'lucide-react';
+import { BookOpen, Users, Sun, Moon, Home, Sparkles, User as UserIcon } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
 
@@ -21,13 +21,14 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home, restricted: true },
-    { id: 'library', label: 'Библиотека', icon: BookOpen, restricted: true },
+    { id: 'library', label: 'Книги', icon: BookOpen, restricted: true },
     { id: 'oracle', label: 'Оракул', icon: Sparkles, restricted: true },
-    { id: 'feed', label: 'Сообщество', icon: Users, restricted: false },
+    { id: 'feed', label: 'Лента', icon: Users, restricted: false },
   ];
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-transparent">
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-80 flex-col border-r border-stone-200/50 dark:border-stone-800/50 bg-white/40 dark:bg-stone-950/40 backdrop-blur-2xl h-screen sticky top-0 z-[100]">
         <div className="p-10">
           <h1 className="text-3xl font-serif font-black tracking-tighter text-stone-900 dark:text-stone-50 cursor-pointer flex items-center gap-3 group" onClick={() => onTabChange('home')}>
@@ -76,7 +77,33 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-6 md:p-12 relative">
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-6 pt-2 bg-gradient-to-t from-stone-50/90 dark:from-stone-950/90 via-stone-50/50 dark:via-stone-950/50 to-transparent pointer-events-none">
+        <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border border-stone-200 dark:border-stone-800 rounded-[2.5rem] p-2 flex justify-around items-center shadow-2xl pointer-events-auto">
+          {navItems.map(item => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={`p-4 rounded-full transition-all duration-300 ${isActive ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 scale-110 shadow-lg' : 'text-stone-400'}`}
+              >
+                <Icon size={22} />
+              </button>
+            );
+          })}
+          <button
+            onClick={() => onTabChange('profile')}
+            className={`p-1 rounded-full transition-all duration-300 border-2 ${activeTab === 'profile' ? 'border-amber-500 scale-110 shadow-lg' : 'border-transparent'}`}
+          >
+            <img src={user.avatar} className="w-9 h-9 rounded-full object-cover" />
+          </button>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-12 pb-32 md:pb-12 relative">
         <div key={activeTab} className="animate-reveal min-h-full">{children}</div>
       </main>
     </div>
