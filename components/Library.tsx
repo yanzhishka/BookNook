@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Book, User } from '../types';
-import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus } from 'lucide-react';
+import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus, MoreHorizontal } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -64,10 +64,8 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
           </div>
       </div>
 
-      {/* Optimized Filter Bar for Mobile */}
       <div className="flex flex-col gap-4">
         <div className="bg-white/40 dark:bg-stone-950/40 backdrop-blur-xl p-2 md:p-3 rounded-[2rem] border border-stone-100 dark:border-stone-800/50 flex items-center gap-4 overflow-hidden">
-          {/* Scrollable Status Filters */}
           <div className="flex-1 flex overflow-x-auto no-scrollbar gap-1">
             {[
               { id: 'all', label: 'Все' }, 
@@ -90,14 +88,12 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             ))}
           </div>
 
-          {/* Desktop View Toggle */}
           <div className="hidden md:flex bg-stone-100 dark:bg-white/5 p-1 rounded-xl border border-stone-200/50 dark:border-white/5">
               <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><LayoutGrid size={18} /></button>
               <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><List size={18} /></button>
           </div>
         </div>
 
-        {/* Mobile View Toggle (Separate row for better touch targets) */}
         <div className="md:hidden flex justify-start">
           <div className="bg-white/40 dark:bg-stone-950/40 backdrop-blur-xl p-1 rounded-2xl border border-stone-100 dark:border-stone-800/50 flex">
               <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-stone-900 dark:bg-white/10 text-white dark:text-white shadow-lg' : 'text-stone-400'}`}><LayoutGrid size={20} /></button>
@@ -106,8 +102,9 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
         </div>
       </div>
 
-      <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8" : "space-y-4"}>
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8" : "space-y-3"}>
           {filteredBooks.map((book, idx) => (
+            viewMode === 'grid' ? (
               <div key={book.id} className={`group relative bg-white dark:bg-stone-900/60 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 overflow-hidden hover-lift transition-all animate-scale-in`} style={{ animationDelay: `${idx * 50}ms` }}>
                   <div className="p-6 md:p-8">
                       <div className="relative mb-6 md:mb-8 aspect-[2/3] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl transition-transform duration-700 group-hover:-rotate-2 cursor-pointer" onClick={() => { setSelectedBook(book); setIsReading(true); }}>
@@ -146,10 +143,50 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
                       </div>
                   </div>
               </div>
+            ) : (
+              // Enhanced List View Item
+              <div key={book.id} className="group relative bg-white/60 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 rounded-3xl p-3 md:p-4 border border-stone-100 dark:border-stone-800 flex items-center gap-4 md:gap-8 transition-all hover:shadow-xl hover:-translate-y-1 animate-fade-in-up" style={{ animationDelay: `${idx * 30}ms` }}>
+                <div className="w-16 h-24 md:w-20 md:h-28 shrink-0 relative cursor-pointer" onClick={() => { setSelectedBook(book); setIsReading(true); }}>
+                  <img src={book.coverUrl} className="w-full h-full object-cover rounded-xl shadow-lg group-hover:scale-105 transition-transform" alt="" />
+                </div>
+                
+                <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-8">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-serif font-black text-sm md:text-xl text-stone-900 dark:text-stone-50 truncate">{book.title}</h3>
+                    <p className="text-[9px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest mt-0.5">{book.author}</p>
+                  </div>
+
+                  <div className="w-full md:w-48 lg:w-64 space-y-1.5">
+                    <div className="flex justify-between items-center text-[9px] font-black text-stone-400 uppercase tracking-widest">
+                      <span>{book.progress}%</span>
+                      <span className={book.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}>{book.status === 'completed' ? 'Завершено' : 'Читаю'}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-1000 ${book.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${book.progress}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 md:gap-3 shrink-0">
+                  <div className="hidden sm:flex items-center gap-1">
+                    {['reading', 'want_to_read', 'completed'].map(st => (
+                      <button 
+                        key={st} 
+                        onClick={() => handleStatusChange(book, st as any)} 
+                        title={st === 'reading' ? 'Читаю' : st === 'want_to_read' ? 'В планы' : 'Прочитано'}
+                        className={`p-2 rounded-xl transition-all ${book.status === st ? 'bg-amber-500 text-white shadow-md' : 'text-stone-300 hover:text-stone-500 dark:hover:text-stone-400 hover:bg-stone-50 dark:hover:bg-white/5'}`}
+                      >
+                        {st === 'reading' ? <PlayCircle size={18} /> : st === 'want_to_read' ? <Bookmark size={18} /> : <CheckCircle2 size={18} />}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setBookToDelete(book)} className="p-2 md:p-3 text-stone-300 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={18} /></button>
+                </div>
+              </div>
+            )
           ))}
       </div>
       
-      {/* Custom Styles for hiding scrollbar */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;

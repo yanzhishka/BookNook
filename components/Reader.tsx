@@ -1,7 +1,11 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Book, Annotation, User } from '../types';
-import { ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, Trash2, Share2, Loader2, Check, Target, Settings2, Minus, Plus as PlusIcon, Type, BookMarked } from 'lucide-react';
+import { 
+  ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, 
+  Trash2, Share2, Target, Minus, 
+  Plus as PlusIcon, Type, BookMarked, X 
+} from 'lucide-react';
 import { db } from '../services/db';
 
 const CHARS_PER_PAGE = 2500;
@@ -52,10 +56,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const [selectedColor, setSelectedColor] = useState(ANNOTATION_COLORS[0]);
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
-  const [sharingNoteId, setSharingNoteId] = useState<string | null>(null);
-  const [sharedNoteId, setSharedNoteId] = useState<string | null>(null);
   
-  // Customization State with Persistance
   const [fontSize, setFontSize] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
     return saved ? parseInt(saved, 10) : 20;
@@ -83,7 +84,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
-  // Persistence Effects
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FONT_SIZE, fontSize.toString());
   }, [fontSize]);
@@ -96,25 +96,17 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     localStorage.setItem(STORAGE_KEYS.THEME, currentTheme.id);
   }, [currentTheme]);
 
-  // Helper to sync page and progress
   const handlePageChange = useCallback((newPage: number) => {
     const total = book.totalPages || 1;
     const clampedPage = Math.max(1, Math.min(total, newPage));
     
     if (clampedPage === currentPage) return;
-
     setCurrentPage(clampedPage);
     
-    // Calculate new progress percentage
     const newProgress = Math.floor((clampedPage / total) * 100);
-    
-    // Determine status
     let newStatus = book.status;
-    if (clampedPage === total) {
-      newStatus = 'completed';
-    } else if (clampedPage > 1) {
-      newStatus = 'reading';
-    }
+    if (clampedPage === total) newStatus = 'completed';
+    else if (clampedPage > 1) newStatus = 'reading';
 
     onUpdateBook({
       ...book,
@@ -190,20 +182,6 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     }
   };
 
-  const handleShareNote = async (ann: Annotation) => {
-    if (sharingNoteId) return;
-    setSharingNoteId(ann.id);
-    try {
-      await db.shareAnnotation(user, book, ann);
-      setSharedNoteId(ann.id);
-      setTimeout(() => setSharedNoteId(null), 3000);
-    } catch (e) {
-      console.error("Failed to share annotation:", e);
-    } finally {
-      setSharingNoteId(null);
-    }
-  };
-
   const navigateToAnnotation = (ann: Annotation) => {
     if (!book.content || !ann.quote) return;
     const index = book.content.indexOf(ann.quote);
@@ -252,69 +230,97 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     >
       <audio ref={audioRef} loop />
       
-      {/* Dynamic Header */}
-      <header className={`h-16 md:h-20 px-4 md:px-10 border-b ${currentTheme.border} flex items-center justify-between transition-opacity duration-500 z-50 ${isZenMode ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
-        <div className="flex items-center gap-2 md:gap-6">
-          <button onClick={onClose} className={`p-2 md:p-3 rounded-2xl transition-all ${currentTheme.dark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><ChevronLeft size={24} /></button>
-          <div className="max-w-[120px] md:max-w-xs">
-            <h2 className="font-serif font-black text-sm md:text-xl truncate">{book.title}</h2>
-            <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-50">{currentPage} / {book.totalPages}</p>
+      {/* Header - High Z-index to stay above sidebar on desktop */}
+      <header className={`h-16 md:h-20 px-4 md:px-10 border-b ${currentTheme.border} ${currentTheme.bg} flex items-center justify-between shrink-0 z-[100] transition-opacity duration-500 ${isZenMode ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
+        <div className="flex items-center gap-4">
+          <button onClick={onClose} className={`p-2 rounded-2xl transition-all ${currentTheme.dark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}><ChevronLeft size={24} /></button>
+          <div className="max-w-[150px] md:max-w-md">
+            <h2 className="font-serif font-black text-sm md:text-xl truncate leading-none">{book.title}</h2>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mt-1">{currentPage} / {book.totalPages}</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">
-          <div className="flex p-1 rounded-2xl bg-black/5 dark:bg-white/5">
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 md:p-3 rounded-xl transition-all ${showSettings ? 'bg-amber-500 text-white' : 'opacity-40 hover:opacity-100'}`}
-            >
-              <Type size={18} />
-            </button>
+          {isZenMode && <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-500/10 rounded-full font-mono text-[10px] text-amber-500"><Timer size={12}/> {formatTime(focusTime)}</div>}
+          
+          <div className="flex p-1 rounded-2xl bg-black/5 dark:bg-white/5 items-center gap-1">
+            {/* Settings Wrapper */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2.5 rounded-xl transition-all ${showSettings ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+              >
+                <Type size={20} />
+              </button>
+              
+              {/* Settings Dropdown - Absolute highest Z-index */}
+              {showSettings && (
+                <>
+                  <div className="fixed inset-0 z-[490]" onClick={() => setShowSettings(false)}></div>
+                  <div 
+                    className="fixed top-20 right-4 md:right-10 w-72 md:w-80 p-6 md:p-8 bg-[#1a1817] border border-stone-800 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] animate-scale-in z-[500] text-stone-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-center border-b border-stone-800 pb-4 mb-4">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Настройки</span>
+                        <button onClick={() => setShowSettings(false)} className="text-stone-500 hover:text-white"><X size={16}/></button>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between mb-3 text-[10px] font-black uppercase tracking-widest text-stone-500">
+                          <span>Шрифт</span>
+                          <span className="text-amber-500">{fontSize}px</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="p-2 bg-stone-800/50 rounded-xl hover:bg-stone-700 transition-colors"><Minus size={14}/></button>
+                          <input type="range" min="12" max="42" value={fontSize} onChange={(e) => setFontSize(parseInt(e.target.value))} className="flex-1 accent-amber-500 cursor-pointer h-1.5 bg-stone-800 rounded-lg appearance-none" />
+                          <button onClick={() => setFontSize(Math.min(42, fontSize + 2))} className="p-2 bg-stone-800/50 rounded-xl hover:bg-stone-700 transition-colors"><PlusIcon size={14}/></button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {READER_FONTS.map(f => (
+                          <button key={f.id} onClick={() => setFontFamily(f)} className={`py-2 rounded-xl text-[10px] font-bold border transition-all ${fontFamily.id === f.id ? 'border-amber-500 text-amber-500 bg-amber-500/5' : 'border-stone-800 text-stone-400 hover:border-stone-600'}`} style={{ fontFamily: f.family }}>{f.name}</button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-3">
+                        {READER_THEMES.map(t => (
+                          <button key={t.id} onClick={() => setCurrentTheme(t)} title={t.name} className={`w-full aspect-square rounded-full border-2 transition-all hover:scale-110 ${currentTheme.id === t.id ? 'border-amber-500 scale-110' : 'border-stone-800'}`} style={{ backgroundColor: t.hex }} />
+                        ))}
+                      </div>
+
+                      <div className="bg-stone-900/50 p-3 rounded-2xl border border-stone-800/50">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 block">Звуки</span>
+                        <div className="flex gap-2">
+                          {AMBIENT_SOUNDS.map(s => (
+                            <button key={s.id} onClick={() => setActiveSound(activeSound === s.id ? null : s.id)} className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase transition-all ${activeSound === s.id ? 'bg-amber-500 text-white shadow-lg' : 'text-stone-500 hover:text-stone-300 bg-stone-800/30'}`}>{s.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button 
               onClick={() => setShowMobileAnnotations(!showMobileAnnotations)}
-              className={`md:hidden p-2 rounded-xl transition-all ${showMobileAnnotations ? 'bg-amber-500 text-white' : 'opacity-40 hover:opacity-100'}`}
+              className={`md:hidden p-2.5 rounded-xl transition-all ${showMobileAnnotations ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
             >
-              <BookMarked size={18} />
+              <BookMarked size={20} />
             </button>
-            <button onClick={() => setIsZenMode(!isZenMode)} className={`p-2 md:p-3 rounded-xl transition-all ${isZenMode ? 'bg-amber-500 text-white' : 'opacity-40 hover:opacity-100'}`}><Maximize2 size={18}/></button>
+            <button onClick={() => setIsZenMode(!isZenMode)} className={`p-2.5 rounded-xl transition-all ${isZenMode ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}><Maximize2 size={20}/></button>
           </div>
         </div>
-
-        {showSettings && (
-          <div className="absolute top-full right-4 mt-2 w-72 md:w-80 p-6 md:p-8 bg-[#1a1817] dark:bg-[#1a1817] border border-stone-800 rounded-[2rem] shadow-2xl animate-scale-in z-50 text-stone-100">
-            <div className="space-y-6">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-4 block text-center md:text-left">Размер: {fontSize}px</span>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="p-2 bg-stone-800/50 rounded-xl"><Minus size={14}/></button>
-                  <input type="range" min="12" max="42" value={fontSize} onChange={(e) => setFontSize(parseInt(e.target.value))} className="flex-1 accent-amber-500" />
-                  <button onClick={() => setFontSize(Math.min(42, fontSize + 2))} className="p-2 bg-stone-800/50 rounded-xl"><PlusIcon size={14}/></button>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {READER_FONTS.map(f => (
-                  <button key={f.id} onClick={() => setFontFamily(f)} className={`py-2 rounded-xl text-[10px] font-bold border ${fontFamily.id === f.id ? 'border-amber-500 text-amber-500' : 'border-stone-800 text-stone-400'}`} style={{ fontFamily: f.family }}>{f.name}</button>
-                ))}
-              </div>
-              <div className="grid grid-cols-4 gap-3">
-                {READER_THEMES.map(t => (
-                  <button key={t.id} onClick={() => setCurrentTheme(t)} className={`w-full aspect-square rounded-full border-2 ${currentTheme.id === t.id ? 'border-amber-500 scale-110' : 'border-stone-800'}`} style={{ backgroundColor: t.hex }} />
-                ))}
-              </div>
-              <div className="flex gap-2 p-1 bg-white/5 rounded-xl">
-                 {AMBIENT_SOUNDS.map(s => (
-                  <button key={s.id} onClick={() => setActiveSound(activeSound === s.id ? null : s.id)} className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase transition-all ${activeSound === s.id ? 'bg-amber-500 text-white' : 'opacity-40'}`}>{s.label}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
-      <div className="flex-1 overflow-hidden flex relative">
-        <main className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-1000 ${isZenMode ? 'max-w-4xl mx-auto py-12 md:py-24 px-6 md:px-16' : 'p-6 md:p-20'}`} ref={textRef}>
+      {/* Main content area */}
+      <div className="flex-1 flex overflow-hidden relative">
+        <main className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-700 ${isZenMode ? 'max-w-4xl mx-auto py-12 md:py-20 px-6 md:px-12' : 'p-6 md:p-16'}`} ref={textRef}>
           <div 
-            className="max-w-3xl mx-auto leading-[2] md:leading-[2.2] whitespace-pre-line selection:bg-amber-500/20 transition-all duration-500"
+            className="max-w-2xl mx-auto leading-[2] md:leading-[2.2] whitespace-pre-line selection:bg-amber-500/30 transition-all duration-500"
             onMouseUp={handleSelection}
             style={{ 
               fontSize: `${fontSize}px`, 
@@ -325,88 +331,144 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
             {renderContentWithHighlights()}
           </div>
           
-          <div className={`max-w-3xl mx-auto mt-12 md:mt-20 flex justify-between items-center border-t ${currentTheme.border} pt-8 pb-24`}>
+          <div className={`max-w-2xl mx-auto mt-16 flex justify-between items-center border-t ${currentTheme.border} pt-8 pb-32`}>
             <button 
               onClick={() => handlePageChange(currentPage - 1)} 
               disabled={currentPage <= 1}
-              className="p-3 bg-black/5 dark:bg-white/5 rounded-2xl disabled:opacity-10"
+              className={`p-5 rounded-2xl disabled:opacity-10 hover:scale-110 active:scale-95 transition-all shadow-sm ${currentTheme.dark ? 'bg-white/5' : 'bg-black/5'}`}
             >
-              <ChevronLeft size={20}/>
+              <ChevronLeft size={28}/>
             </button>
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">{Math.round((currentPage / (book.totalPages || 1)) * 100)}%</span>
-              <div className={`h-1 w-20 md:w-32 rounded-full overflow-hidden ${currentTheme.dark ? 'bg-white/5' : 'bg-black/5'}`}>
-                <div className="h-full bg-amber-500 transition-all" style={{ width: `${(currentPage / (book.totalPages || 1)) * 100}%` }}></div>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">{Math.round((currentPage / (book.totalPages || 1)) * 100)}% Прочитано</span>
+              <div className={`h-1.5 w-32 md:w-48 rounded-full overflow-hidden ${currentTheme.dark ? 'bg-white/5' : 'bg-black/5'}`}>
+                <div className="h-full bg-amber-500 transition-all duration-700 shadow-[0_0_10px_rgba(245,158,11,0.5)]" style={{ width: `${(currentPage / (book.totalPages || 1)) * 100}%` }}></div>
               </div>
             </div>
             <button 
               onClick={() => handlePageChange(currentPage + 1)} 
               disabled={currentPage >= (book.totalPages || 1)}
-              className="p-3 bg-black/5 dark:bg-white/5 rounded-2xl disabled:opacity-10"
+              className={`p-5 rounded-2xl disabled:opacity-10 hover:scale-110 active:scale-95 transition-all shadow-sm ${currentTheme.dark ? 'bg-white/5' : 'bg-black/5'}`}
             >
-              <ChevronRight size={20}/>
+              <ChevronRight size={28}/>
             </button>
           </div>
         </main>
 
-        {/* Desktop Sidebar & Mobile Drawer */}
+        {/* Notes Sidebar Overlay for Mobile */}
+        {showMobileAnnotations && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[180] md:hidden transition-opacity duration-500 animate-fade-in" onClick={() => setShowMobileAnnotations(false)}></div>
+        )}
+
+        {/* Sidebar - Z-index lower than Header on desktop */}
         <aside className={`
-          fixed md:relative inset-y-0 right-0 w-80 md:w-96 bg-white dark:bg-[#110f0e] border-l ${currentTheme.border} 
-          transition-transform duration-500 z-[60] flex flex-col
-          ${showMobileAnnotations || (!isZenMode && window.innerWidth >= 768) ? 'translate-x-0' : 'translate-x-full md:hidden'}
+          fixed md:relative inset-y-0 right-0 w-80 md:w-96 ${currentTheme.bg} border-l ${currentTheme.border} 
+          transition-transform duration-500 z-[190] md:z-[10] flex flex-col shadow-2xl md:shadow-none
+          ${showMobileAnnotations ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+          ${isZenMode ? 'md:hidden' : ''}
         `}>
-          <div className="p-8 border-b opacity-50 flex justify-between items-center">
-            <h3 className="font-serif font-black text-xl">Заметки</h3>
-            <button onClick={() => setShowMobileAnnotations(false)} className="md:hidden"><X size={20}/></button>
+          <div className={`p-8 border-b ${currentTheme.border} flex justify-between items-center shrink-0`}>
+            <div className="flex items-center gap-3">
+              <BookMarked size={20} className="text-amber-500" />
+              <h3 className="font-serif font-black text-xl opacity-80">Заметки</h3>
+            </div>
+            <button 
+              onClick={() => setShowMobileAnnotations(false)} 
+              className={`p-2 rounded-xl md:hidden ${currentTheme.dark ? 'hover:bg-white/5' : 'hover:bg-black/5'}`}
+            >
+              <X size={24}/>
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar pb-32 md:pb-6">
-            {book.annotations?.map(ann => (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar pb-32">
+            {book.annotations?.map((ann, idx) => (
               <div 
                 key={ann.id} 
                 onMouseEnter={() => setHoveredAnnotationId(ann.id)}
                 onMouseLeave={() => setHoveredAnnotationId(null)}
                 onClick={() => navigateToAnnotation(ann)}
                 className={`
-                  p-6 rounded-[2rem] border shadow-sm transition-all duration-300 relative group/ann cursor-pointer
+                  p-6 rounded-[2.5rem] border transition-all duration-300 relative group/ann cursor-pointer animate-fade-in-up
                   ${currentTheme.dark ? 'bg-white/5 border-transparent' : 'bg-black/5 border-transparent'}
-                  ${hoveredAnnotationId === ann.id ? 'border-amber-500/50 shadow-lg scale-[1.02] bg-opacity-100' : ''}
+                  ${hoveredAnnotationId === ann.id ? 'border-amber-500/40 shadow-xl scale-[1.02] bg-opacity-100 ring-4 ring-amber-500/5' : ''}
                 `}
+                style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-${ann.color}-200/50 text-${ann.color}-900`}>Цитата</span>
-                  <div className="flex gap-1 md:opacity-0 group-hover/ann:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); handleShareNote(ann); }} className="p-2 bg-white dark:bg-stone-800 text-stone-400 rounded-xl"><Share2 size={12}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(ann.id); }} className="p-2 bg-white dark:bg-stone-800 text-stone-400 rounded-xl hover:text-red-500"><Trash2 size={12}/></button>
-                  </div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${ANNOTATION_COLORS.find(c => c.name === ann.color)?.bg} ${ANNOTATION_COLORS.find(c => c.name === ann.color)?.text}`}>Цитата</span>
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(ann.id); }} className="p-2 text-stone-300 hover:text-red-500 opacity-0 group-hover/ann:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10"><Trash2 size={14}/></button>
                 </div>
-                <p className="text-xs opacity-50 italic mb-4 line-clamp-3 leading-relaxed">«{ann.quote}»</p>
-                <div className="flex justify-between items-end">
-                  <p className="text-sm font-medium flex-1">{ann.comment}</p>
+                <p className="text-xs opacity-40 italic mb-4 line-clamp-3 leading-relaxed font-serif">«{ann.quote}»</p>
+                <div className="flex justify-between items-end gap-3">
+                  <p className="text-sm font-bold flex-1 leading-snug">{ann.comment}</p>
+                  <Target size={16} className="opacity-0 group-hover/ann:opacity-60 text-amber-500 shrink-0" />
                 </div>
               </div>
             ))}
+            {(!book.annotations || book.annotations.length === 0) && (
+              <div className="text-center py-32 opacity-20 flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-full border-2 border-dashed border-stone-400 flex items-center justify-center">
+                  <BookMarked size={32} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Нет заметок</p>
+              </div>
+            )}
           </div>
         </aside>
       </div>
 
+      {/* Tooltip Action */}
       {selection && (
-        <div className="fixed z-[200] animate-scale-in" style={{ top: selection.top - 60, left: selection.left, transform: 'translateX(-50%)' }}>
-          <button onClick={() => setIsAddingNote(true)} className="bg-stone-900 dark:bg-white text-white dark:text-stone-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:scale-110 transition-all ring-4 ring-white/10"><MessageSquarePlus size={16}/> Заметка</button>
+        <div className="fixed z-[250] animate-scale-in" style={{ top: selection.top - 60, left: selection.left, transform: 'translateX(-50%)' }}>
+          <button 
+            onClick={() => setIsAddingNote(true)} 
+            className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-6 py-3.5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center gap-3 font-black text-[10px] uppercase tracking-widest hover:scale-110 active:scale-95 transition-all ring-4 ring-white/10"
+          >
+            <MessageSquarePlus size={18}/> Создать заметку
+          </button>
         </div>
       )}
 
+      {/* Note Creation Modal */}
       {isAddingNote && (
-        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 animate-fade-in" onClick={() => setIsAddingNote(false)}>
-          <div className="bg-white dark:bg-stone-900 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] w-full max-w-lg shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
-            <h3 className="font-serif font-black text-2xl md:text-3xl mb-6 md:mb-8">Новая заметка</h3>
-            <div className="bg-stone-50 dark:bg-stone-800 p-4 md:p-6 rounded-3xl border border-stone-100 dark:border-stone-700 mb-6 md:mb-8"><p className="text-stone-400 italic text-xs md:text-sm line-clamp-3">«{selection?.text}»</p></div>
-            <div className="flex gap-2 mb-6 md:mb-8 overflow-x-auto pb-2">
-              {ANNOTATION_COLORS.map(c => (<button key={c.name} onClick={() => setSelectedColor(c)} className={`w-8 h-8 md:w-10 md:h-10 rounded-full shrink-0 transition-transform ${selectedColor.name === c.name ? 'ring-4 ring-amber-500/30' : ''}`} style={{ background: c.hex }} />))}
+        <div className="fixed inset-0 z-[400] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 md:p-6 animate-fade-in" onClick={() => setIsAddingNote(false)}>
+          <div className="bg-white dark:bg-stone-900 p-8 md:p-12 rounded-[3rem] w-full max-w-lg shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="font-serif font-black text-3xl text-stone-900 dark:text-white leading-none">Новая заметка</h3>
+              <button onClick={() => setIsAddingNote(false)} className="text-stone-300 hover:text-stone-600 dark:hover:text-stone-100"><X size={24}/></button>
             </div>
-            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Ваши мысли..." className="w-full h-32 md:h-40 bg-stone-50 dark:bg-stone-800 border-none rounded-3xl p-4 md:p-6 outline-none focus:ring-4 ring-amber-500/10 mb-6 md:mb-8 resize-none text-sm md:text-base" autoFocus />
-            <div className="flex gap-3 md:gap-4">
-              <button onClick={() => setIsAddingNote(false)} className="flex-1 py-3 md:py-4 font-bold text-stone-400 text-xs md:text-sm uppercase tracking-widest">Отмена</button>
-              <button onClick={saveNote} disabled={!noteText.trim()} className="flex-1 py-3 md:py-4 bg-stone-900 dark:bg-white text-white dark:text-stone-900 rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl disabled:opacity-30">Сохранить</button>
+            
+            <div className="bg-stone-50 dark:bg-stone-800/50 p-6 rounded-3xl border border-stone-100 dark:border-stone-800 mb-8 max-h-32 overflow-y-auto">
+              <p className="text-stone-400 italic text-sm font-serif leading-relaxed">«{selection?.text}»</p>
+            </div>
+
+            <div className="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
+              {ANNOTATION_COLORS.map(c => (
+                <button 
+                  key={c.name} 
+                  onClick={() => setSelectedColor(c)} 
+                  className={`w-10 h-10 rounded-full shrink-0 transition-all border-4 ${selectedColor.name === c.name ? 'border-amber-500 scale-110 shadow-lg shadow-amber-500/20' : 'border-transparent opacity-60 hover:opacity-100'}`} 
+                  style={{ background: c.hex }} 
+                />
+              ))}
+            </div>
+
+            <textarea 
+              value={noteText} 
+              onChange={e => setNoteText(e.target.value)} 
+              placeholder="О чем вы думаете?..." 
+              className="w-full h-40 bg-stone-50 dark:bg-stone-800 border-none rounded-3xl p-6 outline-none focus:ring-4 ring-amber-500/10 mb-8 resize-none text-base text-stone-700 dark:text-stone-200 shadow-inner" 
+              autoFocus 
+            />
+
+            <div className="flex gap-4">
+              <button onClick={() => setIsAddingNote(false)} className="flex-1 py-4 font-bold text-stone-400 text-xs uppercase tracking-widest hover:text-stone-600 dark:hover:text-stone-200 transition-colors">Отмена</button>
+              <button 
+                onClick={saveNote} 
+                disabled={!noteText.trim()} 
+                className="flex-2 py-4 px-8 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-30 hover:scale-105 active:scale-95 transition-all"
+              >
+                Сохранить мысль
+              </button>
             </div>
           </div>
         </div>
@@ -414,5 +476,3 @@ export const Reader: React.FC<ReaderProps> = ({ book, user, onClose, onUpdateBoo
     </div>
   );
 };
-
-const X = ({size}: {size: number}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
