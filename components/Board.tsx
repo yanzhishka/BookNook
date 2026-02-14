@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thread, ThreadReply, User } from '../types';
 import { db, ADMIN_EMAIL } from '../services/db';
 import { Identicon } from './Identicon';
-import { MessageSquare, Image as ImageIcon, Plus, Eye, Zap, Flame, Clock, Loader2, Send, X, Camera, MessageCircle, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Eye, Flame, Clock, Loader2, Send, X, Camera, MessageCircle, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface BoardProps {
