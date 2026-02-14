@@ -150,8 +150,8 @@ const App: React.FC = () => {
                 {(() => {
                   switch (activeTab) {
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
-                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} />;
-                    case 'library': return <Library books={books} setBooks={setBooks} user={user} />;
+                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} />;
+                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} />;
                     case 'oracle': return <Oracle books={books} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;

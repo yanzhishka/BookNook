@@ -420,4 +420,62 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
           </div>
         </aside>
       </div>
-      {/* ... rest of the code remains the same ... */}
+
+      {selection && (
+        <div className="fixed z-[250] animate-scale-in" style={{ top: selection.top - 60, left: selection.left, transform: 'translateX(-50%)' }}>
+          <button 
+            onClick={() => setIsAddingNote(true)} 
+            className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-6 py-3.5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center gap-3 font-black text-[10px] uppercase tracking-widest hover:scale-110 active:scale-95 transition-all ring-4 ring-white/10"
+          >
+            <MessageSquarePlus size={18}/> Создать заметку
+          </button>
+        </div>
+      )}
+
+      {isAddingNote && (
+        <div className="fixed inset-0 z-[400] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 md:p-6 animate-fade-in" onClick={() => setIsAddingNote(false)}>
+          <div className="bg-white dark:bg-stone-900 p-8 md:p-12 rounded-[3rem] w-full max-w-lg shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="font-serif font-black text-3xl text-stone-900 dark:text-white leading-none">Новая заметка</h3>
+              <button onClick={() => setIsAddingNote(false)} className="text-stone-300 hover:text-stone-600 dark:hover:text-stone-100"><X size={24}/></button>
+            </div>
+            
+            <div className="bg-stone-50 dark:bg-stone-800/50 p-6 rounded-3xl border border-stone-100 dark:border-stone-800 mb-8 max-h-32 overflow-y-auto">
+              <p className="text-stone-400 italic text-sm font-serif leading-relaxed">«{selection?.text}»</p>
+            </div>
+
+            <div className="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar">
+              {ANNOTATION_COLORS.map(c => (
+                <button 
+                  key={c.name} 
+                  onClick={() => setSelectedColor(c)} 
+                  className={`w-10 h-10 rounded-full shrink-0 transition-all border-4 ${selectedColor.name === c.name ? 'border-amber-500 scale-110 shadow-lg shadow-amber-500/20' : 'border-transparent opacity-60 hover:opacity-100'}`} 
+                  style={{ background: c.hex }} 
+                />
+              ))}
+            </div>
+
+            <textarea 
+              value={noteText} 
+              onChange={e => setNoteText(e.target.value)} 
+              placeholder="О чем вы думаете?..." 
+              className="w-full h-40 bg-stone-50 dark:bg-stone-800 border-none rounded-3xl p-6 outline-none focus:ring-4 ring-amber-500/10 mb-8 resize-none text-base text-stone-700 dark:text-stone-200 shadow-inner" 
+              autoFocus 
+            />
+
+            <div className="flex gap-4">
+              <button onClick={() => setIsAddingNote(false)} className="flex-1 py-4 font-bold text-stone-400 text-xs uppercase tracking-widest hover:text-stone-600 dark:hover:text-stone-200 transition-colors">Отмена</button>
+              <button 
+                onClick={saveNote} 
+                disabled={!noteText.trim()} 
+                className="flex-2 py-4 px-8 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-30 hover:scale-105 active:scale-95 transition-all"
+              >
+                Сохранить мысль
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

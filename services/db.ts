@@ -94,6 +94,30 @@ export const db = {
     };
   },
 
+  /* XP System Logic */
+  async addXp(userId: string, amount: number) {
+    try {
+      const { data: profile } = await supabase.from('profiles').select('xp, level').eq('id', userId).single();
+      if (!profile) return;
+
+      let currentXp = profile.xp || 0;
+      let currentLevel = profile.level || 1;
+      
+      let newXp = currentXp + amount;
+      const threshold = 1000; // XP needed per level
+
+      // Simple leveling logic: resets XP bar on level up
+      if (newXp >= threshold) {
+        currentLevel += Math.floor(newXp / threshold);
+        newXp = newXp % threshold;
+      }
+
+      await supabase.from('profiles').update({ xp: newXp, level: currentLevel }).eq('id', userId);
+    } catch (e) {
+      console.error("Failed to add XP", e);
+    }
+  },
+
   async login(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -136,6 +160,10 @@ export const db = {
       user_id: activity.user.id, book_id: activity.book?.id, type: activity.type, content: activity.content, liked_by: [], comments: []
     } ]).select().single();
     if (error) throw error;
+    
+    // Award XP for creating a post
+    await this.addXp(activity.user.id, 20);
+
     return { ...activity, id: data.id, timestamp: new Date(data.created_at).toLocaleDateString() };
   },
 
@@ -158,6 +186,9 @@ export const db = {
     const { data } = await supabase.from('activities').select('comments').eq('id', activityId).maybeSingle();
     if (!data) return;
     await supabase.from('activities').update({ comments: [...(data.comments || []), comment] }).eq('id', activityId);
+    
+    // Award XP for commenting
+    await this.addXp(comment.userId, 5);
   },
 
   async deleteComment(activityId: string, commentId: string) {
@@ -191,6 +222,9 @@ export const db = {
     const { data, error } = await supabase.from('books').insert([payload]).select().single();
     if (error) throw error;
     
+    // Award XP for adding a book
+    await this.addXp(userId, 10);
+
     let annotations = book.annotations || [];
     if (annotations.length > 0) {
       annotations = await this.syncAnnotations(data.id, userId, book.title, annotations);
@@ -253,6 +287,15 @@ export const db = {
     
     const { data: bookData, error } = await supabase.from('books').update(payload).eq('id', book.id).select().single();
     if (error) throw error;
+
+    // Award XP if completing a book
+    if (book.status === 'completed') {
+        // We could optimize to check if it wasn't completed before, but simply awarding for now is okay
+        await this.addXp(userId, 100);
+    } else if (book.status === 'reading') {
+        // Small reward for reading activity/updating progress
+        // await this.addXp(userId, 1); 
+    }
 
     let annotations = book.annotations || [];
     if (annotations.length > 0) {

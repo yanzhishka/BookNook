@@ -10,6 +10,7 @@ interface LibraryProps {
   books: Book[];
   setBooks: React.Dispatch<React.SetStateAction<Book[]>>;
   user: User;
+  onUpdateUser?: (user: User) => void;
 }
 
 interface GoogleBookItem {
@@ -26,7 +27,7 @@ interface GoogleBookItem {
   };
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
+export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdateUser }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -56,11 +57,27 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     return books.filter(b => statusFilter === 'all' || b.status === statusFilter);
   }, [books, statusFilter]);
 
+  // Helper to award XP locally
+  const awardXp = (amount: number, isBookCompletion: boolean = false) => {
+      if (!onUpdateUser) return;
+      let newXp = (user.xp || 0) + amount;
+      let newLevel = user.level || 1;
+      if (newXp >= 1000) {
+          newLevel += Math.floor(newXp / 1000);
+          newXp = newXp % 1000;
+      }
+      onUpdateUser({ 
+          ...user, 
+          xp: newXp, 
+          level: newLevel,
+          booksReadThisYear: isBookCompletion ? (user.booksReadThisYear || 0) + 1 : user.booksReadThisYear
+      });
+  };
+
   // --- File Parsing Logic ---
 
   const parsePdf = async (file: File): Promise<string> => {
     setUploadProgress('Загрузка движка PDF...');
-    // Динамический импорт pdfjs-dist через CDN
     const pdfjsLib = await import('https://esm.sh/pdfjs-dist@3.11.174');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
@@ -82,22 +99,15 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
 
   const parseEpub = async (file: File): Promise<string> => {
     setUploadProgress('Распаковка EPUB...');
-    // Динамический импорт JSZip
     const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
     const zip = await JSZip.loadAsync(file);
     
     let text = '';
-    
-    // Попытка найти основные файлы контента.
-    // Упрощенный подход: ищем все .html или .xhtml файлы и извлекаем текст.
-    // Для более точного порядка нужно парсить content.opf, но это сложно для embedded решения.
     const contentFiles = Object.keys(zip.files).filter(filename => 
         filename.endsWith('.html') || filename.endsWith('.xhtml') || filename.endsWith('.htm')
     );
 
-    // Сортируем файлы, чтобы главы шли по порядку (часто файлы именуются part001, part002...)
     contentFiles.sort();
-
     const parser = new DOMParser();
 
     for (let i = 0; i < contentFiles.length; i++) {
@@ -105,7 +115,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
         const filename = contentFiles[i];
         const fileData = await zip.files[filename].async('string');
         const doc = parser.parseFromString(fileData, 'text/html');
-        // Извлекаем только текст из body, игнорируя скрипты и стили
         const bodyText = doc.body.innerText || doc.body.textContent || '';
         text += bodyText + '\n\n';
     }
@@ -113,7 +122,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     if (!text.trim()) {
         throw new Error("Не удалось извлечь текст из EPUB. Возможно, файл защищен (DRM) или имеет нестандартную структуру.");
     }
-
     return text;
   };
 
@@ -141,7 +149,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             throw new Error("Текст не найден или файл пуст (возможно, это скан-изображение в PDF).");
         }
 
-        // Автозаполнение названия из имени файла, если поле пустое
         const fileNameTitle = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
         
         setNewBook(prev => ({
@@ -243,6 +250,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
   };
 
   const handleStatusChange = async (book: Book, newStatus: Book['status']) => {
+    const wasCompleted = book.status !== 'completed' && newStatus === 'completed';
     const updatedBook: Book = { 
       ...book, 
       status: newStatus,
@@ -250,6 +258,10 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
     };
     setBooks(prev => prev.map(b => b.id === book.id ? updatedBook : b));
     await db.updateBook(updatedBook, user.id);
+    
+    if (wasCompleted) {
+        awardXp(100, true);
+    }
   };
 
   const handleAddBook = async (e?: React.FormEvent) => {
@@ -276,6 +288,9 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
       setSearchResults([]);
       setSearchQuery('');
       setAddMode('search');
+      
+      // Award XP for adding book
+      awardXp(10);
     } catch (error) {
       console.error("Save error:", error);
     } finally {
@@ -290,9 +305,14 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user }) => {
             user={user}
             onClose={() => setIsReading(false)} 
             onUpdateBook={(b) => {
+                const wasCompleted = selectedBook?.status !== 'completed' && b.status === 'completed';
                 setSelectedBook(b);
                 setBooks(prev => prev.map(old => old.id === b.id ? b : old));
                 db.updateBook(b, user.id);
+                
+                if (wasCompleted) {
+                    awardXp(100, true);
+                }
             }} 
         />
       );
