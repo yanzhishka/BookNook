@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Book, User } from '../types';
-import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus, X, Loader2, Image as ImageIcon, BookOpen, Search, Globe, FileText, Sparkles, Download, Upload, FileType, File as FileIcon } from 'lucide-react';
+import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus, X, Loader2, Image as ImageIcon, BookOpen, Search, Globe, FileText, Sparkles, Download, Upload } from 'lucide-react';
 import { Reader } from './Reader';
 import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -78,6 +78,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
 
   const parsePdf = async (file: File): Promise<string> => {
     setUploadProgress('Загрузка движка PDF...');
+    // @ts-ignore
     const pdfjsLib = await import('https://esm.sh/pdfjs-dist@3.11.174');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
@@ -99,6 +100,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
 
   const parseEpub = async (file: File): Promise<string> => {
     setUploadProgress('Распаковка EPUB...');
+    // @ts-ignore
     const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
     const zip = await JSZip.loadAsync(file);
     
