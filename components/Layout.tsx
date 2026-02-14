@@ -21,7 +21,7 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home, restricted: true },
-    { id: 'library', label: 'Книги', icon: BookOpen, restricted: true },
+    { id: 'library', label: 'Библиотека', icon: BookOpen, restricted: true },
     { id: 'oracle', label: 'Оракул', icon: Sparkles, restricted: true },
     { id: 'feed', label: 'Лента', icon: Users, restricted: false },
   ];

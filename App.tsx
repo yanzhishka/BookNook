@@ -23,7 +23,6 @@ const GUEST_USER: User = {
   booksReadThisYear: 0,
   joinedDate: new Date().toLocaleDateString(),
   streakDays: 0,
-  // Fix: Adding required User properties
   xp: 0,
   level: 1
 };
