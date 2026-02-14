@@ -85,7 +85,7 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
     );
 });
 
-export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, onUpdateUser, awardXp }) => {
+export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, awardXp }) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [leaderboard, setLeaderboard] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
