@@ -5,7 +5,7 @@ import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
 import { User, Book } from './types';
 import { db } from './services/db';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ZapOff, Zap } from 'lucide-react';
 import { Auth } from './components/Auth';
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
@@ -13,6 +13,7 @@ const Feed = lazy(() => import('./components/Feed').then(module => ({ default: m
 const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
 const Oracle = lazy(() => import('./components/Oracle').then(module => ({ default: module.Oracle })));
 const Profile = lazy(() => import('./components/Profile').then(module => ({ default: module.Profile })));
+const Board = lazy(() => import('./components/Board').then(module => ({ default: module.Board })));
 
 const GUEST_USER: User = {
   id: 'guest',
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
   
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem(TAB_STORAGE_KEY) || 'home';
@@ -107,7 +109,7 @@ const App: React.FC = () => {
   }, [isGuest]);
 
   const handleTabChange = useCallback((tab: string) => {
-    if (isGuest && tab !== 'feed') {
+    if (isGuest && (tab !== 'feed' && tab !== 'board')) {
       setShowLoginPrompt(true);
     } else {
       setActiveTab(tab);
@@ -120,24 +122,17 @@ const App: React.FC = () => {
     setActiveTab('profile');
   }, []);
 
-  // Global XP awarding helper
   const awardXp = useCallback(async (amount: number) => {
     if (!user || isGuest) return;
-    
-    // Update local state for immediate feedback
     let newXp = (user.xp || 0) + amount;
     let newLevel = user.level || 1;
     const threshold = 1000;
-    
     if (newXp >= threshold) {
         newLevel += Math.floor(newXp / threshold);
         newXp = newXp % threshold;
     }
-    
     const updatedUser = { ...user, xp: newXp, level: newLevel };
     setUser(updatedUser);
-    
-    // Persist to database
     try {
       await db.addXp(user.id, amount);
     } catch (e) {
@@ -159,8 +154,23 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className={theme === 'dark' ? 'dark' : ''}>
+    <div className={`${theme === 'dark' ? 'dark' : ''} ${zenMode ? 'zen-active' : ''}`}>
         <CustomCursor />
+        
+        {/* Floating Zen Toggle */}
+        <button 
+          onClick={() => setZenMode(!zenMode)}
+          className={`
+            fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-500
+            ${zenMode 
+              ? 'bg-amber-500 text-white border-amber-400 rotate-12 scale-110' 
+              : 'bg-white/80 dark:bg-stone-900/80 text-stone-400 border-stone-100 dark:border-stone-800 hover:text-stone-900 dark:hover:text-stone-100'}
+          `}
+          title={zenMode ? "Выйти из Дзен-режима" : "Активировать Дзен-режим"}
+        >
+          {zenMode ? <Zap size={20} /> : <ZapOff size={20} />}
+        </button>
+
         <Layout 
             activeTab={activeTab} 
             onTabChange={handleTabChange} 
@@ -170,12 +180,14 @@ const App: React.FC = () => {
             onLogout={handleLogout}
             isGuest={isGuest}
             onLoginClick={() => setShowLoginPrompt(true)}
+            zenMode={zenMode}
         >
             <Suspense fallback={<PageLoader />}>
                 {(() => {
                   switch (activeTab) {
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                     case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
+                    case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} />;
                     case 'oracle': return <Oracle books={books} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
@@ -185,6 +197,18 @@ const App: React.FC = () => {
             </Suspense>
         </Layout>
         <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleLogout} />
+        
+        <style>{`
+          .zen-active main {
+            background: #fcfaf7 !important;
+          }
+          .dark.zen-active main {
+            background: #0c0a09 !important;
+          }
+          .zen-active .aurora-container {
+            display: none;
+          }
+        `}</style>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Users, Sun, Moon, Home, Sparkles } from 'lucide-react';
+import { BookOpen, Users, Sun, Moon, Home, Sparkles, LayoutGrid } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
 
@@ -14,22 +14,28 @@ interface LayoutProps {
   onLogout: () => void;
   isGuest?: boolean;
   onLoginClick?: () => void;
+  zenMode?: boolean;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-    children, activeTab, onTabChange, user, currentTheme, setTheme, isGuest, onLoginClick
+    children, activeTab, onTabChange, user, currentTheme, setTheme, isGuest, onLoginClick, zenMode
 }) => {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home, restricted: true },
     { id: 'library', label: 'Библиотека', icon: BookOpen, restricted: true },
+    { id: 'board', label: 'Борда', icon: LayoutGrid, restricted: false },
     { id: 'oracle', label: 'Оракул', icon: Sparkles, restricted: true },
     { id: 'feed', label: 'Лента', icon: Users, restricted: false },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-transparent">
+    <div className={`min-h-screen flex flex-col md:flex-row bg-transparent transition-all duration-700 ${zenMode ? 'zen-layout' : ''}`}>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-80 flex-col border-r border-stone-200/50 dark:border-stone-800/50 bg-white/40 dark:bg-stone-950/40 backdrop-blur-2xl h-screen sticky top-0 z-[100]">
+      <aside className={`
+        hidden md:flex w-80 flex-col border-r border-stone-200/50 dark:border-stone-800/50 bg-white/40 dark:bg-stone-950/40 backdrop-blur-2xl h-screen sticky top-0 z-[100]
+        transition-all duration-700 ease-in-out
+        ${zenMode ? '-translate-x-full opacity-0' : 'translate-x-0 opacity-100'}
+      `}>
         <div className="p-10">
           <h1 className="text-3xl font-serif font-black tracking-tighter text-stone-900 dark:text-stone-50 cursor-pointer flex items-center gap-3 group" onClick={() => onTabChange('home')}>
             <div className="w-10 h-10 bg-stone-900 dark:bg-white rounded-2xl flex items-center justify-center text-white dark:text-stone-950 text-xl transform rotate-3 group-hover:rotate-0 transition-transform">B</div>
@@ -78,7 +84,11 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-6 pt-2 bg-gradient-to-t from-stone-50/90 dark:from-stone-950/90 via-stone-50/50 dark:via-stone-950/50 to-transparent pointer-events-none">
+      <nav className={`
+        md:hidden fixed bottom-0 left-0 right-0 z-[200] px-4 pb-6 pt-2 bg-gradient-to-t from-stone-50/90 dark:from-stone-950/90 via-stone-50/50 dark:via-stone-950/50 to-transparent pointer-events-none
+        transition-all duration-700 ease-in-out
+        ${zenMode ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'}
+      `}>
         <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border border-stone-200 dark:border-stone-800 rounded-[2.5rem] p-2 flex justify-around items-center shadow-2xl pointer-events-auto">
           {navItems.map(item => {
             const Icon = item.icon;
@@ -103,8 +113,12 @@ export const Layout: React.FC<LayoutProps> = ({
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-12 pb-32 md:pb-12 relative">
-        <div key={activeTab} className="animate-reveal min-h-full">{children}</div>
+      <main className={`
+        flex-1 overflow-y-auto custom-scrollbar p-4 md:p-12 pb-32 md:pb-12 relative
+        transition-all duration-700
+        ${zenMode ? 'md:ml-0 md:p-20 lg:p-32' : ''}
+      `}>
+        <div key={activeTab} className="animate-reveal min-h-full max-w-[1600px] mx-auto">{children}</div>
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { User, Book, Quote, Activity, Comment, Annotation, Chat, Message } from '../types';
+import { User, Book, Quote, Activity, Comment, Annotation, Chat, Message, Thread, ThreadReply } from '../types';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
 
@@ -94,22 +94,118 @@ export const db = {
     };
   },
 
+  /* Board (The Grid) Methods */
+  async getThreads(): Promise<Thread[]> {
+    const { data, error } = await supabase
+      .from('threads')
+      .select('*, thread_replies(count)')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    return (data || []).map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      authorId: t.author_id,
+      authorName: t.author_name,
+      content: t.content,
+      imageUrl: t.image_url,
+      repliesCount: t.thread_replies?.[0]?.count || 0,
+      timestamp: new Date(t.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })
+    }));
+  },
+
+  async createThread(title: string, content: string, imageUrl: string | null, userId: string, userName: string): Promise<Thread> {
+    const { data, error } = await supabase
+      .from('threads')
+      .insert([{
+        title,
+        content,
+        image_url: imageUrl,
+        author_id: userId,
+        author_name: userName
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      title: data.title,
+      authorId: data.author_id,
+      authorName: data.author_name,
+      content: data.content,
+      imageUrl: data.image_url,
+      repliesCount: 0,
+      timestamp: 'Только что'
+    };
+  },
+
+  async deleteThread(threadId: string) {
+    const { error } = await supabase.from('threads').delete().eq('id', threadId);
+    if (error) throw error;
+  },
+
+  async getThreadReplies(threadId: string): Promise<ThreadReply[]> {
+    const { data, error } = await supabase
+      .from('thread_replies')
+      .select('*')
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      threadId: r.thread_id,
+      authorId: r.author_id,
+      authorName: r.author_name,
+      content: r.content,
+      imageUrl: r.image_url,
+      timestamp: new Date(r.created_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    }));
+  },
+
+  async postReply(threadId: string, content: string, imageUrl: string | null, userId: string, userName: string): Promise<ThreadReply> {
+    const { data, error } = await supabase
+      .from('thread_replies')
+      .insert([{
+        thread_id: threadId,
+        content,
+        image_url: imageUrl,
+        author_id: userId,
+        author_name: userName
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      threadId: data.thread_id,
+      authorId: data.author_id,
+      authorName: data.author_name,
+      content: data.content,
+      imageUrl: data.image_url,
+      timestamp: 'Только что'
+    };
+  },
+
+  async deleteThreadReply(replyId: string) {
+    const { error } = await supabase.from('thread_replies').delete().eq('id', replyId);
+    if (error) throw error;
+  },
+
   /* XP System Logic */
   async addXp(userId: string, amount: number) {
     try {
-      // Refresh current XP from server to avoid race conditions
       const { data: profile, error: fetchError } = await supabase.from('profiles').select('xp, level').eq('id', userId).single();
-      
-      if (fetchError) {
-        console.warn("Could not fetch profile for XP update (table schema might be missing columns?):", fetchError);
-        return;
-      }
-
-      if (!profile) return;
+      if (fetchError || !profile) return;
 
       let currentXp = profile.xp || 0;
       let currentLevel = profile.level || 1;
-      
       let newXp = currentXp + amount;
       const threshold = 1000;
 
@@ -118,15 +214,9 @@ export const db = {
         newXp -= threshold;
       }
 
-      console.log(`Updating DB XP: ${currentXp} + ${amount} -> ${newXp} (Lvl ${currentLevel})`);
-      
-      const { error: updateError } = await supabase.from('profiles').update({ xp: newXp, level: currentLevel }).eq('id', userId);
-      
-      if (updateError) {
-        console.error("Supabase XP update failed. Is table schema correct?", updateError);
-      }
+      await supabase.from('profiles').update({ xp: newXp, level: currentLevel }).eq('id', userId);
     } catch (e) {
-      console.error("Critical error in addXp logic:", e);
+      console.error("XP update error:", e);
     }
   },
 
@@ -307,8 +397,7 @@ export const db = {
   },
 
   async updateUserProfile(user: User) {
-    // Note: XP and Level are handled by global awardXp and addXp logic.
-    // We only update bio/profile fields here.
+    // Correcting banner_url access to bannerUrl to match User interface
     const { error } = await supabase.from('profiles').update({ 
       name: user.name, 
       bio: user.bio, 
@@ -317,10 +406,7 @@ export const db = {
       banner_url: user.bannerUrl
     }).eq('id', user.id);
 
-    if (error) {
-      console.error("Supabase profile update error:", error);
-      throw error;
-    }
+    if (error) throw error;
   },
 
   /* Chats Logic */

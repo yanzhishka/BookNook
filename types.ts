@@ -17,9 +17,6 @@ export interface Quote {
   timestamp: number;
 }
 
-/**
- * Interface for activity comments
- */
 export interface Comment {
   id: string;
   userId: string;
@@ -64,9 +61,29 @@ export interface User {
   level: number;
 }
 
-/**
- * AI-generated reader personality
- */
+export interface Thread {
+  id: string;
+  title: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  imageUrl?: string;
+  repliesCount: number;
+  timestamp: string;
+  isPinned?: boolean;
+  replies?: ThreadReply[];
+}
+
+export interface ThreadReply {
+  id: string;
+  threadId: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  imageUrl?: string;
+  timestamp: string;
+}
+
 export interface UserArchetype {
   title: string;
   description: string;
@@ -102,15 +119,9 @@ export interface Message {
   isRead: boolean;
 }
 
-/**
- * Image generation configuration types
- */
 export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
 
-/**
- * User-created book collections
- */
 export interface Collection {
   id: string;
   name: string;
@@ -118,9 +129,6 @@ export interface Collection {
   bookIds: string[];
 }
 
-/**
- * Mood category for book recommendations
- */
 export interface MoodCategory {
   id: string;
   label: string;
