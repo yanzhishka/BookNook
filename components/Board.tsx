@@ -144,9 +144,9 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
         await db.deleteThreadReply(deleteTarget.id);
         setThreadReplies(prev => ({
           ...prev,
-          [deleteTarget.parentId!]: prev[deleteTarget.parentId!].filter(r => r.id !== deleteTarget.id)
+          [deleteTarget.parentId!]: (prev[deleteTarget.parentId!] || []).filter(r => r.id !== deleteTarget.id)
         }));
-        setThreads(prev => prev.map(t => t.id === deleteTarget.parentId ? { ...t, repliesCount: t.repliesCount - 1 } : t));
+        setThreads(prev => prev.map(t => t.id === deleteTarget.parentId ? { ...t, repliesCount: Math.max(0, t.repliesCount - 1) } : t));
       }
     } catch (e) {
       console.error("Failed to delete", e);
@@ -394,7 +394,7 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
                                     {canDeleteReply && (
                                        <button 
                                          onClick={() => setDeleteTarget({ type: 'reply', id: reply.id, parentId: activeThreadId })}
-                                         className="p-1.5 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover/reply:opacity-100"
+                                         className="p-1.5 text-stone-300 hover:text-red-500 transition-colors md:opacity-0 group-hover/reply:opacity-100"
                                        >
                                          <Trash2 size={12} />
                                        </button>

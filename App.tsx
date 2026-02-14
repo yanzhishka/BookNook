@@ -157,19 +157,21 @@ const App: React.FC = () => {
     <div className={`${theme === 'dark' ? 'dark' : ''} ${zenMode ? 'zen-active' : ''}`}>
         <CustomCursor />
         
-        {/* Floating Zen Toggle */}
-        <button 
-          onClick={() => setZenMode(!zenMode)}
-          className={`
-            fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-500
-            ${zenMode 
-              ? 'bg-amber-500 text-white border-amber-400 rotate-12 scale-110' 
-              : 'bg-white/80 dark:bg-stone-900/80 text-stone-400 border-stone-100 dark:border-stone-800 hover:text-stone-900 dark:hover:text-stone-100'}
-          `}
-          title={zenMode ? "Выйти из Дзен-режима" : "Активировать Дзен-режим"}
-        >
-          {zenMode ? <Zap size={20} /> : <ZapOff size={20} />}
-        </button>
+        {/* Floating Zen Toggle - Displayed only on 'Board' (The Grid) */}
+        {activeTab === 'board' && (
+          <button 
+            onClick={() => setZenMode(!zenMode)}
+            className={`
+              fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-500
+              ${zenMode 
+                ? 'bg-amber-500 text-white border-amber-400 rotate-12 scale-110' 
+                : 'bg-white/80 dark:bg-stone-900/80 text-stone-400 border-stone-100 dark:border-stone-800 hover:text-stone-900 dark:hover:text-stone-100'}
+            `}
+            title={zenMode ? "Выйти из Дзен-режима" : "Активировать Дзен-режим"}
+          >
+            {zenMode ? <Zap size={20} /> : <ZapOff size={20} />}
+          </button>
+        )}
 
         <Layout 
             activeTab={activeTab} 
