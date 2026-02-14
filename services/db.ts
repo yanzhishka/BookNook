@@ -97,24 +97,36 @@ export const db = {
   /* XP System Logic */
   async addXp(userId: string, amount: number) {
     try {
-      const { data: profile } = await supabase.from('profiles').select('xp, level').eq('id', userId).single();
+      // Refresh current XP from server to avoid race conditions
+      const { data: profile, error: fetchError } = await supabase.from('profiles').select('xp, level').eq('id', userId).single();
+      
+      if (fetchError) {
+        console.warn("Could not fetch profile for XP update (table schema might be missing columns?):", fetchError);
+        return;
+      }
+
       if (!profile) return;
 
       let currentXp = profile.xp || 0;
       let currentLevel = profile.level || 1;
       
       let newXp = currentXp + amount;
-      const threshold = 1000; // XP needed per level
+      const threshold = 1000;
 
-      // Simple leveling logic: resets XP bar on level up
-      if (newXp >= threshold) {
-        currentLevel += Math.floor(newXp / threshold);
-        newXp = newXp % threshold;
+      while (newXp >= threshold) {
+        currentLevel += 1;
+        newXp -= threshold;
       }
 
-      await supabase.from('profiles').update({ xp: newXp, level: currentLevel }).eq('id', userId);
+      console.log(`Updating DB XP: ${currentXp} + ${amount} -> ${newXp} (Lvl ${currentLevel})`);
+      
+      const { error: updateError } = await supabase.from('profiles').update({ xp: newXp, level: currentLevel }).eq('id', userId);
+      
+      if (updateError) {
+        console.error("Supabase XP update failed. Is table schema correct?", updateError);
+      }
     } catch (e) {
-      console.error("Failed to add XP", e);
+      console.error("Critical error in addXp logic:", e);
     }
   },
 
@@ -132,7 +144,9 @@ export const db = {
       email, 
       name, 
       handle: email.split('@')[0], 
-      avatar: `https://ui-avatars.com/api/?name=${name}` 
+      avatar: `https://ui-avatars.com/api/?name=${name}`,
+      xp: 0,
+      level: 1
     };
     await supabase.from('profiles').upsert([profile]);
     return mapProfileToUser(profile);
@@ -160,10 +174,6 @@ export const db = {
       user_id: activity.user.id, book_id: activity.book?.id, type: activity.type, content: activity.content, liked_by: [], comments: []
     } ]).select().single();
     if (error) throw error;
-    
-    // Award XP for creating a post
-    await this.addXp(activity.user.id, 20);
-
     return { ...activity, id: data.id, timestamp: new Date(data.created_at).toLocaleDateString() };
   },
 
@@ -186,9 +196,6 @@ export const db = {
     const { data } = await supabase.from('activities').select('comments').eq('id', activityId).maybeSingle();
     if (!data) return;
     await supabase.from('activities').update({ comments: [...(data.comments || []), comment] }).eq('id', activityId);
-    
-    // Award XP for commenting
-    await this.addXp(comment.userId, 5);
   },
 
   async deleteComment(activityId: string, commentId: string) {
@@ -222,9 +229,6 @@ export const db = {
     const { data, error } = await supabase.from('books').insert([payload]).select().single();
     if (error) throw error;
     
-    // Award XP for adding a book
-    await this.addXp(userId, 10);
-
     let annotations = book.annotations || [];
     if (annotations.length > 0) {
       annotations = await this.syncAnnotations(data.id, userId, book.title, annotations);
@@ -288,15 +292,6 @@ export const db = {
     const { data: bookData, error } = await supabase.from('books').update(payload).eq('id', book.id).select().single();
     if (error) throw error;
 
-    // Award XP if completing a book
-    if (book.status === 'completed') {
-        // We could optimize to check if it wasn't completed before, but simply awarding for now is okay
-        await this.addXp(userId, 100);
-    } else if (book.status === 'reading') {
-        // Small reward for reading activity/updating progress
-        // await this.addXp(userId, 1); 
-    }
-
     let annotations = book.annotations || [];
     if (annotations.length > 0) {
       annotations = await this.syncAnnotations(book.id, userId, book.title, annotations);
@@ -312,13 +307,18 @@ export const db = {
   },
 
   async updateUserProfile(user: User) {
+    // Note: XP and Level are handled by global awardXp and addXp logic.
+    // We only update bio/profile fields here.
     const { error } = await supabase.from('profiles').update({ 
-      name: user.name, bio: user.bio, location: user.location, avatar: user.avatar, 
+      name: user.name, 
+      bio: user.bio, 
+      location: user.location, 
+      avatar: user.avatar, 
       banner_url: user.bannerUrl
     }).eq('id', user.id);
 
     if (error) {
-      console.error("Supabase update error:", error);
+      console.error("Supabase profile update error:", error);
       throw error;
     }
   },

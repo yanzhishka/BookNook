@@ -12,6 +12,7 @@ interface FeedProps {
     onPostCreated?: () => void;
     onViewProfile?: (userId: string) => void;
     onUpdateUser?: (user: User) => void;
+    awardXp?: (amount: number) => void;
 }
 
 const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget, onViewProfile }: any) => {
@@ -84,7 +85,7 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
     );
 });
 
-export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, onUpdateUser }) => {
+export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, onUpdateUser, awardXp }) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [leaderboard, setLeaderboard] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,16 +130,8 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
           setNewPostContent('');
           setSelectedBookId('');
           
-          // Client-side XP update for Post (+20 XP)
-          if (onUpdateUser) {
-              let newXp = (user.xp || 0) + 20;
-              let newLevel = user.level || 1;
-              if (newXp >= 1000) {
-                  newLevel += Math.floor(newXp / 1000);
-                  newXp = newXp % 1000;
-              }
-              onUpdateUser({ ...user, xp: newXp, level: newLevel });
-          }
+          // Global XP awarding
+          awardXp?.(20);
 
           if (onPostCreated) onPostCreated();
       } catch (e) {
@@ -168,16 +161,8 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
           setActivities(prev => prev.map(act => { if (act.id === activityId) return { ...act, comments: [...(act.comments || []), newComment] }; return act; }));
           setCommentText('');
 
-          // Client-side XP update for Comment (+5 XP)
-          if (onUpdateUser) {
-              let newXp = (user.xp || 0) + 5;
-              let newLevel = user.level || 1;
-              if (newXp >= 1000) {
-                  newLevel += Math.floor(newXp / 1000);
-                  newXp = newXp % 1000;
-              }
-              onUpdateUser({ ...user, xp: newXp, level: newLevel });
-          }
+          // Global XP awarding
+          awardXp?.(5);
 
       } finally { setSubmittingComment(null); }
   };

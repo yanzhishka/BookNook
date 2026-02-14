@@ -11,6 +11,7 @@ interface LibraryProps {
   setBooks: React.Dispatch<React.SetStateAction<Book[]>>;
   user: User;
   onUpdateUser?: (user: User) => void;
+  awardXp?: (amount: number) => void;
 }
 
 interface GoogleBookItem {
@@ -27,7 +28,7 @@ interface GoogleBookItem {
   };
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdateUser }) => {
+export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdateUser, awardXp }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -56,23 +57,6 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
   const filteredBooks = useMemo(() => {
     return books.filter(b => statusFilter === 'all' || b.status === statusFilter);
   }, [books, statusFilter]);
-
-  // Helper to award XP locally
-  const awardXp = (amount: number, isBookCompletion: boolean = false) => {
-      if (!onUpdateUser) return;
-      let newXp = (user.xp || 0) + amount;
-      let newLevel = user.level || 1;
-      if (newXp >= 1000) {
-          newLevel += Math.floor(newXp / 1000);
-          newXp = newXp % 1000;
-      }
-      onUpdateUser({ 
-          ...user, 
-          xp: newXp, 
-          level: newLevel,
-          booksReadThisYear: isBookCompletion ? (user.booksReadThisYear || 0) + 1 : user.booksReadThisYear
-      });
-  };
 
   // --- File Parsing Logic ---
 
@@ -262,7 +246,10 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
     await db.updateBook(updatedBook, user.id);
     
     if (wasCompleted) {
-        awardXp(100, true);
+        awardXp?.(100);
+        if (onUpdateUser) {
+          onUpdateUser({ ...user, booksReadThisYear: (user.booksReadThisYear || 0) + 1 });
+        }
     }
   };
 
@@ -291,8 +278,8 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
       setSearchQuery('');
       setAddMode('search');
       
-      // Award XP for adding book
-      awardXp(10);
+      // Award XP for adding book via global handler
+      awardXp?.(10);
     } catch (error) {
       console.error("Save error:", error);
     } finally {
@@ -313,7 +300,10 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
                 db.updateBook(b, user.id);
                 
                 if (wasCompleted) {
-                    awardXp(100, true);
+                    awardXp?.(100);
+                    if (onUpdateUser) {
+                      onUpdateUser({ ...user, booksReadThisYear: (user.booksReadThisYear || 0) + 1 });
+                    }
                 }
             }} 
         />
@@ -336,7 +326,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="bg-white/40 dark:bg-stone-950/40 backdrop-blur-xl p-2 md:p-3 rounded-[2rem] border border-stone-100 dark:border-stone-800/50 flex items-center gap-4 overflow-hidden">
+        <div className="bg-white/40 dark:bg-stone-900/80 backdrop-blur-xl p-2 md:p-3 rounded-[2rem] border border-stone-100 dark:border-stone-800 flex items-center gap-4 overflow-hidden">
           <div className="flex-1 flex overflow-x-auto no-scrollbar gap-1">
             {[
               { id: 'all', label: 'Все' }, 
@@ -350,8 +340,8 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
                   className={`
                     whitespace-nowrap px-6 md:px-8 py-2.5 md:py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300
                     ${statusFilter === tab.id 
-                      ? 'bg-stone-900 dark:bg-white/10 text-white dark:text-stone-100 shadow-xl' 
-                      : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-200'}
+                      ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xl' 
+                      : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'}
                   `}
                 >
                   {tab.label}
@@ -359,9 +349,9 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
             ))}
           </div>
 
-          <div className="hidden md:flex bg-stone-100 dark:bg-white/5 p-1 rounded-xl border border-stone-200/50 dark:border-white/5">
-              <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><LayoutGrid size={18} /></button>
-              <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><List size={18} /></button>
+          <div className="hidden md:flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl border border-stone-200/50 dark:border-stone-700">
+              <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><LayoutGrid size={18} /></button>
+              <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-md' : 'text-stone-400'}`}><List size={18} /></button>
           </div>
         </div>
       </div>
@@ -375,7 +365,7 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
           ) : (
             filteredBooks.map((book, idx) => (
               viewMode === 'grid' ? (
-                <div key={book.id} className={`group relative bg-white dark:bg-stone-900/60 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 overflow-hidden hover-lift transition-all animate-scale-in`} style={{ animationDelay: `${idx * 50}ms` }}>
+                <div key={book.id} className={`group relative bg-white dark:bg-stone-900 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 dark:border-stone-800 overflow-hidden hover-lift transition-all animate-scale-in`} style={{ animationDelay: `${idx * 50}ms` }}>
                     <div className="p-6 md:p-8">
                         <div className="relative mb-6 md:mb-8 aspect-[2/3] overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl transition-transform duration-700 group-hover:-rotate-2 cursor-pointer" onClick={() => { setSelectedBook(book); setIsReading(true); }}>
                             <img src={book.coverUrl} className="w-full h-full object-cover" alt="" />
@@ -386,16 +376,16 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
                         
                         <div className="space-y-4">
                             <div className="min-h-[50px] md:min-h-[60px]">
-                                <h3 className="font-serif font-black text-lg md:text-xl text-stone-900 dark:text-stone-50 leading-tight line-clamp-2">{book.title}</h3>
-                                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1">{book.author}</p>
+                                <h3 className="font-serif font-black text-lg md:text-xl text-stone-900 dark:text-stone-100 leading-tight line-clamp-2">{book.title}</h3>
+                                <p className="text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mt-1">{book.author}</p>
                             </div>
                             
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                                <div className="flex justify-between items-center text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest">
                                     <span>{book.progress}%</span>
                                     <span>{book.status === 'completed' ? 'Завершено' : book.status === 'reading' ? 'Читаю' : 'В планах'}</span>
                                 </div>
-                                <div className="h-1 w-full bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                                <div className="h-1 w-full bg-stone-100 dark:bg-stone-950 rounded-full overflow-hidden">
                                     <div className={`h-full transition-all duration-1000 ${book.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${book.progress}%` }}></div>
                                 </div>
                             </div>
@@ -414,23 +404,23 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
                     </div>
                 </div>
               ) : (
-                <div key={book.id} className="group relative bg-white/60 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 rounded-3xl p-3 md:p-4 border border-stone-100 dark:border-stone-800 flex items-center gap-4 md:gap-8 transition-all hover:shadow-xl hover:-translate-y-1 animate-fade-in-up" style={{ animationDelay: `${idx * 30}ms` }}>
+                <div key={book.id} className="group relative bg-white/60 dark:bg-stone-900 hover:bg-white dark:hover:bg-stone-800 rounded-3xl p-3 md:p-4 border border-stone-100 dark:border-stone-800 flex items-center gap-4 md:gap-8 transition-all hover:shadow-xl hover:-translate-y-1 animate-fade-in-up" style={{ animationDelay: `${idx * 30}ms` }}>
                   <div className="w-16 h-24 md:w-20 md:h-28 shrink-0 relative cursor-pointer" onClick={() => { setSelectedBook(book); setIsReading(true); }}>
                     <img src={book.coverUrl} className="w-full h-full object-cover rounded-xl shadow-lg group-hover:scale-105 transition-transform" alt="" />
                   </div>
                   
                   <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-8">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-serif font-black text-sm md:text-xl text-stone-900 dark:text-stone-50 truncate">{book.title}</h3>
-                      <p className="text-[9px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest mt-0.5">{book.author}</p>
+                      <h3 className="font-serif font-black text-sm md:text-xl text-stone-900 dark:text-stone-100 truncate">{book.title}</h3>
+                      <p className="text-[9px] md:text-[10px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest mt-0.5">{book.author}</p>
                     </div>
 
                     <div className="w-full md:w-48 lg:w-64 space-y-1.5">
-                      <div className="flex justify-between items-center text-[9px] font-black text-stone-400 uppercase tracking-widest">
+                      <div className="flex justify-between items-center text-[9px] font-black text-stone-400 dark:text-stone-500 uppercase tracking-widest">
                         <span>{book.progress}%</span>
                         <span className={book.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}>{book.status === 'completed' ? 'Завершено' : 'Читаю'}</span>
                       </div>
-                      <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-950 rounded-full overflow-hidden">
                         <div className={`h-full transition-all duration-1000 ${book.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${book.progress}%` }}></div>
                       </div>
                     </div>

@@ -4,7 +4,7 @@ import { Book, Annotation } from '../types';
 import { 
   ChevronLeft, ChevronRight, MessageSquarePlus, Maximize2, Timer, 
   Trash2, Target, Minus, Info,
-  Plus as PlusIcon, Type, BookMarked, X 
+  Plus as PlusIcon, Type, BookMarked, X, Share, Check, Loader2 
 } from 'lucide-react';
 import { db } from '../services/db';
 
@@ -48,7 +48,7 @@ interface ReaderProps {
   onUpdateBook: (book: Book) => void;
 }
 
-export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) => {
+export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, user }) => {
   const [currentPage, setCurrentPage] = useState(book.currentPage || 1);
   const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -80,6 +80,10 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
   const volume = 0.3;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [focusTime, setFocusTime] = useState(0);
+
+  // Sharing state
+  const [sharingId, setSharingId] = useState<string | null>(null);
+  const [sharedIds, setSharedIds] = useState<string[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -179,6 +183,24 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
       await db.deleteAnnotation(annId);
     } catch (e) {
       console.error("Failed to delete annotation from DB:", e);
+    }
+  };
+
+  const handleShareNote = async (e: React.MouseEvent, ann: Annotation) => {
+    e.stopPropagation();
+    if (sharingId) return;
+
+    setSharingId(ann.id);
+    try {
+      await db.shareAnnotation(user, book, ann);
+      setSharedIds(prev => [...prev, ann.id]);
+      setTimeout(() => {
+        setSharedIds(prev => prev.filter(id => id !== ann.id));
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to share annotation", error);
+    } finally {
+      setSharingId(null);
     }
   };
 
@@ -403,7 +425,17 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook }) =
               >
                 <div className="flex justify-between items-start mb-4">
                   <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${ANNOTATION_COLORS.find(c => c.name === ann.color)?.bg} ${ANNOTATION_COLORS.find(c => c.name === ann.color)?.text}`}>Цитата</span>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(ann.id); }} className="p-2 text-stone-300 hover:text-red-500 opacity-0 group-hover/ann:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10"><Trash2 size={14}/></button>
+                  <div className="flex gap-1 opacity-0 group-hover/ann:opacity-100 transition-all">
+                    <button 
+                      onClick={(e) => handleShareNote(e, ann)}
+                      disabled={!!sharingId}
+                      className="p-2 text-stone-300 hover:text-amber-500 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/10"
+                      title="Опубликовать в ленту"
+                    >
+                      {sharingId === ann.id ? <Loader2 size={14} className="animate-spin" /> : sharedIds.includes(ann.id) ? <Check size={14} /> : <Share size={14} />}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(ann.id); }} className="p-2 text-stone-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10"><Trash2 size={14}/></button>
+                  </div>
                 </div>
                 <p className="text-xs opacity-40 italic mb-4 line-clamp-3 leading-relaxed font-serif">«{ann.quote}»</p>
                 <div className="flex justify-between items-end gap-3">

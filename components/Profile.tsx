@@ -116,10 +116,14 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // First persist profile basic info
       const updatedUser = { ...profileUser, name: editName, bio: editBio, location: editLocation };
       await db.updateUserProfile(updatedUser); 
-      onUpdateUser(updatedUser); 
-      setProfileUser(updatedUser);
+      
+      // Immediately re-fetch to ensure we have correct XP/Level after save
+      const freshData = await db.loadUserData(currentUser.id);
+      onUpdateUser(freshData.user); 
+      setProfileUser(freshData.user);
       setIsEditing(false);
     } catch (e: any) {
       console.error("Failed to save profile", e);

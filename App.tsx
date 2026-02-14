@@ -120,6 +120,31 @@ const App: React.FC = () => {
     setActiveTab('profile');
   }, []);
 
+  // Global XP awarding helper
+  const awardXp = useCallback(async (amount: number) => {
+    if (!user || isGuest) return;
+    
+    // Update local state for immediate feedback
+    let newXp = (user.xp || 0) + amount;
+    let newLevel = user.level || 1;
+    const threshold = 1000;
+    
+    if (newXp >= threshold) {
+        newLevel += Math.floor(newXp / threshold);
+        newXp = newXp % threshold;
+    }
+    
+    const updatedUser = { ...user, xp: newXp, level: newLevel };
+    setUser(updatedUser);
+    
+    // Persist to database
+    try {
+      await db.addXp(user.id, amount);
+    } catch (e) {
+      console.error("Failed to persist XP update", e);
+    }
+  }, [user, isGuest]);
+
   if (isLoading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950">
       <Loader2 className="animate-spin text-stone-900 dark:text-stone-100" size={40} />
@@ -150,8 +175,8 @@ const App: React.FC = () => {
                 {(() => {
                   switch (activeTab) {
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
-                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} />;
-                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} />;
+                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
+                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} />;
                     case 'oracle': return <Oracle books={books} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
