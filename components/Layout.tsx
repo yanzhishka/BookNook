@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Users, Sun, Moon, Home, Sparkles, LayoutGrid } from 'lucide-react';
+import { BookOpen, Users, Sun, Moon, Home, Sparkles, LayoutGrid, LogOut } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
 
@@ -18,7 +18,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ 
-    children, activeTab, onTabChange, user, currentTheme, setTheme, isGuest, onLoginClick, zenMode
+    children, activeTab, onTabChange, user, currentTheme, setTheme, isGuest, onLoginClick, zenMode, onLogout
 }) => {
   const navItems = [
     { id: 'home', label: 'Главная', icon: Home, restricted: true },
@@ -72,12 +72,21 @@ export const Layout: React.FC<LayoutProps> = ({
           {isGuest ? (
             <button onClick={onLoginClick} className="w-full bg-stone-900 dark:bg-white text-white dark:text-stone-900 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl">Войти</button>
           ) : (
-            <div onClick={() => onTabChange('profile')} className={`flex items-center gap-4 cursor-pointer p-4 rounded-3xl transition-all ${activeTab === 'profile' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-xl' : 'hover:bg-stone-100 dark:hover:bg-white/5'}`}>
-              <img src={user.avatar} className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white/10" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black truncate leading-none mb-1">{user.name}</p>
-                <p className="text-[10px] opacity-40 font-bold tracking-widest uppercase">{user.level} Уровень</p>
+            <div className="flex items-center gap-2">
+              <div onClick={() => onTabChange('profile')} className={`flex-1 flex items-center gap-4 cursor-pointer p-4 rounded-3xl transition-all ${activeTab === 'profile' ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-xl' : 'hover:bg-stone-100 dark:hover:bg-white/5'}`}>
+                <img src={user.avatar} className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white/10" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black truncate leading-none mb-1">{user.name}</p>
+                  <p className="text-[10px] opacity-40 font-bold tracking-widest uppercase">{user.level} Уровень</p>
+                </div>
               </div>
+              <button 
+                onClick={onLogout}
+                className="p-4 rounded-2xl bg-stone-100 dark:bg-white/5 text-stone-400 hover:text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-900/20"
+                title="Выйти"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
           )}
         </div>
@@ -118,7 +127,7 @@ export const Layout: React.FC<LayoutProps> = ({
         transition-all duration-700
         ${zenMode ? 'md:ml-0 md:p-20 lg:p-32' : ''}
       `}>
-        <div key={activeTab} className="animate-reveal min-h-full max-w-[1600px] mx-auto">{children}</div>
+        <div key={activeTab} className="reveal min-h-full max-w-[1600px] mx-auto">{children}</div>
       </main>
     </div>
   );
