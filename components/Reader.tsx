@@ -24,10 +24,10 @@ const ANNOTATION_COLORS = [
 ];
 
 const READER_THEMES = [
-  { id: 'parchment', name: 'Бумага', bg: 'bg-[#fcfaf7]', text: 'text-stone-900', border: 'border-stone-200', dark: false, hex: '#fcfaf7' },
-  { id: 'sepia', name: 'Сепия', bg: 'bg-[#f4ecd8]', text: 'text-[#5b4636]', border: 'border-[#e4dcc8]', dark: false, hex: '#f4ecd8' },
-  { id: 'night', name: 'Ночь', bg: 'bg-[#0c0a09]', text: 'text-stone-300', border: 'border-stone-800', dark: true, hex: '#0c0a09' },
-  { id: 'solar', name: 'Солярис', bg: 'bg-[#073642]', text: 'text-[#93a1a1]', border: 'border-[#002b36]', dark: true, hex: '#073642' },
+  { id: 'parchment', name: 'Бумага', bg: 'bg-[#fcfaf7]', text: 'text-stone-900', border: 'border-transparent', dark: false, hex: '#fcfaf7' },
+  { id: 'sepia', name: 'Сепия', bg: 'bg-[#f4ecd8]', text: 'text-[#5b4636]', border: 'border-transparent', dark: false, hex: '#f4ecd8' },
+  { id: 'night', name: 'Ночь', bg: 'bg-[#0c0a09]', text: 'text-stone-300', border: 'border-transparent', dark: true, hex: '#0c0a09' },
+  { id: 'solar', name: 'Солярис', bg: 'bg-[#073642]', text: 'text-[#93a1a1]', border: 'border-transparent', dark: true, hex: '#073642' },
 ];
 
 const READER_FONTS = [
@@ -255,7 +255,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
     >
       <audio ref={audioRef} loop />
       
-      <header className={`h-20 md:h-24 px-6 md:px-16 border-b transition-all duration-1000 shrink-0 z-[100] flex items-center justify-between ${currentTheme.border} ${currentTheme.bg} ${isZenMode ? 'opacity-0 -translate-y-full hover:opacity-100 hover:translate-y-0' : 'opacity-100'}`}>
+      <header className={`h-20 md:h-24 px-6 md:px-16 transition-all duration-1000 shrink-0 z-[100] flex items-center justify-between ${currentTheme.bg} ${isZenMode ? 'opacity-0 -translate-y-full hover:opacity-100 hover:translate-y-0' : 'opacity-100'}`}>
         <div className="flex items-center gap-6">
           <button onClick={onClose} className={`p-4 rounded-full transition-all duration-500 ${currentTheme.dark ? 'hover:bg-white/10' : 'hover:bg-black/5'} hover:scale-110 active:scale-90`}><ChevronLeft size={28} /></button>
           <div className="max-w-[180px] md:max-w-xl">
@@ -355,7 +355,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
             {renderContentWithHighlights()}
           </div>
           
-          <div className={`max-w-3xl mx-auto mt-24 flex justify-between items-center border-t transition-all duration-1000 ${currentTheme.border} pt-12 pb-48`}>
+          <div className={`max-w-3xl mx-auto mt-24 flex justify-between items-center transition-all duration-1000 pt-12 pb-48`}>
             <button 
               onClick={() => handlePageChange(currentPage - 1)} 
               disabled={currentPage <= 1}
@@ -384,12 +384,11 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
         )}
 
         <aside className={`
-          fixed md:relative inset-y-0 right-0 w-full sm:w-96 md:w-[450px] ${currentTheme.bg} border-l transition-all duration-700 z-[1001] md:z-[10] flex flex-col shadow-2xl md:shadow-none
+          fixed md:relative inset-y-0 right-0 w-full sm:w-96 md:w-[450px] ${currentTheme.bg} transition-all duration-700 z-[1001] md:z-[10] flex flex-col shadow-2xl md:shadow-none
           ${showMobileAnnotations ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
           ${isZenMode ? 'md:hidden' : ''}
-          ${currentTheme.border}
         `}>
-          <div className={`p-10 border-b ${currentTheme.border} flex justify-between items-center shrink-0`}>
+          <div className={`p-10 flex justify-between items-center shrink-0`}>
             <div className="flex items-center gap-4">
               <BookMarked size={24} className="text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)]" />
               <h3 className="font-serif font-black text-2xl tracking-tight">Библиотека мыслей</h3>
@@ -403,7 +402,7 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
           </div>
           <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar pb-40">
             {/* Секция с описанием */}
-            <div className={`p-8 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 mb-6 animate-fade-in shadow-sm ${currentTheme.dark ? 'bg-white/[0.03]' : 'bg-black/[0.02]'}`}>
+            <div className={`p-8 rounded-[2.5rem] mb-6 animate-fade-in shadow-sm ${currentTheme.dark ? 'bg-white/[0.03]' : 'bg-black/[0.02]'}`}>
               <div className="flex items-center gap-3 mb-4 text-amber-500">
                 <Info size={18} />
                 <span className="text-[11px] font-black uppercase tracking-widest opacity-80">О книге</span>
@@ -423,9 +422,9 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
                 onMouseLeave={() => setHoveredAnnotationId(null)}
                 onClick={() => navigateToAnnotation(ann)}
                 className={`
-                  p-8 rounded-[3rem] border transition-all duration-500 relative group/ann cursor-pointer animate-reveal
-                  ${currentTheme.dark ? 'bg-white/[0.05] border-transparent shadow-lg' : 'bg-white border-stone-100 shadow-xl'}
-                  ${hoveredAnnotationId === ann.id ? 'border-amber-500/50 scale-[1.03] ring-8 ring-amber-500/5' : ''}
+                  p-8 rounded-[3rem] transition-all duration-500 relative group/ann cursor-pointer animate-reveal
+                  ${currentTheme.dark ? 'bg-white/[0.05] shadow-lg' : 'bg-white shadow-xl'}
+                  ${hoveredAnnotationId === ann.id ? 'scale-[1.03] ring-8 ring-amber-500/5' : ''}
                 `}
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
@@ -474,13 +473,13 @@ export const Reader: React.FC<ReaderProps> = ({ book, onClose, onUpdateBook, use
 
       {isAddingNote && (
         <div className="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 animate-fade-in" onClick={() => setIsAddingNote(false)}>
-          <div className="bg-white dark:bg-stone-900 p-10 md:p-16 rounded-[4rem] w-full max-w-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] animate-scale-in border border-stone-100 dark:border-stone-800" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-stone-900 p-10 md:p-16 rounded-[4rem] w-full max-w-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-10">
               <h3 className="font-serif font-black text-4xl text-stone-900 dark:text-white leading-none tracking-tighter">Фиксация мысли</h3>
               <button onClick={() => setIsAddingNote(false)} className="text-stone-300 hover:text-stone-900 dark:hover:text-stone-100 transition-colors hover:rotate-90 duration-500"><X size={32}/></button>
             </div>
             
-            <div className="bg-stone-50 dark:bg-stone-800/50 p-8 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 mb-10 max-h-40 overflow-y-auto shadow-inner">
+            <div className="bg-stone-50 dark:bg-stone-800/50 p-8 rounded-[2.5rem] mb-10 max-h-40 overflow-y-auto shadow-inner">
               <p className="text-stone-400 italic text-base font-serif leading-relaxed opacity-80">«{selection?.text}»</p>
             </div>
 

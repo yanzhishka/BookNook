@@ -100,7 +100,6 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
       setLoadingReplies(threadId);
       try {
         const replies = await db.getThreadReplies(threadId);
-        // Order: Newest first for UI
         setThreadReplies(prev => ({ ...prev, [threadId]: replies.reverse() }));
       } catch (e) {
         console.error(e);
@@ -119,7 +118,7 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
       const reply = await db.postReply(threadId, replyContent, replyImage, user.id, user.name);
       setThreadReplies(prev => ({
         ...prev,
-        [threadId]: [reply, ...(prev[threadId] || [])] // Add to top
+        [threadId]: [reply, ...(prev[threadId] || [])]
       }));
       setThreads(prev => prev.map(t => t.id === threadId ? { ...t, repliesCount: t.repliesCount + 1 } : t));
       setReplyContent('');
@@ -134,7 +133,6 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    
     try {
       if (deleteTarget.type === 'thread') {
         await db.deleteThread(deleteTarget.id);
@@ -195,9 +193,7 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
       ) : (
         <div className="columns-1 sm:columns-2 lg:columns-3 gap-8 space-y-8">
           {threads.map((thread) => {
-            const isImgExpanded = expandedImgId === thread.id;
             const canDelete = isAdmin || user.id === thread.authorId;
-            
             return (
               <div 
                 key={thread.id} 
@@ -239,30 +235,17 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
                         )}
                     </div>
                   </div>
-
                   <h3 className="font-serif font-black text-2xl text-stone-900 dark:text-stone-100 mb-4 leading-tight group-hover:text-amber-500 transition-colors">
                     {thread.title}
                   </h3>
-
                   {thread.imageUrl && (
-                    <div 
-                      className={`relative mb-6 rounded-2xl overflow-hidden cursor-pointer transition-all duration-700 max-h-64`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedImgId(isImgExpanded ? null : thread.id);
-                      }}
-                    >
-                      <img src={thread.imageUrl} className={`w-full object-cover transition-transform duration-700 ${isImgExpanded ? 'scale-110' : 'group-hover:scale-105'}`} alt="" />
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Eye size={32} className="text-white drop-shadow-lg" />
-                      </div>
+                    <div className={`relative mb-6 rounded-2xl overflow-hidden cursor-pointer transition-all duration-700 max-h-64`}>
+                      <img src={thread.imageUrl} className={`w-full object-cover transition-transform duration-700 group-hover:scale-105`} alt="" />
                     </div>
                   )}
-
                   <p className={`text-stone-600 dark:text-stone-300 leading-relaxed mb-8 line-clamp-4`}>
                     {thread.content}
                   </p>
-
                   <div className="flex items-center gap-6 pt-6 border-t border-stone-100 dark:border-stone-800">
                     <div className="flex items-center gap-2">
                       <div className={`p-2 rounded-xl transition-all ${thread.repliesCount > 20 ? 'bg-orange-500 text-white' : 'bg-stone-100 dark:bg-stone-800 text-stone-400'}`}>
@@ -270,94 +253,90 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
                       </div>
                       <span className="text-xs font-black uppercase tracking-widest text-stone-400">{thread.repliesCount}</span>
                     </div>
-                    
-                    <button 
-                      className="ml-auto flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
-                    >
+                    <button className="ml-auto flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors">
                       Открыть тред
                     </button>
                   </div>
                 </div>
-
-                {thread.repliesCount > 50 && (
-                   <div className="absolute inset-0 pointer-events-none border-2 border-red-500/20 rounded-[2.5rem] animate-pulse"></div>
-                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Thread Detail Modal (Replies) */}
+      {/* Thread Detail Modal (Fixed Layout & Design) */}
       {activeThreadId && activeThread && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-0 md:p-10">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" onClick={() => setActiveThreadId(null)}></div>
-          <div className="bg-white dark:bg-stone-900 w-full max-w-6xl h-full md:h-[90vh] md:rounded-[3rem] shadow-2xl relative z-10 animate-scale-in flex flex-col md:flex-row overflow-hidden border border-stone-100 dark:border-stone-800">
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 md:p-10">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-2xl animate-fade-in" onClick={() => setActiveThreadId(null)}></div>
+          <div className="bg-white dark:bg-stone-900 w-full max-w-6xl h-full md:h-[85vh] md:rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.7)] relative z-10 animate-scale-in flex flex-col md:flex-row overflow-hidden border border-white/5">
             
-            {/* Thread Sidebar/Context - FIXED on the left */}
-            <div className="w-full md:w-[40%] border-b md:border-b-0 md:border-r border-stone-100 dark:border-stone-800 overflow-y-auto custom-scrollbar bg-stone-50/30 dark:bg-black/20 p-8 md:p-12 md:h-full">
-               <div className="flex items-center gap-4 mb-8">
-                  <Identicon seed={activeThread.authorId} size={48} />
-                  <div>
-                    <h4 className="font-black uppercase tracking-widest text-xs text-stone-900 dark:text-stone-100">{activeThread.authorName}</h4>
-                    <span className="text-[10px] font-bold text-stone-400">Создано {activeThread.timestamp}</span>
+            {/* Thread Left Sidebar (Context) - Seamless fit to left edge */}
+            <div className="w-full md:w-[42%] bg-stone-50 dark:bg-black/40 overflow-y-auto custom-scrollbar flex flex-col md:h-full border-b md:border-b-0 md:border-r border-stone-100 dark:border-white/5">
+               <div className="p-8 md:p-12">
+                  <div className="flex items-center gap-4 mb-10">
+                      <Identicon seed={activeThread.authorId} size={56} className="shadow-2xl ring-4 ring-white/10" />
+                      <div>
+                        <h4 className="font-black uppercase tracking-widest text-[11px] text-stone-900 dark:text-white leading-none mb-1.5">{activeThread.authorName}</h4>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Создано {activeThread.timestamp}</span>
+                      </div>
                   </div>
-               </div>
 
-               <h2 className="text-3xl md:text-4xl font-serif font-black text-stone-900 dark:text-white mb-6 leading-tight">{activeThread.title}</h2>
-               
-               {activeThread.imageUrl && (
-                  <img src={activeThread.imageUrl} className="w-full rounded-3xl mb-8 shadow-2xl" alt="" />
-               )}
+                  <h2 className="text-4xl md:text-5xl font-serif font-black text-stone-900 dark:text-white mb-8 leading-[1.1] tracking-tighter">{activeThread.title}</h2>
+                  
+                  {activeThread.imageUrl && (
+                      <div className="mb-10 rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-white/10">
+                        <img src={activeThread.imageUrl} className="w-full object-cover" alt="" />
+                      </div>
+                  )}
 
-               <div className="text-stone-600 dark:text-stone-300 text-lg leading-relaxed whitespace-pre-wrap font-serif italic mb-12">
-                 {activeThread.content}
-               </div>
+                  <div className="text-stone-700 dark:text-stone-300 text-xl leading-relaxed whitespace-pre-wrap font-serif italic mb-12 opacity-90">
+                    {activeThread.content}
+                  </div>
 
-               <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-stone-400 mb-8 md:mb-0">
-                  <MessageCircle size={18} /> {activeThread.repliesCount} ответов
+                  <div className="inline-flex items-center gap-4 px-6 py-3 bg-white dark:bg-white/5 rounded-2xl shadow-sm border border-stone-100 dark:border-white/5 text-[11px] font-black uppercase tracking-widest text-stone-400">
+                      <MessageCircle size={18} className="text-amber-500" /> {activeThread.repliesCount} ответов
+                  </div>
                </div>
             </div>
 
-            {/* Replies Section - INDEPENDENTLY SCROLLABLE on the right */}
-            <div className="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-stone-900 relative">
-              <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center shrink-0">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Поток комментариев (сначала новые)</h3>
-                <button onClick={() => setActiveThreadId(null)} className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors">
-                  <X size={24} />
+            {/* Replies Section (Scrollable Area) */}
+            <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#0c0a09] relative">
+              <div className="px-8 py-6 border-b border-stone-100 dark:border-white/5 flex justify-between items-center shrink-0">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Поток дискуссии</h3>
+                <button onClick={() => setActiveThreadId(null)} className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-all hover:scale-110 active:scale-90">
+                  <X size={28} />
                 </button>
               </div>
 
-              {/* Reply Input - At the top of the comment section */}
-              <div className="p-6 md:p-8 border-b border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-black/10 shrink-0">
-                <div className="bg-white dark:bg-stone-900 p-4 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 shadow-sm transition-all focus-within:ring-4 focus-within:ring-amber-500/10">
+              {/* Reply Input (Integrated into the discussion flow) */}
+              <div className="p-8 border-b border-stone-100 dark:border-white/5 shrink-0 bg-stone-50/50 dark:bg-white/[0.02]">
+                <div className="bg-white dark:bg-stone-900 rounded-[2.5rem] border border-stone-100 dark:border-white/5 shadow-inner focus-within:ring-4 ring-amber-500/10 transition-all p-2">
                   <textarea 
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
-                    placeholder="Присоединиться к дискуссии..."
-                    className="w-full bg-transparent border-none outline-none text-sm font-medium min-h-[80px] text-stone-900 dark:text-stone-100 resize-none px-4 py-2"
+                    placeholder="Напишите ответ..."
+                    className="w-full bg-transparent border-none outline-none text-base font-medium min-h-[100px] text-stone-900 dark:text-stone-100 resize-none px-6 py-4"
                   />
                   {replyImage && (
-                    <div className="relative w-32 h-32 m-4 rounded-2xl overflow-hidden group shadow-lg">
+                    <div className="relative w-32 h-32 mx-6 mb-4 rounded-2xl overflow-hidden group shadow-2xl">
                       <img src={replyImage} className="w-full h-full object-cover" alt="" />
                       <button onClick={() => setReplyImage(null)} className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X size={20} className="text-white" />
+                        <X size={24} className="text-white" />
                       </button>
                     </div>
                   )}
-                  <div className="flex justify-between items-center mt-2 px-4 pb-2">
+                  <div className="flex justify-between items-center px-4 pb-4">
                     <button 
                       onClick={() => replyFileInputRef.current?.click()}
-                      className="flex items-center gap-2 p-2 text-stone-400 hover:text-amber-500 transition-colors"
+                      className="p-3 bg-stone-100 dark:bg-white/5 rounded-2xl text-stone-400 hover:text-amber-500 transition-all flex items-center gap-2"
                     >
                       <Camera size={20} />
-                      <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Прикрепить</span>
                       <input type="file" ref={replyFileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, true)} />
                     </button>
                     <button 
                       onClick={() => handlePostReply(activeThreadId)}
                       disabled={!replyContent.trim() || isReplying}
-                      className="px-8 py-3.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 shadow-xl"
+                      className="px-10 py-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.2em] flex items-center gap-4 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 shadow-2xl"
                     >
                       {isReplying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} 
                       Отправить
@@ -366,47 +345,50 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
                 </div>
               </div>
 
+              {/* Scrollable Replies Container */}
               <div 
                 ref={repliesScrollContainerRef}
-                className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 custom-scrollbar scroll-smooth"
+                className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar scroll-smooth"
               >
                 {loadingReplies === activeThreadId ? (
-                  <div className="h-full flex flex-col items-center justify-center opacity-20">
-                    <Loader2 size={32} className="animate-spin mb-4" />
-                    <p className="font-black text-[10px] uppercase tracking-widest">Читаем мысли...</p>
+                  <div className="h-full flex flex-col items-center justify-center opacity-30">
+                    <Loader2 size={40} className="animate-spin mb-4 text-amber-500" />
+                    <p className="font-black text-[10px] uppercase tracking-[0.3em]">Загрузка ответов...</p>
                   </div>
                 ) : (threadReplies[activeThreadId] || []).length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
-                    <MessageSquare size={48} className="mb-4" />
-                    <p className="font-black text-[10px] uppercase tracking-widest">Здесь пока пусто. Будь первым.</p>
+                    <MessageSquare size={64} className="mb-6" />
+                    <p className="font-black text-[10px] uppercase tracking-[0.3em]">Нет ответов. Начните беседу.</p>
                   </div>
                 ) : (
                   <>
                     {threadReplies[activeThreadId].map((reply, idx) => {
                         const canDeleteReply = isAdmin || user.id === reply.authorId;
                         return (
-                          <div key={reply.id} className="animate-reveal flex gap-4 md:gap-6 group/reply" style={{ animationDelay: `${idx * 50}ms` }}>
-                            <Identicon seed={reply.authorId} size={36} className="shrink-0" />
+                          <div key={reply.id} className="animate-reveal flex gap-6 group/reply" style={{ animationDelay: `${idx * 40}ms` }}>
+                            <Identicon seed={reply.authorId} size={40} className="shrink-0 shadow-lg" />
                             <div className="flex-1">
-                              <div className="flex justify-between items-center mb-2">
+                              <div className="flex justify-between items-center mb-2.5 px-2">
                                  <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">{reply.authorName}</span>
                                     {canDeleteReply && (
                                        <button 
                                          onClick={() => setDeleteTarget({ type: 'reply', id: reply.id, parentId: activeThreadId })}
-                                         className="p-1.5 text-stone-300 hover:text-red-500 transition-colors md:opacity-0 group-hover/reply:opacity-100"
+                                         className="p-1 text-stone-300 hover:text-red-500 transition-all opacity-0 group-hover/reply:opacity-100"
                                        >
-                                         <Trash2 size={12} />
+                                         <Trash2 size={14} />
                                        </button>
                                     )}
                                  </div>
-                                 <span className="text-[9px] font-bold text-stone-300 uppercase">{reply.timestamp}</span>
+                                 <span className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">{reply.timestamp}</span>
                               </div>
-                              <div className="bg-stone-50 dark:bg-stone-800/50 p-6 rounded-3xl rounded-tl-none border border-stone-100 dark:border-stone-800 shadow-sm">
+                              <div className="bg-stone-50 dark:bg-white/[0.03] p-7 rounded-[2.5rem] rounded-tl-none border border-stone-100 dark:border-white/5 shadow-sm">
                                 {reply.imageUrl && (
-                                  <img src={reply.imageUrl} className="w-full max-h-64 object-cover rounded-2xl mb-4 shadow-lg cursor-zoom-in" alt="" />
+                                  <div className="mb-5 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/5">
+                                    <img src={reply.imageUrl} className="w-full max-h-80 object-cover" alt="" />
+                                  </div>
                                 )}
-                                <p className="text-sm text-stone-700 dark:text-stone-200 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+                                <p className="text-base text-stone-700 dark:text-stone-200 leading-relaxed whitespace-pre-wrap font-medium">{reply.content}</p>
                               </div>
                             </div>
                           </div>
@@ -423,54 +405,54 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
       {/* Create Thread Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-[700] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-fade-in" onClick={() => !isCreating && setShowCreateModal(false)}></div>
-          <div className="bg-white dark:bg-stone-900 w-full max-w-2xl p-8 md:p-12 rounded-[3.5rem] shadow-2xl relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800">
-            <div className="flex justify-between items-center mb-10">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl animate-fade-in" onClick={() => !isCreating && setShowCreateModal(false)}></div>
+          <div className="bg-white dark:bg-stone-900 w-full max-w-2xl p-10 md:p-14 rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] relative z-10 animate-scale-in border border-white/5">
+            <div className="flex justify-between items-center mb-12">
               <h3 className="text-4xl font-serif font-black text-stone-900 dark:text-stone-100 tracking-tighter">Новый тред</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-stone-400 hover:text-stone-900 transition-colors"><X size={32} /></button>
+              <button onClick={() => setShowCreateModal(false)} className="text-stone-400 hover:text-stone-900 dark:hover:text-white transition-all hover:scale-110"><X size={36} /></button>
             </div>
 
-            <form onSubmit={handleCreateThread} className="space-y-8">
+            <form onSubmit={handleCreateThread} className="space-y-10">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 block">Тема обсуждения</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-4 block">Тема обсуждения</label>
                 <input 
                   required
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   placeholder="О чем будем говорить?"
-                  className="w-full bg-stone-50 dark:bg-stone-850 border border-stone-100 dark:border-stone-800 rounded-[1.5rem] p-6 outline-none font-serif text-2xl focus:ring-4 ring-amber-500/10 transition-all"
+                  className="w-full bg-stone-50 dark:bg-white/[0.02] border border-stone-100 dark:border-white/5 rounded-[1.8rem] p-7 outline-none font-serif text-2xl text-stone-900 dark:text-white focus:ring-4 ring-amber-500/10 transition-all shadow-inner"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3 block">Контент</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-4 block">Контент</label>
                 <textarea 
                   required
                   value={newContent}
                   onChange={e => setNewContent(e.target.value)}
                   placeholder="Разверните вашу мысль..."
-                  className="w-full bg-stone-50 dark:bg-stone-850 border border-stone-100 dark:border-stone-800 rounded-[1.5rem] p-6 min-h-[200px] outline-none text-lg text-stone-700 dark:text-stone-300 resize-none focus:ring-4 ring-amber-500/10 transition-all font-serif italic"
+                  className="w-full bg-stone-50 dark:bg-white/[0.02] border border-stone-100 dark:border-white/5 rounded-[1.8rem] p-7 min-h-[220px] outline-none text-lg text-stone-700 dark:text-stone-300 resize-none focus:ring-4 ring-amber-500/10 transition-all font-serif italic shadow-inner"
                 />
               </div>
 
-              <div className="flex gap-4 items-center">
+              <div className="flex gap-5 items-center">
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex-1 border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all hover:bg-stone-50 dark:hover:bg-stone-800 ${newImage ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/10' : 'border-stone-200 dark:border-stone-800'}`}
+                  className={`flex-1 border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all hover:bg-stone-50 dark:hover:bg-white/[0.02] ${newImage ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-900/10' : 'border-stone-200 dark:border-white/10'}`}
                 >
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e)} />
                   {newImage ? (
-                    <img src={newImage} className="max-h-32 rounded-xl shadow-2xl" alt="" />
+                    <img src={newImage} className="max-h-40 rounded-2xl shadow-2xl" alt="" />
                   ) : (
                     <>
-                      <div className="p-4 bg-white dark:bg-stone-900 rounded-full shadow-md text-stone-400"><Camera size={32} /></div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Прикрепить обложку</span>
+                      <div className="p-5 bg-white dark:bg-stone-800 rounded-full shadow-xl text-stone-400"><Camera size={36} /></div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Прикрепить обложку</span>
                     </>
                   )}
                 </div>
                 {newImage && (
-                  <button onClick={() => setNewImage(null)} className="p-4 bg-stone-100 dark:bg-stone-800 rounded-3xl text-stone-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={24} />
+                  <button onClick={() => setNewImage(null)} className="p-5 bg-stone-100 dark:bg-white/5 rounded-3xl text-stone-400 hover:text-red-500 transition-all shadow-lg">
+                    <Trash2 size={28} />
                   </button>
                 )}
               </div>
@@ -478,7 +460,7 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
               <button 
                 type="submit"
                 disabled={isCreating}
-                className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-6 rounded-3xl font-black uppercase text-xs tracking-[0.3em] shadow-2xl flex items-center justify-center gap-4 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50"
+                className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-7 rounded-[2rem] font-black uppercase text-xs tracking-[0.4em] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] flex items-center justify-center gap-5 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50"
               >
                 {isCreating ? <Loader2 size={24} className="animate-spin" /> : <Send size={20} />}
                 Запустить тред
@@ -489,13 +471,6 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
       )}
 
       <style>{`
-        .animate-pulse-glow {
-          animation: pulse-glow-border 2s ease-in-out infinite;
-        }
-        @keyframes pulse-glow-border {
-          0%, 100% { border-color: rgb(239, 68, 68); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
-          50% { border-color: rgb(220, 38, 38); box-shadow: 0 0 25px rgba(239, 68, 68, 0.5); }
-        }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
