@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thread, ThreadReply, User } from '../types';
 import { db, ADMIN_EMAIL } from '../services/db';
 import { Identicon } from './Identicon';
-import { MessageSquare, Plus, Eye, Flame, Clock, Loader2, Send, X, Camera, MessageCircle, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Flame, Clock, Loader2, Send, X, Camera, MessageCircle, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface BoardProps {
@@ -18,7 +18,6 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [expandedImgId, setExpandedImgId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'thread' | 'reply'; id: string; parentId?: string } | null>(null);
   
   // Create Thread State
