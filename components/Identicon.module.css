@@ -1,0 +1,14 @@
+.identicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  line-height: 0;
+}
+
+.svg {
+  display: block;
+  flex: 0 0 auto;
+}

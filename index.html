@@ -65,6 +65,10 @@
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300&family=Inter:wght@100;300;400;500;600;700;800;900&display=swap');
       
+      html {
+        font-size: 15px;
+      }
+
       body {
         font-family: 'Inter', sans-serif;
         text-rendering: optimizeLegibility;
@@ -157,6 +161,12 @@
       * {
         transition: background-color 0.3s ease, border-color 0.3s ease, color 0.15s ease;
       }
+
+      @media (max-width: 640px) {
+        html {
+          font-size: 14.5px;
+        }
+      }
     </style>
 <script type="importmap">
 {
@@ -167,8 +177,7 @@
     "vite": "https://aistudiocdn.com/vite@^7.2.4",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.84.0"
+    "react": "https://aistudiocdn.com/react@^19.2.0"
   }
 }
 </script>

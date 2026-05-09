@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Chat, Message } from '../types';
 import { db } from '../services/db';
-import { supabase } from '../services/supabaseClient'; 
 import { Send, Plus, MessageCircle, Loader2, Trash2, ChevronLeft } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -33,39 +32,14 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
   }, []);
 
   useEffect(() => {
-    let channel: any;
+    if (!activeChatId) return;
 
-    if (activeChatId) {
-      loadMessages(activeChatId);
-
-      channel = supabase
-        .channel(`chat:${activeChatId}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${activeChatId}` },
-          (payload) => {
-            const newMsg: Message = {
-              id: payload.new.id,
-              chatId: payload.new.chat_id,
-              senderId: payload.new.sender_id,
-              content: payload.new.content,
-              createdAt: payload.new.created_at,
-              isRead: payload.new.is_read
-            };
-
-            setMessages(prev => {
-              if (prev.some(m => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
-            });
-          }
-        )
-        .subscribe();
-    }
-
+    loadMessages(activeChatId);
+    const refreshTimer = window.setInterval(() => loadMessages(activeChatId), 3000);
     return () => {
-        if (channel) supabase.removeChannel(channel);
+      window.clearInterval(refreshTimer);
     };
-  }, [activeChatId, user.id]);
+  }, [activeChatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,10 +71,16 @@ export const Messages: React.FC<MessagesProps> = ({ user }) => {
 
   const handleSendMessage = async () => {
     if (!activeChatId || !newMessage.trim()) return;
+    const messageText = newMessage.trim();
+
     try {
-      await db.sendMessage(activeChatId, user.id, newMessage);
+      const sentMessage = await db.sendMessage(activeChatId, user.id, messageText);
       setNewMessage('');
-      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, lastMessage: newMessage } : c));
+      setMessages(prev => {
+        if (prev.some(message => message.id === sentMessage.id)) return prev;
+        return [...prev, sentMessage];
+      });
+      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, lastMessage: messageText } : c));
     } catch (e) {
       console.error("Failed to send", e);
     }

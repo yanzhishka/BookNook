@@ -1,0 +1,223 @@
+.reply {
+  display: flex;
+  gap: 1.5rem;
+  animation: revealReply 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.avatar {
+  flex-shrink: 0;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.625rem;
+  padding: 0 0.5rem;
+}
+
+.authorActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.authorName {
+  overflow: hidden;
+  color: #f59e0b;
+  font-size: 0.625rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.deleteButton {
+  border: 0;
+  background: transparent;
+  color: #d6d3d1;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0.25rem;
+  transition: color 200ms ease, opacity 200ms ease;
+}
+
+.reply:hover .deleteButton,
+.deleteButton:focus-visible {
+  opacity: 1;
+}
+
+.deleteButton:hover {
+  color: #ef4444;
+}
+
+.timestamp {
+  color: #a8a29e;
+  flex-shrink: 0;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bubble {
+  border: 1px solid #f5f5f4;
+  border-radius: 0 2.5rem 2.5rem;
+  background: #fafaf9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: 1.75rem;
+}
+
+:global(.dark) .bubble {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.imageWrap {
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  outline: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  max-height: 20rem;
+  object-fit: cover;
+}
+
+.text {
+  margin: 0;
+  color: #44403c;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.625;
+  white-space: pre-wrap;
+}
+
+:global(.dark) .text {
+  color: #e7e5e4;
+}
+
+.delay0 {
+  animation-delay: 0ms;
+}
+
+.delay1 {
+  animation-delay: 40ms;
+}
+
+.delay2 {
+  animation-delay: 80ms;
+}
+
+.delay3 {
+  animation-delay: 120ms;
+}
+
+.delay4 {
+  animation-delay: 160ms;
+}
+
+.delay5 {
+  animation-delay: 200ms;
+}
+
+.delay6 {
+  animation-delay: 240ms;
+}
+
+.delay7 {
+  animation-delay: 280ms;
+}
+
+.delay8 {
+  animation-delay: 320ms;
+}
+
+.delay9 {
+  animation-delay: 360ms;
+}
+
+.delay10 {
+  animation-delay: 400ms;
+}
+
+.delay11 {
+  animation-delay: 440ms;
+}
+
+.delay12 {
+  animation-delay: 480ms;
+}
+
+.delay13 {
+  animation-delay: 520ms;
+}
+
+.delay14 {
+  animation-delay: 560ms;
+}
+
+.delay15 {
+  animation-delay: 600ms;
+}
+
+.delay16 {
+  animation-delay: 640ms;
+}
+
+.delay17 {
+  animation-delay: 680ms;
+}
+
+.delay18 {
+  animation-delay: 720ms;
+}
+
+.delay19 {
+  animation-delay: 760ms;
+}
+
+.delay20 {
+  animation-delay: 800ms;
+}
+
+.delay21 {
+  animation-delay: 840ms;
+}
+
+.delay22 {
+  animation-delay: 880ms;
+}
+
+.delay23 {
+  animation-delay: 920ms;
+}
+
+.delay24 {
+  animation-delay: 960ms;
+}
+
+@keyframes revealReply {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

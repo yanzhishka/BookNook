@@ -1,0 +1,260 @@
+.card {
+  position: relative;
+  overflow: hidden;
+  break-inside: avoid;
+  border: 2px solid #e7e5e4;
+  border-radius: 2.5rem;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 500ms ease, box-shadow 500ms ease, border-color 500ms ease;
+}
+
+:global(.dark) .card {
+  background: rgba(28, 25, 23, 0.5);
+  backdrop-filter: blur(24px);
+}
+
+.card:hover {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  transform: scale(1.01);
+}
+
+.cardContent {
+  padding: 2rem;
+}
+
+.heatQuiet {
+  border-color: #e7e5e4;
+}
+
+:global(.dark) .heatQuiet {
+  border-color: #292524;
+}
+
+.heatWarm {
+  border-color: #fcd34d;
+}
+
+.heatHot {
+  border-color: #fb923c;
+  box-shadow: 0 0 15px rgba(251, 146, 60, 0.2);
+}
+
+.heatCritical {
+  border-color: #ef4444;
+  animation: heatPulse 5s ease-in-out infinite;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.3);
+}
+
+.metaRow,
+.author,
+.cardActions,
+.timestamp,
+.footer,
+.replies,
+.openButton {
+  display: flex;
+  align-items: center;
+}
+
+.metaRow {
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.author {
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.authorName,
+.authorId {
+  display: block;
+  line-height: 1;
+}
+
+.authorName {
+  margin-bottom: 0.25rem;
+  color: #a8a29e;
+  font-size: 0.625rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.authorId {
+  color: #d6d3d1;
+  font-size: 0.5625rem;
+  font-weight: 700;
+}
+
+:global(.dark) .authorId {
+  color: #57534e;
+}
+
+.cardActions {
+  gap: 0.5rem;
+}
+
+.timestamp {
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: #fafaf9;
+  color: #a8a29e;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.5625rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+:global(.dark) .timestamp {
+  background: #292524;
+}
+
+.deleteButton {
+  border: 0;
+  background: transparent;
+  color: #d6d3d1;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0.5rem;
+  transition: color 200ms ease, opacity 200ms ease;
+}
+
+.card:hover .deleteButton,
+.deleteButton:focus-visible {
+  opacity: 1;
+}
+
+.deleteButton:hover {
+  color: #ef4444;
+}
+
+.threadTitle {
+  margin: 0 0 1rem;
+  color: #1c1917;
+  font-family: Merriweather, serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1.25;
+  transition: color 300ms ease;
+}
+
+:global(.dark) .threadTitle {
+  color: #f5f5f4;
+}
+
+.card:hover .threadTitle {
+  color: #f59e0b;
+}
+
+.imageWrap {
+  position: relative;
+  overflow: hidden;
+  max-height: 16rem;
+  margin-bottom: 1.5rem;
+  border-radius: 1rem;
+  cursor: pointer;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 700ms ease;
+}
+
+.card:hover .image {
+  transform: scale(1.05);
+}
+
+.preview {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0 0 2rem;
+  color: #57534e;
+  line-height: 1.625;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+:global(.dark) .preview {
+  color: #d6d3d1;
+}
+
+.footer {
+  justify-content: space-between;
+  gap: 1.5rem;
+  border-top: 1px solid #f5f5f4;
+  padding-top: 1.5rem;
+}
+
+:global(.dark) .footer {
+  border-top-color: #292524;
+}
+
+.replies {
+  gap: 0.5rem;
+}
+
+.repliesIcon {
+  display: inline-flex;
+  border-radius: 0.75rem;
+  background: #f5f5f4;
+  color: #a8a29e;
+  padding: 0.5rem;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+:global(.dark) .repliesIcon {
+  background: #292524;
+}
+
+.repliesIconHot {
+  background: #f97316;
+  color: #fff;
+}
+
+.replyCount {
+  color: #a8a29e;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.openButton {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.625rem;
+  font-weight: 900;
+  gap: 0.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 200ms ease;
+}
+
+.openButton:hover {
+  color: #1c1917;
+}
+
+:global(.dark) .openButton:hover {
+  color: #f5f5f4;
+}
+
+@keyframes heatPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.35);
+  }
+}

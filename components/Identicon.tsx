@@ -1,5 +1,7 @@
 
 import React from 'react';
+import { classNames } from '../utils/classNames';
+import styles from './Identicon.module.css';
 
 interface IdenticonProps {
   seed: string;
@@ -7,7 +9,7 @@ interface IdenticonProps {
   className?: string;
 }
 
-export const Identicon: React.FC<IdenticonProps> = ({ seed, size = 40, className = "" }) => {
+export const Identicon: React.FC<IdenticonProps> = ({ seed, size = 40, className = '' }) => {
   // Simple hash function to get deterministic values from seed
   const hashString = (str: string) => {
     let hash = 0;
@@ -30,11 +32,16 @@ export const Identicon: React.FC<IdenticonProps> = ({ seed, size = 40, className
   const shapeType = hash % 4; // 0: circles, 1: rects, 2: triangles, 3: mixed
   
   return (
-    <div 
-      className={`rounded-xl overflow-hidden shadow-inner flex items-center justify-center ${className}`}
-      style={{ width: size, height: size, backgroundColor: color }}
-    >
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className={classNames(styles.identicon, className)}>
+      <svg
+        className={styles.svg}
+        width={size}
+        height={size}
+        viewBox="0 0 100 100"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect width="100" height="100" fill={color} />
         {shapeType === 0 && (
           <>
             <circle cx="50" cy="50" r="30" fill={secondaryColor} fillOpacity="0.5" />

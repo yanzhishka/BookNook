@@ -1,0 +1,317 @@
+.modalLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.9);
+  cursor: pointer;
+  backdrop-filter: blur(24px);
+  animation: fadeIn 300ms ease both;
+}
+
+.dialog {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 42rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4rem;
+  background: #fff;
+  padding: 2.5rem;
+  box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:global(.dark) .dialog {
+  background: #1c1917;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.title {
+  margin: 0;
+  color: #1c1917;
+  font-family: Merriweather, serif;
+  font-size: 2.25rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+:global(.dark) .title {
+  color: #f5f5f4;
+}
+
+.closeButton {
+  border: 0;
+  background: transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 200ms ease, color 200ms ease;
+}
+
+.closeButton:hover {
+  color: #1c1917;
+  transform: scale(1.1);
+}
+
+:global(.dark) .closeButton:hover {
+  color: #fff;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.label {
+  display: block;
+  margin-bottom: 1rem;
+  color: #a8a29e;
+  font-size: 0.625rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.titleInput,
+.contentInput {
+  width: 100%;
+  border: 1px solid #f5f5f4;
+  border-radius: 1.8rem;
+  background: #fafaf9;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  outline: none;
+  padding: 1.75rem;
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+:global(.dark) .titleInput,
+:global(.dark) .contentInput {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.titleInput:focus,
+.contentInput:focus {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 0 0 4px rgba(245, 158, 11, 0.1);
+}
+
+.titleInput {
+  color: #1c1917;
+  font-family: Merriweather, serif;
+  font-size: 1.5rem;
+}
+
+:global(.dark) .titleInput {
+  color: #fff;
+}
+
+.contentInput {
+  min-height: 220px;
+  color: #44403c;
+  font-family: Merriweather, serif;
+  font-size: 1.125rem;
+  font-style: italic;
+  resize: none;
+}
+
+:global(.dark) .contentInput {
+  color: #d6d3d1;
+}
+
+.titleInput::placeholder,
+.contentInput::placeholder {
+  color: #a8a29e;
+}
+
+.imageRow {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.fileInput {
+  display: none;
+}
+
+.uploadButton {
+  display: flex;
+  min-height: 12rem;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  border: 2px dashed #e7e5e4;
+  border-radius: 2rem;
+  cursor: pointer;
+  padding: 2.5rem;
+  transition: background-color 300ms ease, border-color 300ms ease;
+}
+
+:global(.dark) .uploadButton {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.uploadButton:hover {
+  background: #fafaf9;
+}
+
+:global(.dark) .uploadButton:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.uploadButtonEmpty {
+  background: transparent;
+}
+
+.uploadButtonFilled {
+  border-color: #f59e0b;
+  background: rgba(255, 251, 235, 0.5);
+}
+
+:global(.dark) .uploadButtonFilled {
+  background: rgba(120, 53, 15, 0.1);
+}
+
+.uploadIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fff;
+  color: #a8a29e;
+  padding: 1.25rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+:global(.dark) .uploadIcon {
+  background: #292524;
+}
+
+.uploadText {
+  color: #a8a29e;
+  font-size: 0.625rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.uploadPreview {
+  max-height: 10rem;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.clearImageButton {
+  border: 0;
+  border-radius: 1.5rem;
+  background: #f5f5f4;
+  color: #a8a29e;
+  cursor: pointer;
+  padding: 1.25rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  transition: color 200ms ease, background-color 200ms ease;
+}
+
+:global(.dark) .clearImageButton {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.clearImageButton:hover {
+  color: #ef4444;
+}
+
+.submitButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  border: 0;
+  border-radius: 2rem;
+  background: #1c1917;
+  color: #fff;
+  cursor: pointer;
+  padding: 1.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+  transition: transform 300ms ease, opacity 300ms ease;
+}
+
+:global(.dark) .submitButton {
+  background: #f5f5f4;
+  color: #1c1917;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: scale(1.01);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.submitButton:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-width: 768px) {
+  .dialog {
+    padding: 3.5rem;
+  }
+}

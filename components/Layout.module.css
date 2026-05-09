@@ -1,0 +1,75 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  background: transparent;
+  transition: all 1000ms ease;
+}
+
+.zenLayout {
+  background: transparent;
+}
+
+.main {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.125rem 1.125rem 7.5rem;
+  transition: all 1000ms ease;
+}
+
+.main::-webkit-scrollbar {
+  width: 4px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+:global(.dark) .main::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.page {
+  min-height: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  animation: pageReveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageReveal {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (min-width: 768px) {
+  .layout {
+    flex-direction: row;
+  }
+
+  .main {
+    padding: 3rem;
+  }
+
+  .mainZen {
+    padding: 5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mainZen {
+    padding: 8rem;
+  }
+}
