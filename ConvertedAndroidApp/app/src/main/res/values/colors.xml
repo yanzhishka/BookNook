@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="stone_50">#FCFAF7</color>
+    <color name="stone_100">#F5F5F4</color>
+    <color name="stone_200">#E7E5E4</color>
+    <color name="stone_300">#D6D3D1</color>
+    <color name="stone_400">#A8A29E</color>
+    <color name="stone_500">#78716C</color>
+    <color name="stone_700">#44403C</color>
+    <color name="stone_800">#292524</color>
+    <color name="stone_900">#1C1917</color>
+    <color name="stone_950">#0C0A09</color>
+    <color name="amber_500">#F59E0B</color>
+    <color name="orange_500">#F97316</color>
+    <color name="rose_500">#F43F5E</color>
+    <color name="emerald_500">#10B981</color>
+</resources>

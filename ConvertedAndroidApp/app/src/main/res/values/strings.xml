@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">B.Nook</string>
+    <!-- Android emulator uses 10.0.2.2 to reach the host machine's local API. -->
+    <string name="local_api_base_url">http://10.0.2.2:8787/api</string>
+    <!-- Mirrors the React Oracle's process.env.GROQ_API_KEY. Leave blank to show the same missing-key state. -->
+    <string name="groq_api_key"></string>
+</resources>
