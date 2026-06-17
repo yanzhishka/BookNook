@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Local secrets / environment
+.env
+.env.*
+!.env.example
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
