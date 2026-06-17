@@ -2,52 +2,15 @@ import {
   Activity,
   Annotation,
   Book,
-  Chat,
   Comment,
-  Message,
   Quote,
   Thread,
   ThreadReply,
   User,
 } from '../types';
+import { supabase } from './supabase';
 
 export const ADMIN_EMAIL = 'nme030609@gmail.com';
-
-export interface UserData {
-  profile: User;
-  email: string;
-  id: string;
-  password?: string;
-}
-
-const API_BASE_URL = import.meta.env.VITE_LOCAL_API_URL || 'http://127.0.0.1:8787/api';
-const SESSION_STORAGE_KEY = 'bnook_local_user_id';
-
-const apiRequest = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(payload?.error || `Local API request failed: ${response.status}`);
-  }
-
-  return payload as T;
-};
-
-const saveSession = (userId: string) => {
-  localStorage.setItem(SESSION_STORAGE_KEY, userId);
-};
-
-const clearSession = () => {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-};
 
 const formatDate = (value?: string) => {
   if (!value) return '';
@@ -130,15 +93,6 @@ const mapQuote = (quote: any): Quote => ({
   bookTitle: quote.book_title,
 });
 
-const mapMessage = (message: any): Message => ({
-  id: message.id,
-  chatId: message.chat_id,
-  senderId: message.sender_id,
-  content: message.content,
-  createdAt: message.created_at,
-  isRead: Boolean(message.is_read),
-});
-
 const mapThread = (thread: any): Thread => ({
   id: thread.id,
   title: thread.title,
@@ -160,15 +114,20 @@ const mapThreadReply = (reply: any): ThreadReply => ({
   timestamp: formatTime(reply.created_at),
 });
 
+const unwrap = <T>(data: T | null, error: { message: string } | null): T => {
+  if (error) throw new Error(error.message);
+  return data as T;
+};
+
+const isPersistedId = (id?: string) => Boolean(id && id.length >= 20);
+
 export const db = {
   async getSession(): Promise<{ user: User; books: Book[]; quotes: Quote[] } | null> {
-    const userId = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!userId) return null;
-
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
     try {
-      return await this.loadUserData(userId);
+      return await this.loadUserData(session.user.id);
     } catch {
-      clearSession();
       return null;
     }
   },
@@ -176,79 +135,92 @@ export const db = {
   async loadUserData(userId: string): Promise<{ user: User; books: Book[]; quotes: Quote[] }> {
     if (!userId) throw new Error('User ID is required');
 
-    const data = await apiRequest<{ profile: any; books: any[]; quotes: any[] }>(
-      `/users/${encodeURIComponent(userId)}/data`,
-    );
+    const [profileRes, booksRes, quotesRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('books').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+      supabase.from('quotes').select('*').eq('user_id', userId),
+    ]);
 
-    const user = mapProfileToUser(data.profile);
-    user.booksReadThisYear = data.books.filter((book) => book.status === 'completed').length;
+    const profile = unwrap(profileRes.data, profileRes.error);
+    const books = booksRes.data || [];
+    const quotes = quotesRes.data || [];
+
+    const user = mapProfileToUser(profile);
+    user.booksReadThisYear = books.filter((book) => book.status === 'completed').length;
 
     return {
       user,
-      books: data.books.map((book) => mapDbBookToBook(book, data.quotes)),
-      quotes: data.quotes.map(mapQuote),
+      books: books.map((book) => mapDbBookToBook(book, quotes)),
+      quotes: quotes.map(mapQuote),
     };
   },
 
   async login(email: string, password: string) {
-    const { userId } = await apiRequest<{ userId: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-
-    saveSession(userId);
-    return this.loadUserData(userId);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    return this.loadUserData(data.user.id);
   },
 
-  async register(email: string, password: string, name: string) {
-    const { userId, profile } = await apiRequest<{ userId: string; profile: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, name }),
+  async register(email: string, password: string, name: string): Promise<User> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
     });
+    if (error) throw new Error(error.message);
+    if (!data.user) throw new Error('Не удалось создать пользователя');
 
-    saveSession(userId);
-    return mapProfileToUser(profile);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    return mapProfileToUser(profile || { id: data.user.id, email, name });
   },
 
   async logout() {
-    clearSession();
-    await apiRequest('/auth/logout', { method: 'POST' });
+    await supabase.auth.signOut();
   },
 
   async searchUserByEmail(email: string) {
-    const profile = await apiRequest<any | null>(
-      `/profiles/search?email=${encodeURIComponent(email)}`,
-    );
-    return profile ? mapProfileToUser(profile) : null;
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email.trim().toLowerCase())
+      .maybeSingle();
+    return data ? mapProfileToUser(data) : null;
   },
 
   async updateUserProfile(user: User) {
-    await apiRequest(`/profiles/${encodeURIComponent(user.id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
+    const { error } = await supabase
+      .from('profiles')
+      .update({
         name: user.name,
         bio: user.bio,
         location: user.location,
         avatar: user.avatar,
         banner_url: user.bannerUrl,
-      }),
-    });
+      })
+      .eq('id', user.id);
+    if (error) throw new Error(error.message);
   },
 
-  async addXp(userId: string, amount: number) {
-    try {
-      await apiRequest('/xp', {
-        method: 'POST',
-        body: JSON.stringify({ userId, amount }),
-      });
-    } catch (error) {
-      console.error('XP update error:', error);
-    }
+  async addXp(_userId: string, amount: number) {
+    const { error } = await supabase.rpc('add_xp', { amount });
+    if (error) console.error('XP update error:', error.message);
   },
 
   async getThreads(): Promise<Thread[]> {
-    const threads = await apiRequest<any[]>('/threads');
-    return threads.map(mapThread);
+    const { data, error } = await supabase
+      .from('threads')
+      .select('*, thread_replies(count)')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+
+    return (data || []).map((thread: any) =>
+      mapThread({ ...thread, replies_count: thread.thread_replies?.[0]?.count ?? 0 }),
+    );
   },
 
   async createThread(
@@ -258,30 +230,29 @@ export const db = {
     userId: string,
     userName: string,
   ): Promise<Thread> {
-    const thread = await apiRequest<any>('/threads', {
-      method: 'POST',
-      body: JSON.stringify({
-        title,
-        content,
-        image_url: imageUrl,
-        author_id: userId,
-        author_name: userName,
-      }),
-    });
+    const { data, error } = await supabase
+      .from('threads')
+      .insert({ title, content, image_url: imageUrl, author_id: userId, author_name: userName })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
 
-    return {
-      ...mapThread({ ...thread, replies_count: 0 }),
-      timestamp: 'Только что',
-    };
+    return { ...mapThread({ ...data, replies_count: 0 }), timestamp: 'Только что' };
   },
 
   async deleteThread(threadId: string) {
-    await apiRequest(`/threads/${encodeURIComponent(threadId)}`, { method: 'DELETE' });
+    const { error } = await supabase.from('threads').delete().eq('id', threadId);
+    if (error) throw new Error(error.message);
   },
 
   async getThreadReplies(threadId: string): Promise<ThreadReply[]> {
-    const replies = await apiRequest<any[]>(`/threads/${encodeURIComponent(threadId)}/replies`);
-    return replies.map(mapThreadReply);
+    const { data, error } = await supabase
+      .from('thread_replies')
+      .select('*')
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data || []).map(mapThreadReply);
   },
 
   async postReply(
@@ -291,30 +262,30 @@ export const db = {
     userId: string,
     userName: string,
   ): Promise<ThreadReply> {
-    const reply = await apiRequest<any>(`/threads/${encodeURIComponent(threadId)}/replies`, {
-      method: 'POST',
-      body: JSON.stringify({
-        content,
-        image_url: imageUrl,
-        author_id: userId,
-        author_name: userName,
-      }),
-    });
+    const { data, error } = await supabase
+      .from('thread_replies')
+      .insert({ thread_id: threadId, content, image_url: imageUrl, author_id: userId, author_name: userName })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
 
-    return {
-      ...mapThreadReply(reply),
-      timestamp: 'Только что',
-    };
+    return { ...mapThreadReply(data), timestamp: 'Только что' };
   },
 
   async deleteThreadReply(replyId: string) {
-    await apiRequest(`/thread-replies/${encodeURIComponent(replyId)}`, { method: 'DELETE' });
+    const { error } = await supabase.from('thread_replies').delete().eq('id', replyId);
+    if (error) throw new Error(error.message);
   },
 
   async getFeed(limit = 15): Promise<Activity[]> {
-    const activities = await apiRequest<any[]>(`/feed?limit=${limit}`);
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*, profile:profiles(*), book:books(*)')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(error.message);
 
-    return activities.map((item) => ({
+    return (data || []).map((item: any) => ({
       id: item.id,
       user: mapProfileToUser(item.profile),
       book: item.book ? mapDbBookToBook(item.book) : null,
@@ -328,22 +299,20 @@ export const db = {
   },
 
   async createActivity(activity: Activity): Promise<Activity> {
-    const created = await apiRequest<any>('/activities', {
-      method: 'POST',
-      body: JSON.stringify({
+    const { data, error } = await supabase
+      .from('activities')
+      .insert({
         user_id: activity.user.id,
-        book_id: activity.book?.id,
+        book_id: activity.book?.id ?? null,
         type: activity.type,
         content: activity.content,
         timestamp: activity.timestamp,
-      }),
-    });
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
 
-    return {
-      ...activity,
-      id: created.id,
-      timestamp: formatDate(created.created_at),
-    };
+    return { ...activity, id: data.id, timestamp: formatDate(data.created_at) };
   },
 
   async shareAnnotation(user: User, book: Book, annotation: Annotation): Promise<Activity> {
@@ -361,43 +330,68 @@ export const db = {
   },
 
   async toggleActivityLike(activityId: string, userId: string) {
-    await apiRequest(`/activities/${encodeURIComponent(activityId)}/toggle-like`, {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    });
+    const { data } = await supabase
+      .from('activities')
+      .select('liked_by')
+      .eq('id', activityId)
+      .single();
+
+    const current: string[] = data?.liked_by || [];
+    const next = current.includes(userId)
+      ? current.filter((id) => id !== userId)
+      : [...current, userId];
+
+    const { error } = await supabase.from('activities').update({ liked_by: next }).eq('id', activityId);
+    if (error) throw new Error(error.message);
   },
 
   async addComment(activityId: string, comment: Comment) {
-    await apiRequest(`/activities/${encodeURIComponent(activityId)}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ comment }),
-    });
+    const { data } = await supabase
+      .from('activities')
+      .select('comments')
+      .eq('id', activityId)
+      .single();
+
+    const next = [...(data?.comments || []), comment];
+    const { error } = await supabase.from('activities').update({ comments: next }).eq('id', activityId);
+    if (error) throw new Error(error.message);
   },
 
   async deleteComment(activityId: string, commentId: string) {
-    await apiRequest(
-      `/activities/${encodeURIComponent(activityId)}/comments/${encodeURIComponent(commentId)}`,
-      { method: 'DELETE' },
-    );
+    const { data } = await supabase
+      .from('activities')
+      .select('comments')
+      .eq('id', activityId)
+      .single();
+
+    const next = (data?.comments || []).filter((c: Comment) => c.id !== commentId);
+    const { error } = await supabase.from('activities').update({ comments: next }).eq('id', activityId);
+    if (error) throw new Error(error.message);
   },
 
   async deleteActivity(id: string) {
-    await apiRequest(`/activities/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const { error } = await supabase.from('activities').delete().eq('id', id);
+    if (error) throw new Error(error.message);
   },
 
   async getLeaderboard(limit = 5): Promise<User[]> {
-    const profiles = await apiRequest<any[]>(`/leaderboard?limit=${limit}`);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*, books(status)')
+      .order('xp', { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(error.message);
 
-    return profiles.map((profile) => ({
+    return (data || []).map((profile: any) => ({
       ...mapProfileToUser(profile),
-      booksReadThisYear: Number(profile.completed_count || 0),
+      booksReadThisYear: (profile.books || []).filter((b: any) => b.status === 'completed').length,
     }));
   },
 
   async addBook(book: Book, userId: string) {
-    const created = await apiRequest<any>('/books', {
-      method: 'POST',
-      body: JSON.stringify({
+    const { data, error } = await supabase
+      .from('books')
+      .insert({
         user_id: userId,
         title: book.title,
         author: book.author,
@@ -409,15 +403,17 @@ export const db = {
         content: book.content,
         current_page: Number(book.currentPage) || 1,
         total_pages: Number(book.totalPages) || 1,
-      }),
-    });
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
 
     let annotations = book.annotations || [];
     if (annotations.length > 0) {
-      annotations = await this.syncAnnotations(created.id, userId, book.title, annotations);
+      annotations = await this.syncAnnotations(data.id, userId, book.title, annotations);
     }
 
-    return mapDbBookToBook(created, annotations);
+    return mapDbBookToBook(data, annotations);
   },
 
   async syncAnnotations(
@@ -426,10 +422,9 @@ export const db = {
     bookTitle: string,
     annotations: Annotation[],
   ): Promise<any[]> {
-    const updatedAnnotations: any[] = [];
+    const updated: any[] = [];
 
     for (const annotation of annotations) {
-      const isPersistedId = annotation.id.includes('-') || annotation.id.length > 20;
       const payload: any = {
         user_id: userId,
         book_id: bookId,
@@ -439,167 +434,57 @@ export const db = {
         color: annotation.color,
         timestamp: Number(annotation.timestamp) || Date.now(),
       };
-
-      if (isPersistedId) {
-        payload.id = annotation.id;
-      }
+      if (isPersistedId(annotation.id)) payload.id = annotation.id;
 
       try {
-        const saved = await apiRequest<any>('/quotes/upsert', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-
-        updatedAnnotations.push({
-          ...annotation,
-          id: saved.id,
-          book_id: bookId,
-        });
-      } catch (error) {
-        console.error('Failed to sync specific quote:', payload, error);
-        updatedAnnotations.push({ ...annotation, book_id: bookId });
+        const query = isPersistedId(annotation.id)
+          ? supabase.from('quotes').upsert(payload)
+          : supabase.from('quotes').insert(payload);
+        const { data, error } = await query.select().single();
+        if (error) throw new Error(error.message);
+        updated.push({ ...annotation, id: data.id, book_id: bookId });
+      } catch (err) {
+        console.error('Failed to sync quote:', payload, err);
+        updated.push({ ...annotation, book_id: bookId });
       }
     }
 
-    return updatedAnnotations;
+    return updated;
   },
 
   async deleteAnnotation(annotationId: string) {
-    if (!annotationId || annotationId.length < 20) return;
-    await apiRequest(`/quotes/${encodeURIComponent(annotationId)}`, { method: 'DELETE' });
+    if (!isPersistedId(annotationId)) return;
+    const { error } = await supabase.from('quotes').delete().eq('id', annotationId);
+    if (error) throw new Error(error.message);
   },
 
   async updateBook(book: Book, userId: string): Promise<Book> {
     if (!book.id) throw new Error('Book ID is required for update');
 
-    const updated = await apiRequest<any>(`/books/${encodeURIComponent(book.id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
+    const { data, error } = await supabase
+      .from('books')
+      .update({
         progress: Number(book.progress) || 0,
         status: book.status,
         my_rating: Number(book.myRating) || 0,
         current_page: Number(book.currentPage) || 1,
         total_pages: Number(book.totalPages) || 1,
-      }),
-    });
+      })
+      .eq('id', book.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
 
     let annotations = book.annotations || [];
     if (annotations.length > 0) {
       annotations = await this.syncAnnotations(book.id, userId, book.title, annotations);
     }
 
-    return mapDbBookToBook(updated, annotations);
+    return mapDbBookToBook(data, annotations);
   },
 
   async deleteBook(id: string) {
-    await apiRequest(`/books/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  },
-
-  async getChats(userId: string): Promise<Chat[]> {
-    const chats = await apiRequest<any[]>(`/users/${encodeURIComponent(userId)}/chats`);
-
-    return chats.map((chat) => ({
-      id: chat.id,
-      lastMessage: chat.last_message || '',
-      participants: (chat.participants || []).map(mapProfileToUser),
-    }));
-  },
-
-  async getMessages(chatId: string): Promise<Message[]> {
-    const messages = await apiRequest<any[]>(`/chats/${encodeURIComponent(chatId)}/messages`);
-    return messages.map(mapMessage);
-  },
-
-  async sendMessage(chatId: string, senderId: string, content: string): Promise<Message> {
-    const message = await apiRequest<any>(`/chats/${encodeURIComponent(chatId)}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({
-        sender_id: senderId,
-        content,
-      }),
-    });
-
-    return mapMessage(message);
-  },
-
-  async createChat(userId1: string, userId2: string): Promise<Chat> {
-    const chat = await apiRequest<any>('/chats', {
-      method: 'POST',
-      body: JSON.stringify({ userIds: [userId1, userId2] }),
-    });
-
-    return {
-      id: chat.id,
-      lastMessage: chat.last_message || '',
-      participants: (chat.participants || []).map(mapProfileToUser),
-    };
-  },
-
-  async deleteChat(chatId: string, userId: string) {
-    await apiRequest(
-      `/chats/${encodeURIComponent(chatId)}/participants/${encodeURIComponent(userId)}`,
-      { method: 'DELETE' },
-    );
-  },
-
-  crud: {
-    async list<T = unknown>(table: string, limit = 100): Promise<T[]> {
-      return apiRequest<T[]>(`/crud/${encodeURIComponent(table)}?limit=${limit}`);
-    },
-
-    async get<T = unknown>(table: string, id: string): Promise<T | null> {
-      return apiRequest<T | null>(`/crud/${encodeURIComponent(table)}/${encodeURIComponent(id)}`);
-    },
-
-    async create<T = unknown>(table: string, data: Record<string, unknown>): Promise<T> {
-      return apiRequest<T>(`/crud/${encodeURIComponent(table)}`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    async update<T = unknown>(
-      table: string,
-      id: string,
-      data: Record<string, unknown>,
-    ): Promise<T> {
-      return apiRequest<T>(`/crud/${encodeURIComponent(table)}/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
-    },
-
-    async remove(table: string, id: string): Promise<void> {
-      await apiRequest(`/crud/${encodeURIComponent(table)}/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
-    },
-
-    async getChatParticipant<T = unknown>(chatId: string, userId: string): Promise<T | null> {
-      return apiRequest<T | null>(
-        `/crud/chat_participants?chatId=${encodeURIComponent(chatId)}&userId=${encodeURIComponent(userId)}`,
-      );
-    },
-
-    async updateChatParticipant<T = unknown>(
-      chatId: string,
-      userId: string,
-      data: { joined_at?: string; joinedAt?: string },
-    ): Promise<T> {
-      return apiRequest<T>(
-        `/crud/chat_participants?chatId=${encodeURIComponent(chatId)}&userId=${encodeURIComponent(userId)}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        },
-      );
-    },
-
-    async removeChatParticipant(chatId: string, userId: string): Promise<void> {
-      await apiRequest(
-        `/crud/chat_participants?chatId=${encodeURIComponent(chatId)}&userId=${encodeURIComponent(userId)}`,
-        { method: 'DELETE' },
-      );
-    },
+    const { error } = await supabase.from('books').delete().eq('id', id);
+    if (error) throw new Error(error.message);
   },
 };

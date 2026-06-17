@@ -16,16 +16,43 @@
 - **Frontend:** React 18, TypeScript, Vite
 - **Стили:** Tailwind CSS
 - **Иконки:** lucide-react
-- **Backend:** локальный HTTP-сервер на Node.js + SQLite (`better-sqlite3`)
-- **Поиск книг:** прокси к Open Library и Internet Archive
+- **Backend:** Supabase (Postgres + Auth + Row Level Security)
+- **Поиск книг:** Supabase Edge Function — прокси к Open Library и Internet Archive
 
 ## Структура
 
 ```
-App.tsx, index.tsx       — точка входа фронтенда
-components/               — экраны и UI-компоненты
-services/                 — клиент локального API и поиск книг
-local-api/                — Node-сервер, SQLite-схема и база
+App.tsx, index.tsx              — точка входа фронтенда
+components/                     — экраны и UI-компоненты
+services/                       — клиент Supabase, слой данных и поиск книг
+supabase/schema.sql             — схема БД (выполнить в Supabase SQL Editor)
+supabase/functions/book-proxy/  — Edge Function для импорта книг
+```
+
+## Настройка Supabase
+
+1. Создай проект на [supabase.com](https://supabase.com) (бесплатно).
+2. Открой **SQL Editor** и выполни содержимое [`supabase/schema.sql`](supabase/schema.sql).
+3. В **Authentication → Sign In / Providers → Email** отключи «Confirm email»
+   (чтобы регистрация сразу создавала сессию).
+4. Задеплой Edge Function для импорта книг (нужен [Supabase CLI](https://supabase.com/docs/guides/cli)):
+   ```bash
+   supabase login
+   supabase link --project-ref <твой-project-ref>
+   supabase functions deploy book-proxy
+   ```
+5. Скопируй ключи: **Project Settings → API** → `Project URL` и `anon public key`.
+
+## Переменные окружения
+
+Создай файл `.env` в корне проекта (см. [`.env.example`](.env.example)):
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_public_key
+
+# опционально — для раздела «Оракул»
+GROQ_API_KEY=your_groq_api_key
 ```
 
 ## Запуск
@@ -34,27 +61,7 @@ local-api/                — Node-сервер, SQLite-схема и база
 
 ```bash
 npm install
-npm run dev:local
-```
-
-`dev:local` поднимает локальный API (`http://127.0.0.1:8787/api`) и фронтенд Vite
-(`http://localhost:5173`) одновременно. База SQLite создаётся автоматически из
-`local-api/schema.sql` при первом запуске.
-
-Можно запускать по отдельности:
-
-```bash
-npm run api    # бэкенд
-npm run dev    # фронтенд
-```
-
-## Переменные окружения
-
-Создайте файл `.env` в корне проекта:
-
-```
-# опционально — для работы раздела «Оракул»
-GROQ_API_KEY=your_groq_api_key
+npm run dev      # http://localhost:5173
 ```
 
 ## Сборка

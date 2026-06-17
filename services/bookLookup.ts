@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export interface BookLookupResult {
   id: string;
   title: string;
@@ -16,40 +18,28 @@ export interface BookTextResult {
   source: string;
 }
 
-const LOCAL_API_URL = import.meta.env.VITE_LOCAL_API_URL || 'http://127.0.0.1:8787/api';
-
-const request = async <T>(path: string, signal?: AbortSignal): Promise<T> => {
-  const response = await fetch(`${LOCAL_API_URL}${path}`, { signal });
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(payload?.error || 'Не удалось получить данные книги');
-  }
-
-  return payload as T;
+const invoke = async <T>(body: Record<string, unknown>): Promise<T> => {
+  const { data, error } = await supabase.functions.invoke('book-proxy', { body });
+  if (error) throw new Error(error.message || 'Не удалось получить данные книги');
+  return data as T;
 };
 
-export const searchBooks = (query: string, signal?: AbortSignal) => {
-  return request<BookLookupResult[]>(
-    `/open-library/search?query=${encodeURIComponent(query)}`,
-    signal,
-  );
+export const searchBooks = async (query: string, signal?: AbortSignal) => {
+  const result = await invoke<BookLookupResult[]>({ action: 'search', query });
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  return result;
 };
 
 export const fetchBookText = async (
   iaIds: string[],
   signal?: AbortSignal,
 ): Promise<BookTextResult | null> => {
-  for (const iaId of iaIds.slice(0, 3)) {
-    try {
-      return await request<BookTextResult>(
-        `/open-library/text?iaId=${encodeURIComponent(iaId)}`,
-        signal,
-      );
-    } catch (error) {
-      if (signal?.aborted) throw error;
-    }
+  if (!iaIds.length) return null;
+  try {
+    const result = await invoke<BookTextResult | { content: null }>({ action: 'text', iaIds });
+    if (signal?.aborted) return null;
+    return result && (result as BookTextResult).content ? (result as BookTextResult) : null;
+  } catch {
+    return null;
   }
-
-  return null;
 };

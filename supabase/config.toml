@@ -1,0 +1,4 @@
+project_id = "booknook"
+
+[functions.book-proxy]
+verify_jwt = true

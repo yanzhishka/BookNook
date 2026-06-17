@@ -16,6 +16,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Supabase CLI
+supabase/.temp
+supabase/.branches
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
