@@ -70,3 +70,33 @@ npm run dev      # http://localhost:5173
 npm run build      # проверка типов + сборка фронтенда в dist/
 npm run preview    # предпросмотр собранной версии
 ```
+
+## Android (Capacitor)
+
+Приложение обёрнуто в нативный Android через [Capacitor](https://capacitorjs.com).
+Тот же веб-код запускается в нативном WebView. Папка `android/` — нативный проект.
+
+Требуется Android Studio (с Android SDK). Для сборки нужен **JDK 21** — он уже
+встроен в Android Studio (JBR), поэтому проще всего собирать из неё.
+
+```bash
+# собрать веб, синхронизировать в android и открыть в Android Studio
+npm run android
+```
+
+Далее в Android Studio: **Run ▶** на эмуляторе/устройстве, либо
+**Build → Generate Signed Bundle / APK** для релиза в Play Market.
+
+Сборка из терминала (минуя Android Studio) — укажи её JDK и SDK:
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+npm run cap:sync
+./android/gradlew -p android assembleDebug
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+> ⚠️ **Перед публикацией в Play Market:** вынеси вызов Groq из клиента (`Oracle.tsx`)
+> в Supabase Edge Function — иначе `GROQ_API_KEY` попадёт в APK и его смогут извлечь.
+> Anon-ключ Supabase в бандле — это нормально, его защищает RLS.
