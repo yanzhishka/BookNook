@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const [pendingBookId, setPendingBookId] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -120,6 +121,11 @@ const App: React.FC = () => {
   const handleViewProfile = useCallback((userId: string) => {
     setViewingProfileId(userId);
     setActiveTab('profile');
+  }, []);
+
+  const handleContinueReading = useCallback((bookId: string) => {
+    setPendingBookId(bookId);
+    setActiveTab('library');
   }, []);
 
   const awardXp = useCallback(async (amount: number) => {
@@ -187,10 +193,10 @@ const App: React.FC = () => {
             <Suspense fallback={<PageLoader />}>
                 {(() => {
                   switch (activeTab) {
-                    case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
+                    case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} onContinueReading={handleContinueReading} />;
                     case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
                     case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} />;
-                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} />;
+                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
                     case 'oracle': return <Oracle books={books} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;

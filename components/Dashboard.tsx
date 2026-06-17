@@ -8,6 +8,7 @@ interface DashboardProps {
   user: User;
   books: Book[];
   onNavigate: (tab: string) => void;
+  onContinueReading?: (bookId: string) => void;
 }
 
 const formatReadingTime = (seconds: number) => {
@@ -18,7 +19,7 @@ const formatReadingTime = (seconds: number) => {
   return `${minutes}м`;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate, onContinueReading }) => {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [greeting, setGreeting] = useState('');
@@ -104,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, books, onNavigate })
                       <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif font-black text-stone-900 dark:text-stone-50 leading-tight mb-4 tracking-tighter">{currentBook.title}</h2>
                       <p className="text-stone-500 dark:text-stone-400 text-lg md:text-2xl font-bold italic opacity-70">от {currentBook.author}</p>
                     </div>
-                    <button onClick={() => onNavigate('library')} className="w-full md:w-auto px-10 py-5 md:px-14 md:py-6 bg-stone-900 dark:bg-white text-white dark:text-stone-900 rounded-[2.5rem] md:rounded-[3rem] font-black uppercase text-[11px] md:text-xs tracking-[0.2em] shadow-2xl flex items-center justify-center md:justify-start gap-6 hover:scale-105 active:scale-95 transition-all">
+                    <button onClick={() => onContinueReading ? onContinueReading(currentBook.id) : onNavigate('library')} className="w-full md:w-auto px-10 py-5 md:px-14 md:py-6 bg-stone-900 dark:bg-white text-white dark:text-stone-900 rounded-[2.5rem] md:rounded-[3rem] font-black uppercase text-[11px] md:text-xs tracking-[0.2em] shadow-2xl flex items-center justify-center md:justify-start gap-6 hover:scale-105 active:scale-95 transition-all">
                       Продолжить чтение <ArrowRight size={22} />
                     </button>
                   </div>

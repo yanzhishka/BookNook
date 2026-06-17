@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Book, User } from '../types';
 import { Plus, Trash2, LayoutGrid, List, CheckCircle2, PlayCircle, Bookmark, FolderPlus, BookOpen } from 'lucide-react';
 import { Reader } from './Reader';
@@ -13,9 +14,11 @@ interface LibraryProps {
   user: User;
   onUpdateUser?: (user: User) => void;
   awardXp?: (amount: number) => void;
+  pendingBookId?: string | null;
+  onConsumePendingBook?: () => void;
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdateUser, awardXp }) => {
+export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdateUser, awardXp, pendingBookId, onConsumePendingBook }) => {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -26,6 +29,17 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
   const filteredBooks = useMemo(() => {
     return books.filter(b => statusFilter === 'all' || b.status === statusFilter);
   }, [books, statusFilter]);
+
+  // Открытие книги в читалке по запросу извне (например, кнопка "Продолжить чтение" на главной)
+  useEffect(() => {
+    if (!pendingBookId) return;
+    const target = books.find(b => b.id === pendingBookId);
+    if (target) {
+      setSelectedBook(target);
+      setIsReading(true);
+    }
+    onConsumePendingBook?.();
+  }, [pendingBookId, books, onConsumePendingBook]);
 
   const handleStatusChange = async (book: Book, newStatus: Book['status']) => {
     const wasCompleted = book.status !== 'completed' && newStatus === 'completed';
@@ -46,11 +60,11 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
   };
 
   if (isReading && selectedBook) {
-      return (
-        <Reader 
-            book={selectedBook} 
+      return createPortal(
+        <Reader
+            book={selectedBook}
             user={user}
-            onClose={() => setIsReading(false)} 
+            onClose={() => setIsReading(false)}
             onUpdateBook={(b) => {
                 const wasCompleted = selectedBook?.status !== 'completed' && b.status === 'completed';
                 setSelectedBook(b);
@@ -63,8 +77,9 @@ export const Library: React.FC<LibraryProps> = ({ books, setBooks, user, onUpdat
                       onUpdateUser({ ...user, booksReadThisYear: (user.booksReadThisYear || 0) + 1 });
                     }
                 }
-            }} 
-        />
+            }}
+        />,
+        document.body
       );
   }
 
