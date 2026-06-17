@@ -40,7 +40,7 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
     if (!prompt.trim()) return;
     
     if (!GROQ_KEY) {
-      setError("GROQ_API_KEY не настроен в переменных окружения Vercel.");
+      setError("GROQ_API_KEY не настроен в переменных окружения.");
       return;
     }
 
@@ -101,10 +101,10 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
         </div>
         <h2 className="text-3xl font-serif font-black text-stone-800 dark:text-stone-100 mb-4">Groq Key Missing</h2>
         <p className="text-stone-500 dark:text-stone-400 mb-10 leading-relaxed">
-          Для работы Оракула через Groq необходимо добавить переменную <code>GROQ_API_KEY</code> в настройки вашего проекта на Vercel.
+          Для работы Оракула через Groq необходимо добавить переменную <code>GROQ_API_KEY</code> в файл <code>.env</code> в корне проекта.
         </p>
         <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl text-xs font-mono text-stone-500 text-left overflow-x-auto">
-          Vercel Dashboard &gt; Settings &gt; Environment Variables &gt; GROQ_API_KEY
+          .env &gt; GROQ_API_KEY=your_groq_api_key
         </div>
       </div>
     );
