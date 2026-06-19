@@ -7,6 +7,10 @@ import { User, Book } from './types';
 import { db } from './services/db';
 import { Loader2, ZapOff, Zap } from 'lucide-react';
 import { Auth } from './components/Auth';
+import { Capacitor } from '@capacitor/core';
+
+// На нативной платформе (Android/iOS) управление тапами — кастомный курсор не нужен.
+const isNativePlatform = Capacitor.isNativePlatform();
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
@@ -154,14 +158,14 @@ const App: React.FC = () => {
 
   if (!isAuthenticated || !user) return (
     <div className={theme === 'dark' ? 'dark' : ''}>
-       <CustomCursor />
+       {!isNativePlatform && <CustomCursor />}
        <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} />
     </div>
   );
 
   return (
     <div className={`${theme === 'dark' ? 'dark' : ''} ${zenMode ? 'zen-active' : ''}`}>
-        <CustomCursor />
+        {!isNativePlatform && <CustomCursor />}
         
         {/* Floating Zen Toggle - Displayed STRICTLY only on 'board' tab */}
         {activeTab === 'board' && (

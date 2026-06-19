@@ -24,8 +24,9 @@
         text-rendering: optimizeLegibility;
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
-        cursor: none !important;
       }
+      /* Кастомный курсор только в вебе. На нативе (класс .capacitor) — обычное поведение тача. */
+      html:not(.capacitor) body { cursor: none !important; }
       h1, h2, h3, h4, .serif {
         font-family: 'Merriweather', serif;
         letter-spacing: -0.03em;
