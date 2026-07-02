@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Book } from '../types';
-import { Loader2, Wand2, BookOpenText, Hash, ChevronRight, RotateCcw, Zap, AlertCircle, Cpu } from 'lucide-react';
+import { Loader2, Wand2, BookOpenText, Hash, ChevronRight, RotateCcw, Zap, Cpu } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 interface OracleProps {
   books: Book[];
@@ -21,14 +22,6 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
-  
-  // Ключ берется из переменных окружения Vercel/Vite
-  const GROQ_KEY = process.env.GROQ_API_KEY || '';
-  const [hasKey, setHasKey] = useState<boolean>(!!GROQ_KEY);
-
-  useEffect(() => {
-    setHasKey(!!GROQ_KEY);
-  }, [GROQ_KEY]);
 
   const toggleFlip = (index: number) => {
     setFlippedIndices(prev => 
@@ -38,77 +31,31 @@ export const Oracle: React.FC<OracleProps> = ({ books }) => {
 
   const getRecommendations = async () => {
     if (!prompt.trim()) return;
-    
-    if (!GROQ_KEY) {
-      setError("GROQ_API_KEY не настроен в переменных окружения.");
-      return;
-    }
 
     setLoading(true);
     setError(null);
     setRecommendations([]);
     setFlippedIndices([]);
 
-    const myBooksContext = books.length > 0 
-      ? `Контекст пользователя (уже читал): ${books.slice(0, 10).map(b => b.title).join(', ')}.` 
-      : '';
-
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_KEY}`,
-          'Content-Type': 'application/json'
+      const { data, error: fnError } = await supabase.functions.invoke('oracle', {
+        body: {
+          prompt,
+          myBooks: books.slice(0, 10).map((b) => b.title),
         },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            {
-              role: "system",
-              content: "Ты — литературный Оракул. Твоя цель — подбирать книги на основе глубокого понимания атмосферы. Отвечай СТРОГО в формате JSON. Текст должен быть на русском языке. Структура: { \"recommendations\": [{ \"title\": \"\", \"author\": \"\", \"description\": \"(5-6 предложений)\", \"vibe\": \"(атмосфера)\", \"pages\": 300 }] }"
-            },
-            {
-              role: "user",
-              content: `Рекомендуй 6 уникальных книг для: "${prompt}". ${myBooksContext}`
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7
-        })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error?.message || "Ошибка API Groq");
-      }
+      if (fnError) throw new Error(fnError.message || 'Ошибка связи с Оракулом.');
+      if (data?.error) throw new Error(data.error);
 
-      const data = await response.json();
-      const content = JSON.parse(data.choices[0].message.content);
-      setRecommendations(content.recommendations || []);
+      setRecommendations(data?.recommendations || []);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Ошибка связи с Оракулом.");
+      setError(err.message || 'Ошибка связи с Оракулом.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (!hasKey) {
-    return (
-      <div className="max-w-2xl mx-auto py-32 px-6 text-center animate-fade-in-up">
-        <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl border border-rose-100 dark:border-rose-800">
-          <AlertCircle size={40} className="text-rose-500" />
-        </div>
-        <h2 className="text-3xl font-serif font-black text-stone-800 dark:text-stone-100 mb-4">Groq Key Missing</h2>
-        <p className="text-stone-500 dark:text-stone-400 mb-10 leading-relaxed">
-          Для работы Оракула через Groq необходимо добавить переменную <code>GROQ_API_KEY</code> в файл <code>.env</code> в корне проекта.
-        </p>
-        <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-2xl text-xs font-mono text-stone-500 text-left overflow-x-auto">
-          .env &gt; GROQ_API_KEY=your_groq_api_key
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto pb-20 px-4">

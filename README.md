@@ -9,7 +9,7 @@
 - **The Grid** — доска тредов с ответами и изображениями.
 - **Лента** — публикация мыслей, цитат и прогресса; лайки и комментарии.
 - **Профиль** — статистика чтения, опыт (XP) и уровни.
-- **Оракул** *(опционально)* — рекомендации книг через Groq (Llama). Требует ключ `GROQ_API_KEY`.
+- **Оракул** *(опционально)* — рекомендации книг через Groq (Llama). Работает через Edge Function, ключ хранится на сервере.
 
 ## Технологии
 
@@ -27,6 +27,7 @@ components/                     — экраны и UI-компоненты
 services/                       — клиент Supabase, слой данных и поиск книг
 supabase/schema.sql             — схема БД (выполнить в Supabase SQL Editor)
 supabase/functions/book-proxy/  — Edge Function для импорта книг
+supabase/functions/oracle/      — Edge Function рекомендаций (Groq)
 ```
 
 ## Настройка Supabase
@@ -35,11 +36,13 @@ supabase/functions/book-proxy/  — Edge Function для импорта книг
 2. Открой **SQL Editor** и выполни содержимое [`supabase/schema.sql`](supabase/schema.sql).
 3. В **Authentication → Sign In / Providers → Email** отключи «Confirm email»
    (чтобы регистрация сразу создавала сессию).
-4. Задеплой Edge Function для импорта книг (нужен [Supabase CLI](https://supabase.com/docs/guides/cli)):
+4. Задеплой Edge Functions (нужен [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```bash
    supabase login
-   supabase link --project-ref <твой-project-ref>
-   supabase functions deploy book-proxy
+   supabase functions deploy book-proxy --project-ref <твой-project-ref>
+   supabase functions deploy oracle --project-ref <твой-project-ref>
+   # ключ Groq для Оракула (https://console.groq.com) — хранится на сервере
+   supabase secrets set GROQ_API_KEY=your_groq_api_key --project-ref <твой-project-ref>
    ```
 5. Скопируй ключи: **Project Settings → API** → `Project URL` и `anon public key`.
 
@@ -50,9 +53,6 @@ supabase/functions/book-proxy/  — Edge Function для импорта книг
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_public_key
-
-# опционально — для раздела «Оракул»
-GROQ_API_KEY=your_groq_api_key
 ```
 
 ## Запуск
@@ -97,6 +97,15 @@ npm run cap:sync
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-> ⚠️ **Перед публикацией в Play Market:** вынеси вызов Groq из клиента (`Oracle.tsx`)
-> в Supabase Edge Function — иначе `GROQ_API_KEY` попадёт в APK и его смогут извлечь.
-> Anon-ключ Supabase в бандле — это нормально, его защищает RLS.
+Иконки и сплеш-экран генерируются из `assets/` командой:
+
+```bash
+npx @capacitor/assets generate --android
+```
+
+## Деплой сайта
+
+Собери `npm run build` и выложи папку `dist/` на любой статический хостинг
+(Vercel, Netlify, Cloudflare Pages). В настройках окружения хостинга задай
+`VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`. Секретных ключей во фронтенде
+нет: Groq-ключ живёт в секретах Supabase, anon-ключ защищён RLS.

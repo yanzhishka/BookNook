@@ -5,9 +5,10 @@ import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
 import { User, Book } from './types';
 import { db } from './services/db';
-import { Loader2, ZapOff, Zap } from 'lucide-react';
+import { Loader2, ZapOff, Zap, WifiOff } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 // На нативной платформе (Android/iOS) управление тапами — кастомный курсор не нужен.
 const isNativePlatform = Capacitor.isNativePlatform();
@@ -66,6 +67,34 @@ const App: React.FC = () => {
   
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [pendingBookId, setPendingBookId] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Индикатор отсутствия сети
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // Android: системная кнопка «Назад» — на главную, с главной — свернуть приложение
+  useEffect(() => {
+    if (!isNativePlatform) return;
+    const sub = CapacitorApp.addListener('backButton', () => {
+      const currentTab = localStorage.getItem(TAB_STORAGE_KEY) || 'home';
+      if (currentTab !== 'home') {
+        setActiveTab('home');
+        setViewingProfileId(null);
+      } else {
+        CapacitorApp.minimizeApp();
+      }
+    });
+    return () => { sub.then(s => s.remove()); };
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -156,9 +185,16 @@ const App: React.FC = () => {
     </div>
   );
 
+  const offlineBanner = isOffline && (
+    <div className="fixed top-0 inset-x-0 z-[2000] bg-stone-900 text-white text-center text-[11px] font-black uppercase tracking-widest py-2.5 flex items-center justify-center gap-2 shadow-2xl">
+      <WifiOff size={14} className="text-amber-400" /> Нет подключения к интернету
+    </div>
+  );
+
   if (!isAuthenticated || !user) return (
     <div className={theme === 'dark' ? 'dark' : ''}>
        {!isNativePlatform && <CustomCursor />}
+       {offlineBanner}
        <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} />
     </div>
   );
@@ -166,7 +202,8 @@ const App: React.FC = () => {
   return (
     <div className={`${theme === 'dark' ? 'dark' : ''} ${zenMode ? 'zen-active' : ''}`}>
         {!isNativePlatform && <CustomCursor />}
-        
+        {offlineBanner}
+
         {/* Floating Zen Toggle - Displayed STRICTLY only on 'board' tab */}
         {activeTab === 'board' && (
           <button 
