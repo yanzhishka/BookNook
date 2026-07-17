@@ -60,6 +60,7 @@ export interface User {
   totalReadingTime?: number; 
   xp: number;
   level: number;
+  termsAcceptedAt?: string;
 }
 
 export interface Thread {
@@ -85,14 +86,6 @@ export interface ThreadReply {
   timestamp: string;
 }
 
-export interface UserArchetype {
-  title: string;
-  description: string;
-  traits: string[];
-  color: string;
-  icon: string;
-}
-
 export interface Activity {
   id: string;
   user: User;
@@ -105,35 +98,19 @@ export interface Activity {
   comments: Comment[];
 }
 
-export interface Chat {
-  id: string;
-  lastMessage: string;
-  participants: User[];
-}
+export type ReportContentType = 'post' | 'comment' | 'thread' | 'reply' | 'user';
+export type ReportReason =
+  | 'spam'
+  | 'harassment'
+  | 'hate'
+  | 'sexual'
+  | 'violence'
+  | 'child_safety'
+  | 'other';
 
-export interface Message {
-  id: string;
-  chatId: string;
-  senderId: string;
-  content: string;
-  createdAt: string;
-  isRead: boolean;
-}
-
-export type ImageSize = '1K' | '2K' | '4K';
-export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
-
-export interface Collection {
-  id: string;
-  name: string;
-  description?: string;
-  bookIds: string[];
-}
-
-export interface MoodCategory {
-  id: string;
-  label: string;
-  emoji: string;
-  color: string;
-  description: string;
+export interface ModerationTarget {
+  contentId?: string;
+  contentType: ReportContentType;
+  userId: string;
+  userName: string;
 }

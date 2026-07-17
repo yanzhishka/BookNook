@@ -7,11 +7,14 @@ import {
   Thread,
   ThreadReply,
   User,
+  ReportContentType,
+  ReportReason,
 } from '../types';
 import type { Json, Tables } from './database.types';
-import { supabase } from './supabase';
+import { Capacitor } from '@capacitor/core';
+import { MOBILE_AUTH_CALLBACK, supabase } from './supabase';
 
-const PUBLIC_PROFILE_COLUMNS = 'id,name,handle,avatar,banner_url,bio,location,joined_date,streak_days,role,xp,level,completed_count';
+const PUBLIC_PROFILE_COLUMNS = 'id,name,handle,avatar,banner_url,bio,location,joined_date,streak_days,role,xp,level,completed_count,terms_accepted_at';
 
 type ProfileRecord = Partial<Tables<'profiles'>> & { id: string };
 type BookRecord = Tables<'books'>;
@@ -56,6 +59,7 @@ const mapProfileToUser = (profile: ProfileRecord, email?: string): User => ({
   totalReadingTime: 0,
   xp: Number(profile.xp || 0),
   level: Number(profile.level || 1),
+  termsAcceptedAt: profile.terms_accepted_at || undefined,
 });
 
 const mapDbBookToBook = (book: BookRecord, allQuotes: any[] = []): Book => {
@@ -205,11 +209,17 @@ export const db = {
     return this.loadUserData(data.user.id, data.user.email);
   },
 
-  async register(email: string, password: string, name: string): Promise<User> {
+  async register(email: string, password: string, name: string, acceptedTerms: boolean): Promise<User> {
+    if (!acceptedTerms) throw new Error('Для регистрации необходимо принять правила сообщества');
+
+    const termsAcceptedAt = new Date().toISOString();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name, terms_accepted_at: termsAcceptedAt },
+        ...(Capacitor.isNativePlatform() ? { emailRedirectTo: MOBILE_AUTH_CALLBACK } : {}),
+      },
     });
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Не удалось создать пользователя');
@@ -220,11 +230,23 @@ export const db = {
       .eq('id', data.user.id)
       .single();
 
-    return mapProfileToUser(profile || { id: data.user.id, name }, data.user.email);
+    return mapProfileToUser(
+      profile || { id: data.user.id, name, terms_accepted_at: termsAcceptedAt },
+      data.user.email,
+    );
   },
 
   async logout() {
     await supabase.auth.signOut();
+  },
+
+  async deleteAccount() {
+    const { error } = await supabase.functions.invoke('delete-account', {
+      body: { confirmation: 'DELETE_MY_ACCOUNT' },
+    });
+    if (error) throw new Error(error.message);
+
+    await supabase.auth.signOut({ scope: 'local' });
   },
 
   async updateUserProfile(user: User) {
@@ -238,6 +260,45 @@ export const db = {
         banner_url: user.bannerUrl,
       })
       .eq('id', user.id);
+    if (error) throw new Error(error.message);
+  },
+
+  async acceptCommunityTerms(userId: string): Promise<string> {
+    const acceptedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ terms_accepted_at: acceptedAt })
+      .eq('id', userId);
+    if (error) throw new Error(error.message);
+    return acceptedAt;
+  },
+
+  async reportContent(
+    reporterId: string,
+    reportedUserId: string,
+    contentType: ReportContentType,
+    contentId: string | undefined,
+    reason: ReportReason,
+    details?: string,
+  ) {
+    const { error } = await supabase.from('content_reports').insert({
+      reporter_id: reporterId,
+      reported_user_id: reportedUserId,
+      content_type: contentType,
+      content_id: contentId || null,
+      reason,
+      details: details?.trim() || null,
+    });
+    if (error?.code === '23505') throw new Error('Жалоба на этот материал уже отправлена');
+    if (error) throw new Error(error.message);
+  },
+
+  async blockUser(blockerId: string, blockedId: string) {
+    const { error } = await supabase.from('user_blocks').insert({
+      blocker_id: blockerId,
+      blocked_id: blockedId,
+    });
+    if (error?.code === '23505') return;
     if (error) throw new Error(error.message);
   },
 

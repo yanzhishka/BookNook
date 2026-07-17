@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2 } from 'lucide-react';
+import { Flag, Trash2 } from 'lucide-react';
 import { ThreadReply } from '../../types';
 import { classNames } from '../../utils/classNames';
 import { Identicon } from '../Identicon';
@@ -10,6 +10,8 @@ interface ThreadReplyItemProps {
   delayIndex: number;
   reply: ThreadReply;
   onDelete: () => void;
+  canModerate: boolean;
+  onModerate: () => void;
 }
 
 export const ThreadReplyItem: React.FC<ThreadReplyItemProps> = ({
@@ -17,6 +19,8 @@ export const ThreadReplyItem: React.FC<ThreadReplyItemProps> = ({
   delayIndex,
   reply,
   onDelete,
+  canModerate,
+  onModerate,
 }) => {
   return (
     <article className={classNames(styles.reply, styles[`delay${delayIndex}`])}>
@@ -35,6 +39,16 @@ export const ThreadReplyItem: React.FC<ThreadReplyItemProps> = ({
                 aria-label="Удалить ответ"
               >
                 <Trash2 size={14} />
+              </button>
+            )}
+            {canModerate && (
+              <button
+                type="button"
+                onClick={onModerate}
+                className={styles.deleteButton}
+                aria-label="Пожаловаться на ответ"
+              >
+                <Flag size={14} />
               </button>
             )}
           </div>

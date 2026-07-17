@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
-    "android": "npm run build && npx cap sync android && npx cap open android"
+    "android": "npm run build && npx cap sync android && npx cap open android",
+    "verify:supabase": "node --env-file-if-exists=.env.production scripts/verify-supabase-release.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

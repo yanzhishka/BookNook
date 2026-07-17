@@ -5,6 +5,7 @@ import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
 import { User, Book } from './types';
 import { db } from './services/db';
+import { establishSessionFromAuthUrl, MOBILE_AUTH_CALLBACK } from './services/supabase';
 import { Loader2, ZapOff, Zap, WifiOff } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { Capacitor } from '@capacitor/core';
@@ -12,6 +13,8 @@ import { App as CapacitorApp } from '@capacitor/app';
 
 // На нативной платформе (Android/iOS) управление тапами — кастомный курсор не нужен.
 const isNativePlatform = Capacitor.isNativePlatform();
+const accountDeletionRequested = new URLSearchParams(window.location.search)
+  .get('accountDeletion') === '1';
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
@@ -68,6 +71,7 @@ const App: React.FC = () => {
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [pendingBookId, setPendingBookId] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [authLinkError, setAuthLinkError] = useState<string | null>(null);
 
   // Индикатор отсутствия сети
   useEffect(() => {
@@ -106,25 +110,65 @@ const App: React.FC = () => {
   }, [activeTab]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const applyCurrentSession = async () => {
+      const session = await db.getSession();
+      if (!session || cancelled) return;
+
+      setUser(session.user);
+      setBooks(session.books);
+      setIsAuthenticated(true);
+      setIsGuest(false);
+      if (accountDeletionRequested) setActiveTab('profile');
+    };
+
+    const handleAuthUrl = async (url: string) => {
+      if (!url.startsWith(MOBILE_AUTH_CALLBACK)) return;
+
+      setIsLoading(true);
+      setAuthLinkError(null);
+      try {
+        await establishSessionFromAuthUrl(url);
+        await applyCurrentSession();
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : 'Не удалось подтвердить адрес';
+          setAuthLinkError(message);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    const urlListener = isNativePlatform
+      ? CapacitorApp.addListener('appUrlOpen', ({ url }) => { void handleAuthUrl(url); })
+      : null;
+
     (async () => {
       try {
-        const session = await db.getSession();
-        if (session) {
-          setUser(session.user);
-          setBooks(session.books);
-          setIsAuthenticated(true);
+        if (isNativePlatform) {
+          const launch = await CapacitorApp.getLaunchUrl();
+          if (launch?.url) await handleAuthUrl(launch.url);
         }
-      } catch (e) {
-        console.error("Session init failed", e);
+        await applyCurrentSession();
+      } catch (error) {
+        console.error('Session init failed', error);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      void urlListener?.then(listener => listener.remove());
+    };
   }, []);
 
   const handleLogin = useCallback((u: User, b: Book[]) => {
     setUser(u); setBooks(b);
     setIsAuthenticated(true); setIsGuest(false);
+    if (accountDeletionRequested) setActiveTab('profile');
   }, []);
 
   const handleGuestLogin = useCallback(() => {
@@ -141,6 +185,16 @@ const App: React.FC = () => {
     setViewingProfileId(null);
     localStorage.removeItem(TAB_STORAGE_KEY);
   }, [isGuest]);
+
+  const handleAccountDeleted = useCallback(() => {
+    setIsAuthenticated(false);
+    setUser(null);
+    setIsGuest(false);
+    setBooks([]);
+    setActiveTab('home');
+    setViewingProfileId(null);
+    localStorage.removeItem(TAB_STORAGE_KEY);
+  }, []);
 
   const handleTabChange = useCallback((tab: string) => {
     if (isGuest && (tab !== 'feed' && tab !== 'board')) {
@@ -181,7 +235,7 @@ const App: React.FC = () => {
   );
 
   const offlineBanner = isOffline && (
-    <div className="fixed top-0 inset-x-0 z-[2000] bg-stone-900 text-white text-center text-[11px] font-black uppercase tracking-widest py-2.5 flex items-center justify-center gap-2 shadow-2xl">
+    <div className="offline-banner fixed top-0 inset-x-0 z-[2000] bg-stone-900 text-white text-center text-[11px] font-black uppercase tracking-widest py-2.5 flex items-center justify-center gap-2 shadow-2xl">
       <WifiOff size={14} className="text-amber-400" /> Нет подключения к интернету
     </div>
   );
@@ -190,7 +244,7 @@ const App: React.FC = () => {
     <div className={theme === 'dark' ? 'dark' : ''}>
        {!isNativePlatform && <CustomCursor />}
        {offlineBanner}
-       <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} />
+       <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} initialError={authLinkError} />
     </div>
   );
 
@@ -204,7 +258,7 @@ const App: React.FC = () => {
           <button 
             onClick={() => setZenMode(!zenMode)}
             className={`
-              fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border border-stone-100 dark:border-stone-800 shadow-2xl transition-all duration-500
+              native-safe-top fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border border-stone-100 dark:border-stone-800 shadow-2xl transition-all duration-500
               ${zenMode 
                 ? 'bg-amber-500 text-white border-amber-400 rotate-12 scale-110' 
                 : 'bg-white/80 dark:bg-stone-900/80 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}
@@ -231,9 +285,9 @@ const App: React.FC = () => {
                   switch (activeTab) {
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} onContinueReading={handleContinueReading} />;
                     case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
-                    case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} />;
+                    case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} onUpdateUser={setUser} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
-                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
+                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} onAccountDeleted={handleAccountDeleted} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                   }
                 })()}

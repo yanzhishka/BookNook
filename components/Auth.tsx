@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, ArrowRight, Loader2, AlertCircle, User, CheckCircle } from 'lucide-react';
 import { db } from '../services/db';
 import { User as UserType, Book } from '../types';
@@ -7,9 +7,10 @@ import { User as UserType, Book } from '../types';
 interface AuthProps {
   onLogin: (user: UserType, books: Book[]) => void;
   onGuestLogin: () => void;
+  initialError?: string | null;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
+export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +20,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  useEffect(() => {
+    if (initialError) setError(initialError);
+  }, [initialError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,12 +33,17 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
 
     // Initial basic validation
     if (!email.trim() || !password.trim() || (isRegistering && !name.trim())) {
-      setError("Please fill in all fields");
+      setError('Заполните все поля');
       return;
     }
 
     if (isRegistering && password.length < 8) {
-      setError("Password must contain at least 8 characters");
+      setError('Пароль должен содержать не менее 8 символов');
+      return;
+    }
+
+    if (isRegistering && !acceptedTerms) {
+      setError('Примите правила сообщества и политику конфиденциальности');
       return;
     }
 
@@ -41,7 +52,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
     try {
       if (isRegistering) {
         // 1. Try Register
-        await db.register(email, password, name);
+        await db.register(email, password, name, acceptedTerms);
         
         // 2. Try Auto-Login (works if Email Confirm is OFF)
         const session = await db.getSession();
@@ -51,7 +62,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
         } else {
             // 3. If no session, it means Email Confirm is ON
             setIsRegistering(false); // Switch to sign in view
-            setSuccessMessage("Account created! Please check your email to confirm your registration before logging in.");
+            setSuccessMessage('Аккаунт создан. Подтвердите адрес по ссылке в письме, затем войдите.');
             setPassword(""); // Clear password for security
         }
       } else {
@@ -61,7 +72,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
     } catch (err: any) {
       console.error(err);
       // Ensure error is a readable string
-      const displayError = err?.message || "Authentication failed. Please check your credentials.";
+      const displayError = err?.message || 'Не удалось войти. Проверьте данные и подключение.';
       setError(displayError);
     } finally {
       setLoading(false);
@@ -69,7 +80,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 relative overflow-hidden">
+    <div className="auth-screen min-h-screen w-full flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 relative overflow-hidden">
       {/* Background Elements */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-200/20 dark:bg-blue-900/10 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-orange-200/20 dark:bg-orange-900/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -79,20 +90,21 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
           <div className="w-16 h-16 bg-stone-900 dark:bg-stone-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
             <BookOpen size={32} className="text-white dark:text-stone-900" />
           </div>
+
           <h1 className="text-3xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-2">B.Nook</h1>
-          <p className="text-stone-500 dark:text-stone-400">Your personal digital sanctuary.</p>
+          <p className="text-stone-500 dark:text-stone-400">Личная библиотека и место для чтения.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegistering && (
             <div className="space-y-1 animate-fade-in-up">
-              <label className="text-xs font-bold text-stone-400 uppercase ml-1">Full Name</label>
+              <label className="text-xs font-bold text-stone-400 uppercase ml-1">Имя</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-stone-500 transition-all text-stone-800 dark:text-stone-100"
-                placeholder="John Doe"
+                placeholder="Как вас зовут"
               />
             </div>
           )}
@@ -108,8 +120,22 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
             />
           </div>
 
+          {isRegistering && (
+            <label className="flex items-start gap-3 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 p-3 text-xs text-stone-500 dark:text-stone-400 leading-relaxed cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                className="mt-0.5 accent-amber-500"
+              />
+              <span>
+                Я принимаю <a href="/terms.html" target="_blank" rel="noreferrer" className="underline hover:text-stone-800 dark:hover:text-stone-100">условия использования</a>, <a href="/community-guidelines.html" target="_blank" rel="noreferrer" className="underline hover:text-stone-800 dark:hover:text-stone-100">правила сообщества</a> и <a href="/privacy.html" target="_blank" rel="noreferrer" className="underline hover:text-stone-800 dark:hover:text-stone-100">политику конфиденциальности</a>.
+              </span>
+            </label>
+          )}
+
           <div className="space-y-1">
-            <label className="text-xs font-bold text-stone-400 uppercase ml-1">Password</label>
+            <label className="text-xs font-bold text-stone-400 uppercase ml-1">Пароль</label>
             <input
               type="password"
               value={password}
@@ -144,7 +170,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
               <Loader2 className="animate-spin" />
             ) : (
               <>
-                {isRegistering ? 'Create Account' : 'Sign In'}
+                {isRegistering ? 'Создать аккаунт' : 'Войти'}
                 <ArrowRight size={20} />
               </>
             )}
@@ -157,7 +183,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
                 className="w-full py-3 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
              >
                  <User size={18} />
-                 Continue as Guest
+                 Продолжить как гость
              </button>
         </div>
 
@@ -171,9 +197,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
             className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 text-sm font-medium transition-colors"
           >
             {isRegistering
-              ? "Already have an account? Sign In"
-              : "New here? Create an account"}
+              ? 'Уже есть аккаунт? Войти'
+              : 'Впервые здесь? Создать аккаунт'}
           </button>
+        </div>
+        <div className="mt-5 flex items-center justify-center gap-4 text-[11px] text-stone-400">
+          <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:text-stone-700 dark:hover:text-stone-200">Конфиденциальность</a>
+          <a href="/account-deletion.html" target="_blank" rel="noreferrer" className="hover:text-stone-700 dark:hover:text-stone-200">Удаление аккаунта</a>
         </div>
       </div>
     </div>

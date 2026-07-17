@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Book } from '../types';
-import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock, Camera, Image as ImageIcon, X, Check } from 'lucide-react';
+import { Flame, Edit3, History, BarChart3, Award, Calendar as CalendarIcon, BookOpen, Loader2, Lock, Camera, Image as ImageIcon, X, Check, Trash2, ShieldCheck, Flag } from 'lucide-react';
 import { db } from '../services/db';
+import { ConfirmDialog } from './ConfirmDialog';
+import { ModerationDialog } from './ModerationDialog';
 
 interface ProfileProps {
   user: User;
@@ -10,6 +12,7 @@ interface ProfileProps {
   books: Book[];
   viewingUserId?: string;
   onNavigate?: (tab: string) => void;
+  onAccountDeleted?: () => void;
 }
 
 interface Achievement {
@@ -30,7 +33,14 @@ const formatReadingTime = (seconds: number) => {
   return `${minutes}м`;
 };
 
-export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUser, books: currentBooks, viewingUserId }) => {
+export const Profile: React.FC<ProfileProps> = ({
+  user: currentUser,
+  onUpdateUser,
+  books: currentBooks,
+  viewingUserId,
+  onNavigate,
+  onAccountDeleted,
+}) => {
   const isOwnProfile = !viewingUserId || viewingUserId === currentUser.id;
   
   const [profileUser, setProfileUser] = useState<User>(currentUser);
@@ -44,6 +54,10 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
   const [editBio, setEditBio] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isModerationOpen, setIsModerationOpen] = useState(false);
 
   const fileInputAvatarRef = useRef<HTMLInputElement>(null);
   const fileInputBannerRef = useRef<HTMLInputElement>(null);
@@ -141,12 +155,50 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
     setIsEditing(false);
   }
 
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      await db.deleteAccount();
+      setIsDeleteDialogOpen(false);
+      onAccountDeleted?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось удалить аккаунт';
+      setDeleteError(message);
+      setIsDeleteDialogOpen(false);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   if (isLoadingProfile) return (
       <div className="flex flex-col items-center justify-center min-h-[500px] animate-fade-in"><Loader2 className="animate-spin text-amber-500 mb-4" size={40} /></div>
   );
 
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-fade-in-up">
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        title="Удалить аккаунт навсегда?"
+        message="Будут удалены профиль, библиотека, заметки, публикации, комментарии и ответы. Отменить это действие нельзя."
+        confirmLabel="Удалить аккаунт"
+        isConfirming={isDeletingAccount}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+      />
+      <ModerationDialog
+        currentUser={currentUser}
+        target={isModerationOpen ? {
+          contentType: 'user',
+          userId: profileUser.id,
+          userName: profileUser.name,
+        } : null}
+        onBlocked={() => {
+          setIsModerationOpen(false);
+          onNavigate?.('feed');
+        }}
+        onClose={() => setIsModerationOpen(false)}
+      />
       <input type="file" ref={fileInputBannerRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
       <input type="file" ref={fileInputAvatarRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
 
@@ -214,7 +266,7 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                         </>
                     )}
                 </div>
-                {isOwnProfile && (
+                {isOwnProfile ? (
                     isEditing ? (
                         <div className="flex gap-3 flex-col sm:flex-row">
                           <button onClick={cancelEdit} className="px-6 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"><X size={16}/> Отмена</button>
@@ -226,7 +278,16 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                     ) : (
                         <button onClick={() => setIsEditing(true)} className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all hover:scale-110 shadow-sm"><Edit3 size={20}/></button>
                     )
-                )}
+                ) : currentUser.id !== 'guest' ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsModerationOpen(true)}
+                      className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-400 hover:text-amber-600 transition-all hover:scale-110 shadow-sm"
+                      aria-label="Пожаловаться или заблокировать пользователя"
+                    >
+                      <Flag size={20} />
+                    </button>
+                ) : null}
             </div>
 
             <div className="flex border-b border-stone-100 dark:border-stone-800 mb-10 gap-8 overflow-x-auto pb-1">
@@ -285,6 +346,32 @@ export const Profile: React.FC<ProfileProps> = ({ user: currentUser, onUpdateUse
                 <div className="absolute top-0 right-0 p-8 opacity-10"><BookOpen size={120} /></div>
                 <div className="relative z-10"><h5 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Всего времени</h5><p className="text-4xl font-black mb-1">{formatReadingTime(profileUser.totalReadingTime || 0)}</p><p className="text-xs font-medium opacity-60">Наслаждения текстом</p></div>
             </div>
+            {isOwnProfile && (
+              <section id="account-deletion" className="p-7 bg-white dark:bg-stone-900 rounded-[2.5rem] border border-stone-100 dark:border-stone-800 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <ShieldCheck size={18} className="text-stone-400" />
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-stone-400">Аккаунт и данные</h5>
+                </div>
+                <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed mb-5">
+                  Здесь можно навсегда удалить аккаунт и связанные с ним данные.
+                </p>
+                {deleteError && (
+                  <p className="mb-4 text-xs text-red-600 dark:text-red-400" role="alert">{deleteError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  disabled={isDeletingAccount}
+                  className="w-full px-4 py-3 rounded-2xl border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-950/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Удалить аккаунт
+                </button>
+                <div className="mt-4 flex justify-center gap-4 text-[10px] text-stone-400">
+                  <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:text-stone-700 dark:hover:text-stone-200">Конфиденциальность</a>
+                  <a href="/account-deletion.html" target="_blank" rel="noreferrer" className="hover:text-stone-700 dark:hover:text-stone-200">Подробнее</a>
+                </div>
+              </section>
+            )}
         </div>
       </div>
     </div>

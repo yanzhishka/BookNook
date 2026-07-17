@@ -20,7 +20,8 @@ create table if not exists public.profiles (
   role            text not null default 'user' check (role in ('user', 'admin')),
   xp              integer not null default 0 check (xp >= 0),
   level           integer not null default 1 check (level >= 1),
-  completed_count integer not null default 0 check (completed_count >= 0)
+  completed_count integer not null default 0 check (completed_count >= 0),
+  terms_accepted_at timestamptz
 );
 
 create table if not exists public.books (
@@ -99,6 +100,30 @@ create table if not exists public.thread_replies (
   created_at  timestamptz not null default now()
 );
 
+create table if not exists public.user_blocks (
+  blocker_id uuid not null references public.profiles(id) on delete cascade,
+  blocked_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  constraint user_blocks_not_self check (blocker_id <> blocked_id)
+);
+
+create table if not exists public.content_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  reported_user_id uuid references public.profiles(id) on delete set null,
+  content_type text not null
+    check (content_type in ('post', 'comment', 'thread', 'reply', 'user')),
+  content_id uuid,
+  reason text not null
+    check (reason in ('spam', 'harassment', 'hate', 'sexual', 'violence', 'child_safety', 'other')),
+  details text check (details is null or char_length(details) <= 1000),
+  status text not null default 'pending'
+    check (status in ('pending', 'reviewing', 'resolved', 'dismissed')),
+  created_at timestamptz not null default now(),
+  unique (reporter_id, content_type, content_id)
+);
+
 create index if not exists idx_books_user_id on public.books(user_id);
 create index if not exists idx_books_status on public.books(status);
 create index if not exists idx_quotes_user_id on public.quotes(user_id);
@@ -114,6 +139,11 @@ create index if not exists idx_threads_created on public.threads(created_at desc
 create index if not exists idx_threads_author_id on public.threads(author_id);
 create index if not exists idx_replies_thread on public.thread_replies(thread_id, created_at);
 create index if not exists idx_replies_author_id on public.thread_replies(author_id);
+create index if not exists idx_user_blocks_blocked_id on public.user_blocks(blocked_id);
+create index if not exists idx_content_reports_status_created
+  on public.content_reports(status, created_at);
+create index if not exists idx_content_reports_reported_user
+  on public.content_reports(reported_user_id);
 
 -- Internal trigger functions are intentionally outside the Data API schema.
 create or replace function private.handle_new_user()
@@ -123,14 +153,21 @@ security definer
 set search_path = ''
 as $$
 begin
-  insert into public.profiles (id, email, name, handle, avatar, joined_date)
+  insert into public.profiles (
+    id, email, name, handle, avatar, joined_date, terms_accepted_at
+  )
   values (
     new.id,
     lower(new.email),
     coalesce(nullif(btrim(new.raw_user_meta_data ->> 'name'), ''), split_part(new.email, '@', 1)),
     split_part(new.email, '@', 1),
     'https://ui-avatars.com/api/?name=' || split_part(new.email, '@', 1) || '&background=random',
-    to_char(now(), 'YYYY-MM-DD')
+    to_char(now(), 'YYYY-MM-DD'),
+    case
+      when new.raw_user_meta_data ->> 'terms_accepted_at' is not null
+        then (new.raw_user_meta_data ->> 'terms_accepted_at')::timestamptz
+      else null
+    end
   )
   on conflict (id) do nothing;
   return new;
@@ -291,6 +328,8 @@ alter table public.activity_likes enable row level security;
 alter table public.activity_comments enable row level security;
 alter table public.threads enable row level security;
 alter table public.thread_replies enable row level security;
+alter table public.user_blocks enable row level security;
+alter table public.content_reports enable row level security;
 
 create policy profiles_select on public.profiles
   for select to anon, authenticated using (true);
@@ -391,6 +430,116 @@ grant select on public.threads to anon, authenticated;
 grant insert, delete on public.threads to authenticated;
 grant select on public.thread_replies to anon, authenticated;
 grant insert, delete on public.thread_replies to authenticated;
+
+create policy user_blocks_select on public.user_blocks
+  for select to authenticated using ((select auth.uid()) = blocker_id);
+create policy user_blocks_insert on public.user_blocks
+  for insert to authenticated
+  with check ((select auth.uid()) = blocker_id and blocker_id <> blocked_id);
+create policy user_blocks_delete on public.user_blocks
+  for delete to authenticated using ((select auth.uid()) = blocker_id);
+
+create policy content_reports_select on public.content_reports
+  for select to authenticated using (
+    (select auth.uid()) = reporter_id or exists (
+      select 1 from public.profiles as profile
+      where profile.id = (select auth.uid()) and profile.role = 'admin'
+    )
+  );
+create policy content_reports_insert on public.content_reports
+  for insert to authenticated with check (
+    (select auth.uid()) = reporter_id
+    and reporter_id is distinct from reported_user_id
+  );
+
+drop policy profiles_select on public.profiles;
+create policy profiles_select on public.profiles
+  for select to anon, authenticated using (
+    (select auth.uid()) is null or not exists (
+      select 1 from public.user_blocks as block
+      where block.blocker_id = (select auth.uid()) and block.blocked_id = profiles.id
+    )
+  );
+
+drop policy activities_select on public.activities;
+create policy activities_select on public.activities
+  for select to anon, authenticated using (
+    (select auth.uid()) is null or not exists (
+      select 1 from public.user_blocks as block
+      where block.blocker_id = (select auth.uid()) and block.blocked_id = activities.user_id
+    )
+  );
+
+drop policy activity_comments_select on public.activity_comments;
+create policy activity_comments_select on public.activity_comments
+  for select to anon, authenticated using (
+    (select auth.uid()) is null or not exists (
+      select 1 from public.user_blocks as block
+      where block.blocker_id = (select auth.uid()) and block.blocked_id = activity_comments.user_id
+    )
+  );
+
+drop policy threads_select on public.threads;
+create policy threads_select on public.threads
+  for select to anon, authenticated using (
+    (select auth.uid()) is null or not exists (
+      select 1 from public.user_blocks as block
+      where block.blocker_id = (select auth.uid()) and block.blocked_id = threads.author_id
+    )
+  );
+
+drop policy replies_select on public.thread_replies;
+create policy replies_select on public.thread_replies
+  for select to anon, authenticated using (
+    (select auth.uid()) is null or not exists (
+      select 1 from public.user_blocks as block
+      where block.blocker_id = (select auth.uid()) and block.blocked_id = thread_replies.author_id
+    )
+  );
+
+drop policy activities_insert on public.activities;
+create policy activities_insert on public.activities
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id and exists (
+      select 1 from public.profiles as profile
+      where profile.id = (select auth.uid()) and profile.terms_accepted_at is not null
+    )
+  );
+
+drop policy activity_comments_insert on public.activity_comments;
+create policy activity_comments_insert on public.activity_comments
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id and exists (
+      select 1 from public.profiles as profile
+      where profile.id = (select auth.uid()) and profile.terms_accepted_at is not null
+    )
+  );
+
+drop policy threads_insert on public.threads;
+create policy threads_insert on public.threads
+  for insert to authenticated with check (
+    (select auth.uid()) = author_id and exists (
+      select 1 from public.profiles as profile
+      where profile.id = (select auth.uid()) and profile.terms_accepted_at is not null
+    )
+  );
+
+drop policy replies_insert on public.thread_replies;
+create policy replies_insert on public.thread_replies
+  for insert to authenticated with check (
+    (select auth.uid()) = author_id and exists (
+      select 1 from public.profiles as profile
+      where profile.id = (select auth.uid()) and profile.terms_accepted_at is not null
+    )
+  );
+
+revoke all privileges on table public.user_blocks, public.content_reports
+  from anon, authenticated;
+grant select on public.user_blocks to anon, authenticated;
+grant insert, delete on public.user_blocks to authenticated;
+grant select, insert on public.content_reports to authenticated;
+grant select (terms_accepted_at) on public.profiles to anon, authenticated;
+grant update (terms_accepted_at) on public.profiles to authenticated;
 
 alter default privileges for role postgres in schema public
   revoke select, insert, update, delete, truncate, references, trigger

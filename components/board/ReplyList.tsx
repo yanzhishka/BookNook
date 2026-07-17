@@ -11,6 +11,7 @@ interface ReplyListProps {
   replies: ThreadReply[];
   user: User;
   onDeleteReply: (replyId: string) => void;
+  onModerateReply: (reply: ThreadReply) => void;
 }
 
 export const ReplyList: React.FC<ReplyListProps> = ({
@@ -20,6 +21,7 @@ export const ReplyList: React.FC<ReplyListProps> = ({
   replies,
   user,
   onDeleteReply,
+  onModerateReply,
 }) => {
   if (loading) {
     return (
@@ -52,6 +54,8 @@ export const ReplyList: React.FC<ReplyListProps> = ({
           delayIndex={Math.min(index, 24)}
           reply={reply}
           onDelete={() => onDeleteReply(reply.id)}
+          canModerate={user.id !== 'guest' && user.id !== reply.authorId}
+          onModerate={() => onModerateReply(reply)}
         />
       ))}
     </div>
