@@ -8,9 +8,14 @@ import {
   ThreadReply,
   User,
 } from '../types';
+import type { Json, Tables } from './database.types';
 import { supabase } from './supabase';
 
-export const ADMIN_EMAIL = 'nme030609@gmail.com';
+const PUBLIC_PROFILE_COLUMNS = 'id,name,handle,avatar,banner_url,bio,location,joined_date,streak_days,role,xp,level,completed_count';
+
+type ProfileRecord = Partial<Tables<'profiles'>> & { id: string };
+type BookRecord = Tables<'books'>;
+type QuoteRecord = Tables<'quotes'>;
 
 const formatDate = (value?: string) => {
   if (!value) return '';
@@ -35,24 +40,25 @@ const formatTime = (value?: string) => {
   });
 };
 
-const mapProfileToUser = (profile: any): User => ({
+const mapProfileToUser = (profile: ProfileRecord, email?: string): User => ({
   id: profile.id,
-  email: profile.email,
+  email,
   name: profile.name || 'User',
-  handle: profile.handle || profile.email?.split('@')[0] || 'user',
+  role: profile.role === 'admin' ? 'admin' : 'user',
+  handle: profile.handle || email?.split('@')[0] || 'user',
   avatar: profile.avatar || 'https://ui-avatars.com/api/?name=User&background=random',
-  bannerUrl: profile.banner_url,
-  bio: profile.bio,
-  location: profile.location,
-  joinedDate: profile.joined_date,
-  booksReadThisYear: Number(profile.booksReadThisYear || profile.completed_count || 0),
+  bannerUrl: profile.banner_url || undefined,
+  bio: profile.bio || undefined,
+  location: profile.location || undefined,
+  joinedDate: profile.joined_date || undefined,
+  booksReadThisYear: Number(profile.completed_count || 0),
   streakDays: Number(profile.streak_days || 0),
-  totalReadingTime: Number(profile.total_reading_time || 0),
+  totalReadingTime: 0,
   xp: Number(profile.xp || 0),
   level: Number(profile.level || 1),
 });
 
-const mapDbBookToBook = (book: any, allQuotes: any[] = []): Book => {
+const mapDbBookToBook = (book: BookRecord, allQuotes: any[] = []): Book => {
   const annotations = allQuotes
     .filter((quote) => quote.book_id === book.id || quote.bookId === book.id)
     .map((quote) => {
@@ -73,13 +79,13 @@ const mapDbBookToBook = (book: any, allQuotes: any[] = []): Book => {
   return {
     id: book.id,
     title: book.title,
-    author: book.author,
-    coverUrl: book.cover_url,
+    author: book.author || 'Автор не указан',
+    coverUrl: book.cover_url || 'https://ui-avatars.com/api/?name=Book&background=random',
     progress: Number(book.progress || 0),
-    status: book.status || 'want_to_read',
+    status: isBookStatus(book.status) ? book.status : 'want_to_read',
     myRating: Number(book.my_rating || 0),
     isLendable: Boolean(book.is_lendable),
-    content: book.content,
+    content: book.content || undefined,
     currentPage: Number(book.current_page || 1),
     totalPages: Number(book.total_pages || 1),
     annotations,
@@ -87,16 +93,54 @@ const mapDbBookToBook = (book: any, allQuotes: any[] = []): Book => {
   };
 };
 
-const mapQuote = (quote: any): Quote => ({
+const mapQuote = (quote: QuoteRecord): Quote => ({
   ...quote,
-  bookId: quote.book_id,
-  bookTitle: quote.book_title,
+  bookId: quote.book_id || undefined,
+  bookTitle: quote.book_title || '',
+  color: quote.color || 'amber',
+  timestamp: Number(quote.timestamp || new Date(quote.created_at).getTime()),
+});
+
+const isBookStatus = (value: unknown): value is Book['status'] =>
+  value === 'reading' || value === 'completed' || value === 'want_to_read';
+
+const mapBookSnapshot = (snapshot: Json | null): Book | null => {
+  if (!snapshot || Array.isArray(snapshot) || typeof snapshot !== 'object') return null;
+
+  const id = typeof snapshot.id === 'string' ? snapshot.id : '';
+  const title = typeof snapshot.title === 'string' ? snapshot.title : '';
+  if (!id || !title) return null;
+
+  return {
+    id,
+    title,
+    author: typeof snapshot.author === 'string' ? snapshot.author : 'Автор не указан',
+    coverUrl: typeof snapshot.coverUrl === 'string'
+      ? snapshot.coverUrl
+      : 'https://ui-avatars.com/api/?name=Book&background=random',
+    status: isBookStatus(snapshot.status) ? snapshot.status : 'want_to_read',
+    progress: 0,
+    myRating: 0,
+    isLendable: false,
+    annotations: [],
+    tags: [],
+  };
+};
+
+const mapActivityComment = (comment: any): Comment => ({
+  id: comment.id,
+  userId: comment.user_id,
+  userName: comment.profile?.name || 'User',
+  userAvatar: comment.profile?.avatar
+    || 'https://ui-avatars.com/api/?name=User&background=random',
+  text: comment.content,
+  timestamp: formatDateTime(comment.created_at),
 });
 
 const mapThread = (thread: any): Thread => ({
   id: thread.id,
   title: thread.title,
-  authorId: thread.author_id,
+  authorId: thread.author_id || '',
   authorName: thread.author_name,
   content: thread.content,
   imageUrl: thread.image_url,
@@ -106,8 +150,8 @@ const mapThread = (thread: any): Thread => ({
 
 const mapThreadReply = (reply: any): ThreadReply => ({
   id: reply.id,
-  threadId: reply.thread_id,
-  authorId: reply.author_id,
+  threadId: reply.thread_id || '',
+  authorId: reply.author_id || '',
   authorName: reply.author_name,
   content: reply.content,
   imageUrl: reply.image_url,
@@ -123,30 +167,30 @@ const isPersistedId = (id?: string) => Boolean(id && id.length >= 20);
 
 export const db = {
   async getSession(): Promise<{ user: User; books: Book[]; quotes: Quote[] } | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;
-    try {
-      return await this.loadUserData(session.user.id);
-    } catch {
-      return null;
-    }
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error?.name === 'AuthSessionMissingError') return null;
+    if (error) throw new Error(error.message);
+    if (!user) return null;
+    return this.loadUserData(user.id, user.email);
   },
 
-  async loadUserData(userId: string): Promise<{ user: User; books: Book[]; quotes: Quote[] }> {
+  async loadUserData(
+    userId: string,
+    email?: string,
+  ): Promise<{ user: User; books: Book[]; quotes: Quote[] }> {
     if (!userId) throw new Error('User ID is required');
 
     const [profileRes, booksRes, quotesRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).eq('id', userId).single(),
       supabase.from('books').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
       supabase.from('quotes').select('*').eq('user_id', userId),
     ]);
 
     const profile = unwrap(profileRes.data, profileRes.error);
-    const books = booksRes.data || [];
-    const quotes = quotesRes.data || [];
+    const books = unwrap(booksRes.data, booksRes.error) || [];
+    const quotes = unwrap(quotesRes.data, quotesRes.error) || [];
 
-    const user = mapProfileToUser(profile);
-    user.booksReadThisYear = books.filter((book) => book.status === 'completed').length;
+    const user = mapProfileToUser(profile, email);
 
     return {
       user,
@@ -158,7 +202,7 @@ export const db = {
   async login(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
-    return this.loadUserData(data.user.id);
+    return this.loadUserData(data.user.id, data.user.email);
   },
 
   async register(email: string, password: string, name: string): Promise<User> {
@@ -172,24 +216,15 @@ export const db = {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*')
+      .select(PUBLIC_PROFILE_COLUMNS)
       .eq('id', data.user.id)
       .single();
 
-    return mapProfileToUser(profile || { id: data.user.id, email, name });
+    return mapProfileToUser(profile || { id: data.user.id, name }, data.user.email);
   },
 
   async logout() {
     await supabase.auth.signOut();
-  },
-
-  async searchUserByEmail(email: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', email.trim().toLowerCase())
-      .maybeSingle();
-    return data ? mapProfileToUser(data) : null;
   },
 
   async updateUserProfile(user: User) {
@@ -204,11 +239,6 @@ export const db = {
       })
       .eq('id', user.id);
     if (error) throw new Error(error.message);
-  },
-
-  async addXp(_userId: string, amount: number) {
-    const { error } = await supabase.rpc('add_xp', { amount });
-    if (error) console.error('XP update error:', error.message);
   },
 
   async getThreads(): Promise<Thread[]> {
@@ -280,22 +310,46 @@ export const db = {
   async getFeed(limit = 15): Promise<Activity[]> {
     const { data, error } = await supabase
       .from('activities')
-      .select('*, profile:profiles(*), book:books(*)')
+      .select(`
+        id,
+        user_id,
+        book_id,
+        type,
+        content,
+        book_snapshot,
+        created_at,
+        profile:profiles!activities_user_id_fkey(${PUBLIC_PROFILE_COLUMNS}),
+        likes:activity_likes(user_id),
+        comments:activity_comments(
+          id,
+          user_id,
+          content,
+          created_at,
+          profile:profiles!activity_comments_user_id_fkey(${PUBLIC_PROFILE_COLUMNS})
+        )
+      `)
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw new Error(error.message);
 
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      user: mapProfileToUser(item.profile),
-      book: item.book ? mapDbBookToBook(item.book) : null,
-      type: item.type,
-      content: item.content,
-      timestamp: formatDate(item.created_at),
-      likes: (item.liked_by || []).length,
-      likedBy: item.liked_by || [],
-      comments: item.comments || [],
-    }));
+    return (data || []).map((item: any) => {
+      const likedBy = (item.likes || []).map((like: any) => like.user_id);
+      const comments = [...(item.comments || [])]
+        .sort((a: any, b: any) => a.created_at.localeCompare(b.created_at))
+        .map(mapActivityComment);
+
+      return {
+        id: item.id,
+        user: mapProfileToUser(item.profile),
+        book: mapBookSnapshot(item.book_snapshot),
+        type: item.type,
+        content: item.content || undefined,
+        timestamp: formatDate(item.created_at),
+        likes: likedBy.length,
+        likedBy,
+        comments,
+      };
+    });
   },
 
   async createActivity(activity: Activity): Promise<Activity> {
@@ -308,11 +362,16 @@ export const db = {
         content: activity.content,
         timestamp: activity.timestamp,
       })
-      .select()
+      .select('id, user_id, book_id, type, content, book_snapshot, created_at')
       .single();
     if (error) throw new Error(error.message);
 
-    return { ...activity, id: data.id, timestamp: formatDate(data.created_at) };
+    return {
+      ...activity,
+      id: data.id,
+      book: mapBookSnapshot(data.book_snapshot),
+      timestamp: formatDate(data.created_at),
+    };
   },
 
   async shareAnnotation(user: User, book: Book, annotation: Annotation): Promise<Activity> {
@@ -329,43 +388,40 @@ export const db = {
     });
   },
 
-  async toggleActivityLike(activityId: string, userId: string) {
-    const { data } = await supabase
-      .from('activities')
-      .select('liked_by')
-      .eq('id', activityId)
-      .single();
+  async setActivityLike(activityId: string, userId: string, shouldLike: boolean) {
+    const query = shouldLike
+      ? supabase.from('activity_likes').upsert(
+        { activity_id: activityId, user_id: userId },
+        { onConflict: 'activity_id,user_id', ignoreDuplicates: true },
+      )
+      : supabase
+        .from('activity_likes')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', userId);
 
-    const current: string[] = data?.liked_by || [];
-    const next = current.includes(userId)
-      ? current.filter((id) => id !== userId)
-      : [...current, userId];
-
-    const { error } = await supabase.from('activities').update({ liked_by: next }).eq('id', activityId);
+    const { error } = await query;
     if (error) throw new Error(error.message);
   },
 
-  async addComment(activityId: string, comment: Comment) {
-    const { data } = await supabase
-      .from('activities')
-      .select('comments')
-      .eq('id', activityId)
+  async addComment(activityId: string, userId: string, text: string): Promise<Comment> {
+    const { data, error } = await supabase
+      .from('activity_comments')
+      .insert({ activity_id: activityId, user_id: userId, content: text.trim() })
+      .select(`
+        id,
+        user_id,
+        content,
+        created_at,
+        profile:profiles!activity_comments_user_id_fkey(${PUBLIC_PROFILE_COLUMNS})
+      `)
       .single();
-
-    const next = [...(data?.comments || []), comment];
-    const { error } = await supabase.from('activities').update({ comments: next }).eq('id', activityId);
     if (error) throw new Error(error.message);
+    return mapActivityComment(data);
   },
 
-  async deleteComment(activityId: string, commentId: string) {
-    const { data } = await supabase
-      .from('activities')
-      .select('comments')
-      .eq('id', activityId)
-      .single();
-
-    const next = (data?.comments || []).filter((c: Comment) => c.id !== commentId);
-    const { error } = await supabase.from('activities').update({ comments: next }).eq('id', activityId);
+  async deleteComment(_activityId: string, commentId: string) {
+    const { error } = await supabase.from('activity_comments').delete().eq('id', commentId);
     if (error) throw new Error(error.message);
   },
 
@@ -377,15 +433,12 @@ export const db = {
   async getLeaderboard(limit = 5): Promise<User[]> {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, books(status)')
+      .select(PUBLIC_PROFILE_COLUMNS)
       .order('xp', { ascending: false })
       .limit(limit);
     if (error) throw new Error(error.message);
 
-    return (data || []).map((profile: any) => ({
-      ...mapProfileToUser(profile),
-      booksReadThisYear: (profile.books || []).filter((b: any) => b.status === 'completed').length,
-    }));
+    return (data || []).map((profile) => mapProfileToUser(profile));
   },
 
   async addBook(book: Book, userId: string) {

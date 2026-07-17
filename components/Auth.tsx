@@ -31,6 +31,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
       return;
     }
 
+    if (isRegistering && password.length < 8) {
+      setError("Password must contain at least 8 characters");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -109,6 +114,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              minLength={isRegistering ? 8 : undefined}
+              autoComplete={isRegistering ? 'new-password' : 'current-password'}
               className="w-full p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-stone-500 transition-all text-stone-800 dark:text-stone-100"
               placeholder="••••••••"
             />

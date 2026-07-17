@@ -47,6 +47,7 @@ export interface User {
   id: string;
   name: string;
   email?: string;
+  role: 'user' | 'admin';
   handle?: string;
   avatar: string;
   bannerUrl?: string;

@@ -16,13 +16,13 @@ const isNativePlatform = Capacitor.isNativePlatform();
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
 const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
 const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
-const Oracle = lazy(() => import('./components/Oracle').then(module => ({ default: module.Oracle })));
 const Profile = lazy(() => import('./components/Profile').then(module => ({ default: module.Profile })));
 const Board = lazy(() => import('./components/Board').then(module => ({ default: module.Board })));
 
 const GUEST_USER: User = {
   id: 'guest',
   name: 'Гость',
+  role: 'user',
   handle: '@guest',
   avatar: 'https://ui-avatars.com/api/?name=G&background=b45309&color=fff',
   bio: 'Любитель книг и тихих вечеров.',
@@ -161,7 +161,7 @@ const App: React.FC = () => {
     setActiveTab('library');
   }, []);
 
-  const awardXp = useCallback(async (amount: number) => {
+  const awardXp = useCallback((amount: number) => {
     if (!user || isGuest) return;
     let newXp = (user.xp || 0) + amount;
     let newLevel = user.level || 1;
@@ -172,11 +172,6 @@ const App: React.FC = () => {
     }
     const updatedUser = { ...user, xp: newXp, level: newLevel };
     setUser(updatedUser);
-    try {
-      await db.addXp(user.id, amount);
-    } catch (e) {
-      console.error("Failed to persist XP update", e);
-    }
   }, [user, isGuest]);
 
   if (isLoading) return (
@@ -238,7 +233,6 @@ const App: React.FC = () => {
                     case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
                     case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
-                    case 'oracle': return <Oracle books={books} />;
                     case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                   }

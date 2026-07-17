@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useCallback, memo } from 'react';
-import { Activity, User, Book, Comment } from '../types';
+import { Activity, User, Book } from '../types';
 import { MessageSquare, Heart, BookOpen, Trophy, Loader2, Send, PenTool, Trash2, Quote as QuoteIcon, ChevronDown } from 'lucide-react';
-import { db, ADMIN_EMAIL } from '../services/db';
+import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface FeedProps {
@@ -91,7 +91,7 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
   const [loading, setLoading] = useState(true);
   
   const isGuest = user.id === 'guest';
-  const isAdmin = user.handle === ADMIN_EMAIL;
+  const isAdmin = user.role === 'admin';
   
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedBookId, setSelectedBookId] = useState<string>('');
@@ -141,23 +141,46 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
 
   const handleLike = useCallback(async (activityId: string) => {
       if (isGuest) { onRequireLogin?.(); return; }
+      const activity = activities.find((item) => item.id === activityId);
+      if (!activity) return;
+      const shouldLike = !activity.likedBy.includes(user.id);
+
       setActivities(prev => prev.map(act => {
           if (act.id === activityId) {
-              const isLiked = act.likedBy.includes(user.id);
-              return { ...act, likes: isLiked ? act.likes - 1 : act.likes + 1, likedBy: isLiked ? act.likedBy.filter(id => id !== user.id) : [...act.likedBy, user.id] };
+              return {
+                  ...act,
+                  likes: shouldLike ? act.likes + 1 : Math.max(0, act.likes - 1),
+                  likedBy: shouldLike
+                    ? [...act.likedBy, user.id]
+                    : act.likedBy.filter(id => id !== user.id),
+              };
           }
           return act;
       }));
-      db.toggleActivityLike(activityId, user.id);
-  }, [isGuest, user.id, onRequireLogin]);
+
+      try {
+          await db.setActivityLike(activityId, user.id, shouldLike);
+      } catch (error) {
+          console.error('Failed to update like', error);
+          setActivities(prev => prev.map(act => {
+              if (act.id !== activityId) return act;
+              return {
+                  ...act,
+                  likes: shouldLike ? Math.max(0, act.likes - 1) : act.likes + 1,
+                  likedBy: shouldLike
+                    ? act.likedBy.filter(id => id !== user.id)
+                    : [...act.likedBy, user.id],
+              };
+          }));
+      }
+  }, [activities, isGuest, user.id, onRequireLogin]);
 
   const handleSubmitComment = async (activityId: string) => {
       if (isGuest) { onRequireLogin?.(); return; }
       if (!commentText.trim()) return;
       setSubmittingComment(activityId);
-      const newComment: Comment = { id: Date.now().toString(), userId: user.id, userName: user.name, userAvatar: user.avatar, text: commentText, timestamp: 'Только что' };
       try {
-          await db.addComment(activityId, newComment);
+          const newComment = await db.addComment(activityId, user.id, commentText);
           setActivities(prev => prev.map(act => { if (act.id === activityId) return { ...act, comments: [...(act.comments || []), newComment] }; return act; }));
           setCommentText('');
 

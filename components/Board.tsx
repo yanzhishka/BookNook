@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Thread, ThreadReply, User } from '../types';
-import { ADMIN_EMAIL, db } from '../services/db';
+import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 import { BoardHeader } from './board/BoardHeader';
 import { CreateThreadModal } from './board/CreateThreadModal';
@@ -40,7 +40,7 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
   const replyFileInputRef = useRef<HTMLInputElement>(null);
   const repliesScrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = user.email === ADMIN_EMAIL;
+  const isAdmin = user.role === 'admin';
   const activeThread = threads.find((thread) => thread.id === activeThreadId);
 
   const loadThreads = useCallback(async () => {

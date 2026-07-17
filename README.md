@@ -11,7 +11,6 @@
 - **The Grid** — доска тредов с ответами и изображениями.
 - **Лента** — публикация мыслей, цитат и прогресса; лайки и комментарии.
 - **Профиль** — статистика чтения, опыт (XP) и уровни.
-- **Оракул** *(опционально)* — рекомендации книг через Groq (Llama). Работает через Edge Function, ключ хранится на сервере.
 
 ## Технологии
 
@@ -26,27 +25,34 @@
 ```
 App.tsx, index.tsx              — точка входа фронтенда
 components/                     — экраны и UI-компоненты
-services/                       — клиент Supabase, слой данных и поиск книг
-supabase/schema.sql             — схема БД (выполнить в Supabase SQL Editor)
+services/                       — типизированный клиент Supabase и слой данных
+services/database.types.ts      — типы, сгенерированные из production-схемы
+supabase/migrations/            — воспроизводимая история миграций БД
+supabase/schema.sql             — итоговая схема для справки/нового проекта
 supabase/functions/book-proxy/  — Edge Function для импорта книг
-supabase/functions/oracle/      — Edge Function рекомендаций (Groq)
 ```
 
 ## Настройка Supabase
 
-1. Создай проект на [supabase.com](https://supabase.com) (бесплатно).
-2. Открой **SQL Editor** и выполни содержимое [`supabase/schema.sql`](supabase/schema.sql).
-3. В **Authentication → Sign In / Providers → Email** отключи «Confirm email»
-   (чтобы регистрация сразу создавала сессию).
-4. Задеплой Edge Functions (нужен [Supabase CLI](https://supabase.com/docs/guides/cli)):
+1. Создай проект на [supabase.com](https://supabase.com) и установи
+   [Supabase CLI](https://supabase.com/docs/guides/cli).
+2. Свяжи репозиторий с проектом и примени миграции:
    ```bash
    supabase login
-   supabase functions deploy book-proxy --project-ref <твой-project-ref>
-   supabase functions deploy oracle --project-ref <твой-project-ref>
-   # ключ Groq для Оракула (https://console.groq.com) — хранится на сервере
-   supabase secrets set GROQ_API_KEY=your_groq_api_key --project-ref <твой-project-ref>
+   supabase link --project-ref <твой-project-ref>
+   supabase db push
    ```
-5. Скопируй ключи: **Project Settings → API** → `Project URL` и `anon public key`.
+3. Задеплой Edge Function. JWT-проверка включена в `supabase/config.toml`,
+   а внутри функции дополнительно проверяется реальный пользователь Supabase Auth:
+   ```bash
+   supabase functions deploy --project-ref <твой-project-ref>
+   ```
+4. В **Authentication → Sign In / Providers → Email** выбери нужный режим
+   подтверждения почты. Интерфейс поддерживает оба варианта; для production
+   подтверждение лучше оставить включённым. **Leaked Password Protection**
+   доступен на тарифе Supabase Pro и выше.
+5. Скопируй **Project URL** и publishable key (или legacy anon key) из
+   **Project Settings → API**.
 
 ## Переменные окружения
 
@@ -54,12 +60,18 @@ supabase/functions/oracle/      — Edge Function рекомендаций (Groq
 
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
+```
+
+Для старых проектов вместо publishable key поддерживается legacy-ключ:
+
+```bash
 VITE_SUPABASE_ANON_KEY=your_anon_public_key
 ```
 
 ## Запуск
 
-Требуется Node.js 18+.
+Требуется Node.js 20.19+ или 22.12+ (требование Vite 8).
 
 ```bash
 npm install
@@ -107,7 +119,16 @@ npx @capacitor/assets generate --android
 
 ## Деплой сайта
 
-Собери `npm run build` и выложи папку `dist/` на любой статический хостинг
-(Vercel, Netlify, Cloudflare Pages). В настройках окружения хостинга задай
-`VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`. Секретных ключей во фронтенде
-нет: Groq-ключ живёт в секретах Supabase, anon-ключ защищён RLS.
+Проект настроен как Vite-приложение на Vercel. Публичная production-конфигурация
+хранится в `.env.production`, поэтому Git/Vercel deployment работает без ручной
+настройки панели. Значения из **Project Settings → Environment Variables** можно
+использовать как override для отдельных окружений; после их изменения обязательно
+запусти новый deployment.
+
+```bash
+npm run build
+# затем deploy через Git integration или Vercel CLI
+```
+
+Во фронтенде нет секретных ключей: publishable/anon key рассчитан на публичное
+использование вместе с RLS и минимальными grants.
