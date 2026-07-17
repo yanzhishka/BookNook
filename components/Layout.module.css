@@ -14,7 +14,11 @@
   position: relative;
   flex: 1;
   overflow-y: auto;
-  padding: 1.125rem 1.125rem 7.5rem;
+  padding:
+    calc(1.125rem + env(safe-area-inset-top))
+    calc(1.125rem + env(safe-area-inset-right))
+    calc(7.5rem + env(safe-area-inset-bottom))
+    calc(1.125rem + env(safe-area-inset-left));
   transition: all 1000ms ease;
 }
 
@@ -60,7 +64,11 @@
   }
 
   .main {
-    padding: 3rem;
+    padding:
+      calc(3rem + env(safe-area-inset-top))
+      calc(3rem + env(safe-area-inset-right))
+      calc(3rem + env(safe-area-inset-bottom))
+      calc(3rem + env(safe-area-inset-left));
   }
 
   .mainZen {

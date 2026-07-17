@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BookOpen, Home, LayoutGrid, Sparkles, Users } from 'lucide-react';
+import { BookOpen, Home, LayoutGrid, Users } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
 import { classNames } from '../utils/classNames';
@@ -26,7 +26,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'home', label: 'Главная', icon: Home },
   { id: 'library', label: 'Библиотека', icon: BookOpen },
   { id: 'board', label: 'The Grid', icon: LayoutGrid },
-  { id: 'oracle', label: 'Оракул', icon: Sparkles },
   { id: 'feed', label: 'Лента', icon: Users },
 ];
 

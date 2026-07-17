@@ -1,23 +1,26 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Thread, ThreadReply, User } from '../types';
-import { ADMIN_EMAIL, db } from '../services/db';
+import { ModerationTarget, Thread, ThreadReply, User } from '../types';
+import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
 import { BoardHeader } from './board/BoardHeader';
 import { CreateThreadModal } from './board/CreateThreadModal';
 import { ThreadCard } from './board/ThreadCard';
 import { ThreadDetailModal } from './board/ThreadDetailModal';
 import { DeleteTarget } from './board/types';
+import { CommunityTermsDialog } from './CommunityTermsDialog';
+import { ModerationDialog } from './ModerationDialog';
 import styles from './Board.module.css';
 
 interface BoardProps {
   user: User;
   onRequireLogin?: () => void;
+  onUpdateUser?: (user: User) => void;
 }
 
 type ImageTarget = 'thread' | 'reply';
 
-export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
+export const Board: React.FC<BoardProps> = ({ user, onRequireLogin, onUpdateUser }) => {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,12 +38,15 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
   const [isReplying, setIsReplying] = useState(false);
   const [threadReplies, setThreadReplies] = useState<Record<string, ThreadReply[]>>({});
   const [loadingReplies, setLoadingReplies] = useState<string | null>(null);
+  const [moderationTarget, setModerationTarget] = useState<ModerationTarget | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
+  const [isAcceptingTerms, setIsAcceptingTerms] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
   const repliesScrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = user.email === ADMIN_EMAIL;
+  const isAdmin = user.role === 'admin';
   const activeThread = threads.find((thread) => thread.id === activeThreadId);
 
   const loadThreads = useCallback(async () => {
@@ -70,6 +76,18 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
     setNewImage(null);
   };
 
+  const requestCreateThread = () => {
+    if (user.id === 'guest') {
+      onRequireLogin?.();
+      return;
+    }
+    if (!user.termsAcceptedAt) {
+      setShowTerms(true);
+      return;
+    }
+    setShowCreateModal(true);
+  };
+
   const handleImageUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
     target: ImageTarget = 'thread',
@@ -95,6 +113,11 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
 
     if (user.id === 'guest') {
       onRequireLogin?.();
+      return;
+    }
+
+    if (!user.termsAcceptedAt) {
+      setShowTerms(true);
       return;
     }
 
@@ -144,6 +167,11 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
   const handlePostReply = async (threadId: string) => {
     if (user.id === 'guest') {
       onRequireLogin?.();
+      return;
+    }
+
+    if (!user.termsAcceptedAt) {
+      setShowTerms(true);
       return;
     }
 
@@ -215,6 +243,28 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
     }
   };
 
+  const handleAcceptTerms = async () => {
+    setIsAcceptingTerms(true);
+    try {
+      const acceptedAt = await db.acceptCommunityTerms(user.id);
+      onUpdateUser?.({ ...user, termsAcceptedAt: acceptedAt });
+      setShowTerms(false);
+    } finally {
+      setIsAcceptingTerms(false);
+    }
+  };
+
+  const handleBlocked = (blockedUserId: string) => {
+    setThreads(current => current.filter(thread => thread.authorId !== blockedUserId));
+    setThreadReplies(current => Object.fromEntries(
+      Object.entries(current).map(([threadId, replies]) => [
+        threadId,
+        replies.filter(reply => reply.authorId !== blockedUserId),
+      ]),
+    ));
+    if (activeThread?.authorId === blockedUserId) setActiveThreadId(null);
+  };
+
   return (
     <div className={styles.board}>
       <ConfirmDialog
@@ -225,7 +275,20 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      <BoardHeader onCreateThread={() => setShowCreateModal(true)} />
+      <CommunityTermsDialog
+        isOpen={showTerms}
+        isAccepting={isAcceptingTerms}
+        onAccept={handleAcceptTerms}
+        onClose={() => setShowTerms(false)}
+      />
+      <ModerationDialog
+        currentUser={user}
+        target={moderationTarget}
+        onBlocked={handleBlocked}
+        onClose={() => setModerationTarget(null)}
+      />
+
+      <BoardHeader onCreateThread={requestCreateThread} />
 
       {loading ? (
         <div className={styles.loader}>
@@ -266,6 +329,18 @@ export const Board: React.FC<BoardProps> = ({ user, onRequireLogin }) => {
           onDeleteReply={(replyId) =>
             setDeleteTarget({ type: 'reply', id: replyId, parentId: activeThreadId })
           }
+          onModerateThread={() => setModerationTarget({
+            contentType: 'thread',
+            contentId: activeThread.id,
+            userId: activeThread.authorId,
+            userName: activeThread.authorName,
+          })}
+          onModerateReply={(reply) => setModerationTarget({
+            contentType: 'reply',
+            contentId: reply.id,
+            userId: reply.authorId,
+            userName: reply.authorName,
+          })}
         />
       )}
 

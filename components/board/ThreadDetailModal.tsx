@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { Flag, MessageCircle, X } from 'lucide-react';
 import { Thread, ThreadReply, User } from '../../types';
 import { Identicon } from '../Identicon';
 import { ReplyComposer } from './ReplyComposer';
@@ -23,6 +23,8 @@ interface ThreadDetailModalProps {
   onReplyContentChange: (value: string) => void;
   onReplyImageClear: () => void;
   onReplyImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onModerateThread: () => void;
+  onModerateReply: (reply: ThreadReply) => void;
 }
 
 export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({
@@ -42,6 +44,8 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({
   onReplyContentChange,
   onReplyImageClear,
   onReplyImageUpload,
+  onModerateThread,
+  onModerateReply,
 }) => {
   const titleId = `thread-title-${thread.id}`;
 
@@ -81,6 +85,11 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({
               <MessageCircle size={18} className={styles.replyStatIcon} />
               {thread.repliesCount} ответов
             </div>
+            {user.id !== 'guest' && thread.authorId !== user.id && (
+              <button type="button" onClick={onModerateThread} className="mt-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-amber-500">
+                <Flag size={14} /> Пожаловаться или заблокировать
+              </button>
+            )}
           </div>
         </aside>
 
@@ -115,6 +124,7 @@ export const ThreadDetailModal: React.FC<ThreadDetailModalProps> = ({
             replies={replies}
             user={user}
             onDeleteReply={onDeleteReply}
+            onModerateReply={onModerateReply}
           />
         </div>
       </section>

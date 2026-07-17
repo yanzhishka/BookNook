@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">B.Nook</string>
     <string name="title_activity_main">B.Nook</string>
-    <string name="package_name">com.booknook.app</string>
-    <string name="custom_url_scheme">com.booknook.app</string>
+    <string name="package_name">io.github.yanzhishka.booknook</string>
+    <string name="custom_url_scheme">io.github.yanzhishka.booknook</string>
 </resources>

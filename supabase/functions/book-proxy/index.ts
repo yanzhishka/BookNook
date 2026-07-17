@@ -6,6 +6,8 @@
 //   body = { action: 'search', query: '...' }
 //   body = { action: 'text',   iaIds: ['...'] }
 
+import { isAuthenticatedRequest } from "../_shared/auth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -95,6 +97,9 @@ const fetchText = async (iaId: string) => {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!(await isAuthenticatedRequest(req))) {
+    return json(401, { error: "Требуется авторизация" });
+  }
 
   try {
     const body = await req.json().catch(() => ({}));

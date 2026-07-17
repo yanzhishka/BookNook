@@ -1,9 +1,11 @@
 
 import React, { useEffect, useState, useCallback, memo } from 'react';
-import { Activity, User, Book, Comment } from '../types';
-import { MessageSquare, Heart, BookOpen, Trophy, Loader2, Send, PenTool, Trash2, Quote as QuoteIcon, ChevronDown } from 'lucide-react';
-import { db, ADMIN_EMAIL } from '../services/db';
+import { Activity, User, Book, ModerationTarget } from '../types';
+import { MessageSquare, Heart, BookOpen, Trophy, Loader2, Send, PenTool, Trash2, Quote as QuoteIcon, ChevronDown, Flag } from 'lucide-react';
+import { db } from '../services/db';
 import { ConfirmDialog } from './ConfirmDialog';
+import { CommunityTermsDialog } from './CommunityTermsDialog';
+import { ModerationDialog } from './ModerationDialog';
 
 interface FeedProps {
     user: User;
@@ -15,7 +17,25 @@ interface FeedProps {
     awardXp?: (amount: number) => void;
 }
 
-const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget, onViewProfile }: any) => {
+type FeedDeleteTarget = { type: 'post' | 'comment'; id: string; parentId?: string };
+
+interface ActivityItemProps {
+    activity: Activity;
+    user: User;
+    isAdmin: boolean;
+    onLike: (activityId: string) => void;
+    onCommentClick: (activityId: string | null) => void;
+    activeCommentId: string | null;
+    commentText: string;
+    setCommentText: React.Dispatch<React.SetStateAction<string>>;
+    onSubmitComment: (activityId: string) => void;
+    submittingComment: string | null;
+    setDeleteTarget: React.Dispatch<React.SetStateAction<FeedDeleteTarget | null>>;
+    onViewProfile?: (userId: string) => void;
+    onModerate: (target: ModerationTarget) => void;
+}
+
+const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, activeCommentId, commentText, setCommentText, onSubmitComment, submittingComment, setDeleteTarget, onViewProfile, onModerate }: ActivityItemProps) => {
     const isLiked = activity.likedBy.includes(user.id);
     const showComments = activeCommentId === activity.id;
     const canDeleteActivity = isAdmin || activity.user.id === user.id;
@@ -31,11 +51,14 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
                             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{activity.timestamp}</p>
                         </div>
                     </div>
-                    {canDeleteActivity && (
-                        <button onClick={() => setDeleteTarget({type: 'post', id: activity.id})} className="p-3 text-stone-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all">
-                            <Trash2 size={18} />
-                        </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                        {activity.user.id !== user.id && user.id !== 'guest' && (
+                            <button aria-label="Пожаловаться на публикацию" onClick={() => onModerate({ contentType: 'post', contentId: activity.id, userId: activity.user.id, userName: activity.user.name })} className="p-3 text-stone-300 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-full transition-all"><Flag size={17} /></button>
+                        )}
+                        {canDeleteActivity && (
+                            <button aria-label="Удалить публикацию" onClick={() => setDeleteTarget({type: 'post', id: activity.id})} className="p-3 text-stone-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all"><Trash2 size={18} /></button>
+                        )}
+                    </div>
                 </div>
 
                 <div className={`relative ${!activity.book ? 'bg-stone-50 dark:bg-stone-850 p-8 rounded-3xl border border-stone-100 dark:border-stone-800/50' : ''}`}>
@@ -63,15 +86,20 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
             {showComments && (
                 <div className="bg-stone-50 dark:bg-stone-950/50 p-8 border-t border-stone-100 dark:border-stone-800 animate-fade-in">
                     <div className="space-y-6 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar pr-4">
-                        {activity.comments?.map((comment: any) => (
+                        {activity.comments?.map((comment) => (
                             <div key={comment.id} className="flex gap-4 group/comment animate-fade-in-up">
                                 <img src={comment.userAvatar} onClick={() => onViewProfile?.(comment.userId)} loading="lazy" className="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:scale-110 transition-transform" alt="" />
                                 <div className="flex-1">
                                     <div className="flex justify-between items-start mb-1">
                                         <p className="text-sm font-black text-stone-800 dark:text-stone-100 cursor-pointer hover:text-amber-500" onClick={() => onViewProfile?.(comment.userId)}>{comment.userName}</p>
-                                        {(isAdmin || comment.userId === user.id) && (
-                                            <button onClick={() => setDeleteTarget({ type: 'comment', id: comment.id, parentId: activity.id })} className="p-1.5 text-stone-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-all"><Trash2 size={14} /></button>
-                                        )}
+                                        <div className="flex items-center gap-1">
+                                            {comment.userId !== user.id && user.id !== 'guest' && (
+                                                <button aria-label="Пожаловаться на комментарий" onClick={() => onModerate({ contentType: 'comment', contentId: comment.id, userId: comment.userId, userName: comment.userName })} className="p-1.5 text-stone-300 hover:text-amber-600 transition-all"><Flag size={13} /></button>
+                                            )}
+                                            {(isAdmin || comment.userId === user.id) && (
+                                                <button aria-label="Удалить комментарий" onClick={() => setDeleteTarget({ type: 'comment', id: comment.id, parentId: activity.id })} className="p-1.5 text-stone-300 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl rounded-tl-none shadow-sm border border-stone-100 dark:border-stone-800"><p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed">{comment.text}</p></div>
                                 </div>
@@ -85,13 +113,13 @@ const ActivityItem = memo(({ activity, user, isAdmin, onLike, onCommentClick, ac
     );
 });
 
-export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, awardXp }) => {
+export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostCreated, onViewProfile, onUpdateUser, awardXp }) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [leaderboard, setLeaderboard] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   
   const isGuest = user.id === 'guest';
-  const isAdmin = user.handle === ADMIN_EMAIL;
+  const isAdmin = user.role === 'admin';
   
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedBookId, setSelectedBookId] = useState<string>('');
@@ -100,7 +128,10 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'post' | 'comment'; id: string; parentId?: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FeedDeleteTarget | null>(null);
+  const [moderationTarget, setModerationTarget] = useState<ModerationTarget | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
+  const [isAcceptingTerms, setIsAcceptingTerms] = useState(false);
 
   const loadData = useCallback(async () => {
       try {
@@ -120,6 +151,8 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
   useEffect(() => { loadData(); }, [loadData]);
 
   const handlePostSubmit = async () => {
+      if (isGuest) { onRequireLogin?.(); return; }
+      if (!user.termsAcceptedAt) { setShowTerms(true); return; }
       if (!newPostContent.trim()) return;
       const selectedBook = selectedBookId ? books.find(b => b.id === selectedBookId) : null;
       setIsPosting(true);
@@ -141,23 +174,47 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
 
   const handleLike = useCallback(async (activityId: string) => {
       if (isGuest) { onRequireLogin?.(); return; }
+      const activity = activities.find((item) => item.id === activityId);
+      if (!activity) return;
+      const shouldLike = !activity.likedBy.includes(user.id);
+
       setActivities(prev => prev.map(act => {
           if (act.id === activityId) {
-              const isLiked = act.likedBy.includes(user.id);
-              return { ...act, likes: isLiked ? act.likes - 1 : act.likes + 1, likedBy: isLiked ? act.likedBy.filter(id => id !== user.id) : [...act.likedBy, user.id] };
+              return {
+                  ...act,
+                  likes: shouldLike ? act.likes + 1 : Math.max(0, act.likes - 1),
+                  likedBy: shouldLike
+                    ? [...act.likedBy, user.id]
+                    : act.likedBy.filter(id => id !== user.id),
+              };
           }
           return act;
       }));
-      db.toggleActivityLike(activityId, user.id);
-  }, [isGuest, user.id, onRequireLogin]);
+
+      try {
+          await db.setActivityLike(activityId, user.id, shouldLike);
+      } catch (error) {
+          console.error('Failed to update like', error);
+          setActivities(prev => prev.map(act => {
+              if (act.id !== activityId) return act;
+              return {
+                  ...act,
+                  likes: shouldLike ? Math.max(0, act.likes - 1) : act.likes + 1,
+                  likedBy: shouldLike
+                    ? act.likedBy.filter(id => id !== user.id)
+                    : [...act.likedBy, user.id],
+              };
+          }));
+      }
+  }, [activities, isGuest, user.id, onRequireLogin]);
 
   const handleSubmitComment = async (activityId: string) => {
       if (isGuest) { onRequireLogin?.(); return; }
+      if (!user.termsAcceptedAt) { setShowTerms(true); return; }
       if (!commentText.trim()) return;
       setSubmittingComment(activityId);
-      const newComment: Comment = { id: Date.now().toString(), userId: user.id, userName: user.name, userAvatar: user.avatar, text: commentText, timestamp: 'Только что' };
       try {
-          await db.addComment(activityId, newComment);
+          const newComment = await db.addComment(activityId, user.id, commentText);
           setActivities(prev => prev.map(act => { if (act.id === activityId) return { ...act, comments: [...(act.comments || []), newComment] }; return act; }));
           setCommentText('');
 
@@ -167,9 +224,32 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
       } finally { setSubmittingComment(null); }
   };
 
+  const handleAcceptTerms = async () => {
+      setIsAcceptingTerms(true);
+      try {
+          const acceptedAt = await db.acceptCommunityTerms(user.id);
+          onUpdateUser?.({ ...user, termsAcceptedAt: acceptedAt });
+          setShowTerms(false);
+      } finally {
+          setIsAcceptingTerms(false);
+      }
+  };
+
+  const handleBlocked = (blockedUserId: string) => {
+      setActivities(current => current
+        .filter(activity => activity.user.id !== blockedUserId)
+        .map(activity => ({
+          ...activity,
+          comments: activity.comments.filter(comment => comment.userId !== blockedUserId),
+        })));
+      setLeaderboard(current => current.filter(reader => reader.id !== blockedUserId));
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto pb-20">
       <ConfirmDialog isOpen={!!deleteTarget} title={deleteTarget?.type === 'post' ? "Удалить пост" : "Удалить комментарий"} message="Вы уверены?" onConfirm={async () => { if (deleteTarget?.type === 'post') { await db.deleteActivity(deleteTarget.id); setActivities(prev => prev.filter(a => a.id !== deleteTarget.id)); } else if (deleteTarget?.type === 'comment' && deleteTarget.parentId) { await db.deleteComment(deleteTarget.parentId, deleteTarget.id); setActivities(prev => prev.map(act => { if (act.id === deleteTarget.parentId) return { ...act, comments: act.comments.filter(c => c.id !== deleteTarget.id) }; return act; })); } setDeleteTarget(null); }} onCancel={() => setDeleteTarget(null)} />
+      <CommunityTermsDialog isOpen={showTerms} isAccepting={isAcceptingTerms} onAccept={handleAcceptTerms} onClose={() => setShowTerms(false)} />
+      <ModerationDialog currentUser={user} target={moderationTarget} onBlocked={handleBlocked} onClose={() => setModerationTarget(null)} />
       <div className="lg:col-span-2 space-y-8">
         <div className="mb-10 animate-fade-in-up">
           <h2 className="text-5xl font-serif font-black text-stone-800 dark:text-stone-100 tracking-tighter mb-3">Сообщество</h2>
@@ -238,7 +318,7 @@ export const Feed: React.FC<FeedProps> = ({ user, books, onRequireLogin, onPostC
                 </div>
             ) : (
                 activities.map((activity) => (
-                    <ActivityItem key={activity.id} activity={activity} user={user} isAdmin={isAdmin} onLike={handleLike} onCommentClick={setActiveCommentId} activeCommentId={activeCommentId} commentText={commentText} setCommentText={setCommentText} onSubmitComment={handleSubmitComment} submittingComment={submittingComment} setDeleteTarget={setDeleteTarget} onViewProfile={onViewProfile} />
+                    <ActivityItem key={activity.id} activity={activity} user={user} isAdmin={isAdmin} onLike={handleLike} onCommentClick={setActiveCommentId} activeCommentId={activeCommentId} commentText={commentText} setCommentText={setCommentText} onSubmitComment={handleSubmitComment} submittingComment={submittingComment} setDeleteTarget={setDeleteTarget} onViewProfile={onViewProfile} onModerate={setModerationTarget} />
                 ))
             )}
         </div>

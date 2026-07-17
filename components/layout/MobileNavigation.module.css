@@ -4,7 +4,11 @@
   bottom: 0;
   left: 0;
   z-index: 200;
-  padding: 0.875rem 1.125rem 1.5rem;
+  padding:
+    0.875rem
+    calc(1.125rem + env(safe-area-inset-right))
+    calc(1.5rem + env(safe-area-inset-bottom))
+    calc(1.125rem + env(safe-area-inset-left));
   background: linear-gradient(
     to top,
     rgba(252, 250, 247, 0.95),

@@ -1,4 +1,4 @@
-package com.booknook.app;
+package io.github.yanzhishka.booknook;
 
 import com.getcapacitor.BridgeActivity;
 
