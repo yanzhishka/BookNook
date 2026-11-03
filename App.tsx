@@ -144,9 +144,12 @@ const App: React.FC = () => {
 
   const handleProductChange = useCallback((next: Product) => {
     setProduct(next); setRoomId(null); setViewingProfileId(null);
+    if (next === 'watch' && !isAuthenticated) {
+      setUser(GUEST_USER); setBooks([]); setIsAuthenticated(true); setIsGuest(true);
+    }
     setActiveTab(next === 'watch' ? 'watch-home' : isGuest ? 'board' : 'home');
     writeDestination(next, null);
-  }, [isGuest]);
+  }, [isAuthenticated, isGuest]);
   const handleWatchRoom = useCallback((id: string | null) => {
     setProduct('watch'); setRoomId(id); setActiveTab('watch-home'); setViewingProfileId(null);
     writeDestination('watch', id, true);
@@ -157,7 +160,13 @@ const App: React.FC = () => {
 
     const applyCurrentSession = async () => {
       const session = await db.getSession();
-      if (!session || cancelled) return;
+      if (cancelled) return;
+      if (!session) {
+        if (readDestination().product === 'watch' && !accountDeletionRequested) {
+          setUser(GUEST_USER); setBooks([]); setIsAuthenticated(true); setIsGuest(true);
+        }
+        return;
+      }
 
       setUser(session.user);
       setBooks(session.books);
@@ -197,7 +206,12 @@ const App: React.FC = () => {
         await applyCurrentSession();
       } catch (error) {
         console.error('Session init failed', error);
-        if (!cancelled) setAuthLinkError('Не удалось загрузить аккаунт. Проверьте соединение и попробуйте войти снова.');
+        if (!cancelled) {
+          setAuthLinkError('Не удалось загрузить аккаунт. Проверьте соединение и попробуйте войти снова.');
+          if (readDestination().product === 'watch' && !accountDeletionRequested) {
+            setUser(GUEST_USER); setBooks([]); setIsAuthenticated(true); setIsGuest(true);
+          }
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -230,7 +244,8 @@ const App: React.FC = () => {
       setAppError('Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.');
       return;
     }
-    setIsAuthenticated(false); setUser(null); setIsGuest(false);
+    const watchGuest = product === 'watch';
+    setIsAuthenticated(watchGuest); setUser(watchGuest ? GUEST_USER : null); setIsGuest(watchGuest);
     setBooks([]); 
     setActiveTab(product === 'watch' ? 'watch-home' : 'home');
     setViewingProfileId(null);
@@ -238,10 +253,16 @@ const App: React.FC = () => {
     localStorage.removeItem(TAB_STORAGE_KEY);
   }, [isGuest, product]);
 
+  const handleOpenLogin = useCallback(() => {
+    setShowLoginPrompt(false); setIsAuthenticated(false); setIsGuest(false);
+    setUser(null); setBooks([]); setAppError(null);
+  }, []);
+
   const handleAccountDeleted = useCallback(() => {
-    setIsAuthenticated(false);
-    setUser(null);
-    setIsGuest(false);
+    const watchGuest = product === 'watch';
+    setIsAuthenticated(watchGuest);
+    setUser(watchGuest ? GUEST_USER : null);
+    setIsGuest(watchGuest);
     setBooks([]);
     setActiveTab(product === 'watch' ? 'watch-home' : 'home');
     setRoomId(null); writeDestination(product, null);
@@ -318,7 +339,7 @@ const App: React.FC = () => {
             setTheme={setTheme}
             onLogout={handleLogout}
             isGuest={isGuest}
-            onLoginClick={() => setShowLoginPrompt(true)}
+            onLoginClick={product === 'watch' ? handleOpenLogin : () => setShowLoginPrompt(true)}
         >
             <AppErrorBoundary resetKey={`${product}:${activeTab}:${roomId || ''}:${viewingProfileId || ''}`} onBack={isGuest ? undefined : () => handleTabChange(product === 'watch' ? 'watch-home' : 'home')}>
             <Suspense fallback={<PageLoader />}>
@@ -326,7 +347,7 @@ const App: React.FC = () => {
                 {(() => {
                   switch (activeTab) {
                     case 'watch-home':
-                    case 'watch-rooms': return <WatchPage user={user} roomId={roomId} view={activeTab === 'watch-rooms' ? 'rooms' : 'home'} onRoomChange={handleWatchRoom} onRequireLogin={() => setShowLoginPrompt(true)} />;
+                    case 'watch-rooms': return <WatchPage user={user} roomId={roomId} view={activeTab === 'watch-rooms' ? 'rooms' : 'home'} onRoomChange={handleWatchRoom} />;
                     case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} onContinueReading={handleContinueReading} onOpenTopic={openCommunityTopic} />;
                     case 'board': return <Board user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onUpdateUser={handleUserUpdate} onActivitySaved={refreshUserStats} onViewProfile={handleViewProfile} pendingTopic={pendingTopic} onConsumePendingTopic={consumePendingTopic} />;
                     case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={handleUserUpdate} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
@@ -337,7 +358,7 @@ const App: React.FC = () => {
             </Suspense>
             </AppErrorBoundary>
         </Layout>
-        <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleLogout} description={product === 'watch' ? 'Войдите в общий аккаунт, чтобы создавать комнаты и смотреть видео вместе в W.Nook.' : undefined} />
+        <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleOpenLogin} />
         
     </div>
   );

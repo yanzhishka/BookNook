@@ -1,5 +1,8 @@
 project_id = "booknook"
 
+[auth]
+enable_anonymous_sign_ins = true
+
 [functions.book-proxy]
 verify_jwt = true
 

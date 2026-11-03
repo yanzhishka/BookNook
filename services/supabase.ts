@@ -31,6 +31,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabasePublishableK
   },
 });
 
+// Guests keep their rooms without replacing the shared account session.
+export const createWatchGuestClient = () => createClient<Database>(supabaseUrl, supabasePublishableKey, {
+  auth: {
+    storageKey: 'wnook_guest_session',
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
+
 const readAuthParameter = (url: URL, name: string) => {
   const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
   return url.searchParams.get(name) || hash.get(name);

@@ -16,7 +16,9 @@ export const isAuthenticatedRequest = async (req: Request): Promise<boolean> => 
       signal: AbortSignal.timeout(5_000),
     });
 
-    return response.ok;
+    if (!response.ok) return false;
+    const user = await response.json();
+    return Boolean(user.id) && user.is_anonymous !== true;
   } catch {
     return false;
   }

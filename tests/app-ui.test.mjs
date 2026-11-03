@@ -35,7 +35,8 @@ function loadUi(db = {}, overrides = {}) {
     }).outputText;
     vm.runInNewContext(source, {
       exports, console, document: window.document, window, HTMLElement: window.HTMLElement,
-      AbortController, crypto: globalThis.crypto, performance,
+      navigator: window.navigator, localStorage: window.localStorage,
+      AbortController, URL, URLSearchParams, crypto: globalThis.crypto, performance,
       requestAnimationFrame: callback => window.setTimeout(callback, 0),
       cancelAnimationFrame: id => window.clearTimeout(id),
       require(id) {
@@ -108,6 +109,62 @@ const watchSnapshot = (version = 0, values = {}) => ({ room: { id: 'room', owner
   mediaUrl: 'https://example.com/video.mp4', videoId: null, position: 0, playing: false, playbackAt: new Date().toISOString(),
   version, membersVersion: 1, updatedAt: new Date().toISOString(), closedAt: null, clientId: null, ...values },
   members: [], serverNow: Date.now() + 120000 });
+
+test('W.Nook opens a direct invitation without account auth and still allows explicit sign-in', async (t) => {
+  const room = 'b854787a-221c-4b57-83b9-7ee822a1174b';
+  window.localStorage.clear(); window.history.replaceState(null, '', `/?app=watch&room=${room}`);
+  window.matchMedia ||= () => ({ matches: false });
+  t.after(() => { window.localStorage.clear(); window.history.replaceState(null, '', '/'); });
+  const App = loadUi({ getSession: async () => null }, {
+    'components/CustomCursor': { CustomCursor: () => null },
+    'components/Auth': { Auth: ({ onGuestLogin }) => h('section', { 'data-auth': true }, h('button', { onClick: onGuestLogin }, 'Continue guest')) },
+    'components/Layout': { Layout: ({ onLoginClick, children }) => h('main', null, h('button', { onClick: onLoginClick }, 'Account login'), children) },
+    'components/watch/WatchPage': { WatchPage: ({ user, roomId }) => h('div', { 'data-watch-user': user.id, 'data-room': roomId }) },
+    'services/supabase': { MOBILE_AUTH_CALLBACK: 'nook://auth', establishSessionFromAuthUrl: async () => false },
+  })('App.tsx').default;
+  const { container } = await mount(t, h(App));
+  assert.equal(container.querySelector('[data-auth]'), null);
+  assert.equal(container.querySelector('[data-watch-user]').dataset.watchUser, 'guest');
+  assert.equal(container.querySelector('[data-room]').dataset.room, room);
+  await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Account login').click());
+  assert.ok(container.querySelector('[data-auth]'));
+  await act(async () => container.querySelector('[data-auth] button').click());
+  assert.equal(container.querySelector('[data-auth]'), null);
+  assert.equal(container.querySelector('[data-room]').dataset.room, room);
+});
+
+test('guest can create a room from the real watch form without a login gate', async (t) => {
+  const created = [], opened = [];
+  const api = { list: async () => [], create: async (title, source) => { created.push({ title, source }); return watchSnapshot(); } };
+  const { WatchPage } = loadUi({}, {
+    'services/watch/api': { watchApi: {} },
+    'services/watch/guest': { openGuestWatch: async () => ({ userId: 'guest-owner', api }) },
+    'components/watch/WatchRoomView': { WatchRoomView: () => null },
+  })('components/watch/WatchPage.tsx');
+  const { container } = await mount(t, h(WatchPage, { user: { id: 'guest' }, roomId: null, view: 'home', onRoomChange: id => opened.push(id) }));
+  await fill(container.querySelector('[aria-label="Ссылка на видео"]'), 'https://example.com/video.mp4');
+  await fill(container.querySelector('[aria-label="Название комнаты"]'), 'Guest room');
+  await act(async () => container.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+  assert.equal(created.length, 1);
+  assert.equal(created[0].title, 'Guest room');
+  assert.equal(created[0].source.provider, 'direct');
+  assert.deepEqual(opened, ['room']);
+  assert.ok(!container.textContent.includes('Войдите'));
+});
+
+test('guest invitation hands the persistent identity and guest API to the room player', async (t) => {
+  const api = {}, received = [];
+  const { WatchPage } = loadUi({}, {
+    'services/watch/api': { watchApi: {} },
+    'services/watch/guest': { openGuestWatch: async () => ({ userId: 'guest-member', api }) },
+    'components/watch/WatchRoomView': { WatchRoomView: props => { received.push(props); return h('div', null, 'Room player'); } },
+  })('components/watch/WatchPage.tsx');
+  const { container } = await mount(t, h(WatchPage, { user: { id: 'guest' }, roomId: 'invited-room', view: 'home', onRoomChange: () => {} }));
+  assert.equal(container.textContent, 'Room player');
+  assert.equal(received.at(-1).user.id, 'guest-member');
+  assert.equal(received.at(-1).roomId, 'invited-room');
+  assert.equal(received.at(-1).api, api);
+});
 
 test('watch controls lock duplicate requests and stale commands accept the newer shared state', async (t) => {
   const request = deferred();

@@ -23,45 +23,49 @@ function snapshot(data: Json | null, error: { message: string } | null): WatchSn
     queue: (raw.queue || []).map(item => ({ id: item.id, sortOrder: item.sort_order, title: item.title, provider: item.provider, mediaUrl: item.media_url, videoId: item.video_id })) };
 }
 
-export const watchApi = {
-  async list() {
-    const { data, error } = await supabase.from('watch_rooms').select('*').is('closed_at', null).order('updated_at', { ascending: false }).limit(24);
-    if (error) throw new Error(error.message);
-    return (data || []).map(mapWatchRoom);
-  },
-  async create(title: string, source: WatchSource) {
-    const { data, error } = await supabase.rpc('create_watch_room', { p_title: title, p_provider: source.provider, p_video_id: source.videoId, p_media_url: source.mediaUrl });
-    return snapshot(data, error);
-  },
-  async join(id: string) {
-    const { data, error } = await supabase.rpc('join_watch_room', { p_room_id: parseWatchInvite(id) });
-    return snapshot(data, error);
-  },
-  async get(id: string) {
-    const { data, error } = await supabase.rpc('get_watch_room', { p_room_id: id });
-    return snapshot(data, error);
-  },
-  async control(room: WatchRoom, clientId: string, action: WatchAction, values: WatchCommand = {}) {
-    if (!['state', 'source', 'close'].includes(action)) {
-      const { data, error } = await supabase.rpc('watch_player_command', {
+export function createWatchApi(client: typeof supabase) {
+  return {
+    async list() {
+      const { data, error } = await client.from('watch_rooms').select('*').is('closed_at', null).order('updated_at', { ascending: false }).limit(24);
+      if (error) throw new Error(error.message);
+      return (data || []).map(mapWatchRoom);
+    },
+    async create(title: string, source: WatchSource) {
+      const { data, error } = await client.rpc('create_watch_room', { p_title: title, p_provider: source.provider, p_video_id: source.videoId, p_media_url: source.mediaUrl });
+      return snapshot(data, error);
+    },
+    async join(id: string) {
+      const { data, error } = await client.rpc('join_watch_room', { p_room_id: parseWatchInvite(id) });
+      return snapshot(data, error);
+    },
+    async get(id: string) {
+      const { data, error } = await client.rpc('get_watch_room', { p_room_id: id });
+      return snapshot(data, error);
+    },
+    async control(room: WatchRoom, clientId: string, action: WatchAction, values: WatchCommand = {}) {
+      if (!['state', 'source', 'close'].includes(action)) {
+        const { data, error } = await client.rpc('watch_player_command', {
+          p_room_id: room.id, p_version: room.version, p_action: action, p_client_id: clientId,
+          p_rate: values.rate, p_item_id: values.itemId, p_direction: values.direction, p_title: values.title,
+          p_provider: values.source?.provider, p_video_id: values.source?.videoId, p_media_url: values.source?.mediaUrl,
+          p_position: values.position, p_playing: values.playing,
+        });
+        return snapshot(data, error);
+      }
+      const { data, error } = await client.rpc('control_watch_room', {
         p_room_id: room.id, p_version: room.version, p_action: action, p_client_id: clientId,
-        p_rate: values.rate, p_item_id: values.itemId, p_direction: values.direction, p_title: values.title,
-        p_provider: values.source?.provider, p_video_id: values.source?.videoId, p_media_url: values.source?.mediaUrl,
         p_position: values.position, p_playing: values.playing,
+        p_provider: values.source?.provider, p_video_id: values.source?.videoId, p_media_url: values.source?.mediaUrl,
       });
       return snapshot(data, error);
-    }
-    const { data, error } = await supabase.rpc('control_watch_room', {
-      p_room_id: room.id, p_version: room.version, p_action: action, p_client_id: clientId,
-      p_position: values.position, p_playing: values.playing,
-      p_provider: values.source?.provider, p_video_id: values.source?.videoId, p_media_url: values.source?.mediaUrl,
-    });
-    return snapshot(data, error);
-  },
-  subscribe(id: string, onUpdate: () => void, onStatus: (connected: boolean) => void) {
-    const channel = supabase.channel(`watch:${id}:${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'watch_rooms', filter: `id=eq.${id}` }, onUpdate)
-      .subscribe(status => { onStatus(status === 'SUBSCRIBED'); if (status === 'SUBSCRIBED') onUpdate(); });
-    return () => { void supabase.removeChannel(channel); };
-  },
-};
+    },
+    subscribe(id: string, onUpdate: () => void, onStatus: (connected: boolean) => void) {
+      const channel = client.channel(`watch:${id}:${crypto.randomUUID()}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'watch_rooms', filter: `id=eq.${id}` }, onUpdate)
+        .subscribe(status => { onStatus(status === 'SUBSCRIBED'); if (status === 'SUBSCRIBED') onUpdate(); });
+      return () => { void client.removeChannel(channel); };
+    },
+  };
+}
+
+export const watchApi = createWatchApi(supabase);
