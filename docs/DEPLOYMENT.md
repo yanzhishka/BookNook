@@ -10,6 +10,7 @@
 - Репозиторий: `yanzhishka/BookNook`, production-ветка `main`.
 - Команда сборки: `npm test && npm run build`.
 - Результат: `dist`, Node.js — из `.node-version`.
+- В Cloudflare задано `ASSET_BASE_URL=https://nook-milliardarmedia.pages.dev/`: крупные JS/CSS-ресурсы загружаются с технического адреса. На основном домене при проверке соединения обрывались после части файла; с `pages.dev` те же ресурсы скачивались полностью. HTML и пользовательские ссылки остаются на основном домене. Локальная разработка, Android и архив релиза по умолчанию используют `/`.
 - Настройки клиентского Supabase находятся в `.env.production`: только публичный URL и publishable key. Секретные серверные ключи в клиентскую сборку не добавляются.
 - После push в `main` GitHub Actions проверяет проект и вызывает deploy hook ветки `main`. Pages собирает новую версию. Если проверки не пройдут, остаётся предыдущая публикация. Логи доступны в Cloudflare Workers & Pages → nook-milliardarmedia → Deployments.
 - Hook `GitHub main after checks` хранится только в GitHub Actions secret `CLOUDFLARE_PAGES_DEPLOY_HOOK`. Он запускает сборку одного проекта из `main`; общий API-токен Cloudflare не используется. Для ротации создайте новый hook в Settings → Builds и замените secret, затем удалите старый hook.
