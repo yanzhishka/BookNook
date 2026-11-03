@@ -166,6 +166,19 @@ test('guest invitation hands the persistent identity and guest API to the room p
   assert.equal(received.at(-1).api, api);
 });
 
+test('mobile guest navigation offers optional sign-in while accounts retain their profile', async (t) => {
+  const { MobileNavigation } = loadUi()('components/layout/MobileNavigation.tsx');
+  let logins = 0;
+  const tabs = [], props = { activeTab: 'watch-home', navigationItems: [], user: { avatar: '/avatar.png', name: 'Reader' },
+    onLoginClick: () => logins++, onTabChange: tab => tabs.push(tab) };
+  const { container, render } = await mount(t, h(MobileNavigation, { ...props, isGuest: true }));
+  await act(async () => container.querySelector('[aria-label="Войти"]').click());
+  assert.equal(logins, 1); assert.deepEqual(tabs, []);
+  await render(h(MobileNavigation, { ...props, isGuest: false }));
+  await act(async () => container.querySelector('[aria-label="Профиль"]').click());
+  assert.deepEqual(tabs, ['profile']);
+});
+
 test('watch controls lock duplicate requests and stale commands accept the newer shared state', async (t) => {
   const request = deferred();
   const calls = [];

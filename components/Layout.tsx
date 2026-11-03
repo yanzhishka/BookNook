@@ -68,6 +68,8 @@ export const Layout: React.FC<LayoutProps> = ({
         activeTab={activeTab}
         navigationItems={items}
         user={user}
+        isGuest={isGuest}
+        onLoginClick={onLoginClick}
         onTabChange={onTabChange}
       />
 

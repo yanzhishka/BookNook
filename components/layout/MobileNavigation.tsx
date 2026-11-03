@@ -1,4 +1,5 @@
 import React from 'react';
+import { LogIn } from 'lucide-react';
 import { User } from '../../types';
 import { classNames } from '../../utils/classNames';
 import { NavigationItem } from './types';
@@ -9,6 +10,8 @@ interface MobileNavigationProps {
   navigationItems: NavigationItem[];
   user: User;
   onTabChange: (tab: string) => void;
+  isGuest?: boolean;
+  onLoginClick?: () => void;
 }
 
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
@@ -16,6 +19,8 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   navigationItems,
   user,
   onTabChange,
+  isGuest,
+  onLoginClick,
 }) => {
   return (
     <nav
@@ -46,15 +51,15 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
         <button
           type="button"
-          aria-label="Профиль"
-          aria-current={activeTab === 'profile' ? 'page' : undefined}
-          onClick={() => onTabChange('profile')}
-          className={classNames(
+          aria-label={isGuest ? 'Войти' : 'Профиль'}
+          aria-current={!isGuest && activeTab === 'profile' ? 'page' : undefined}
+          onClick={() => isGuest ? onLoginClick?.() : onTabChange('profile')}
+          className={isGuest ? classNames(styles.navigationButton, styles.navigationButtonIdle) : classNames(
             styles.profileButton,
             activeTab === 'profile' ? styles.profileButtonActive : styles.profileButtonIdle,
           )}
         >
-          <img src={user.avatar} className={styles.avatar} alt={user.name} />
+          {isGuest ? <LogIn size={24} /> : <img src={user.avatar} className={styles.avatar} alt={user.name} />}
         </button>
       </div>
     </nav>
