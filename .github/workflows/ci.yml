@@ -25,3 +25,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Publish main to Cloudflare Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          CLOUDFLARE_PAGES_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: |
+          test -n "$CLOUDFLARE_PAGES_DEPLOY_HOOK"
+          curl --fail --silent --show-error --max-time 30 --request POST "$CLOUDFLARE_PAGES_DEPLOY_HOOK" --output "$RUNNER_TEMP/pages-deploy.json"
+          node -e "const r = require(process.env.RUNNER_TEMP + '/pages-deploy.json'); if (!r.success) throw new Error('Cloudflare rejected the deployment'); console.log('Cloudflare Pages build requested.');"

@@ -11,7 +11,9 @@
 - Команда сборки: `npm test && npm run build`.
 - Результат: `dist`, Node.js — из `.node-version`.
 - Настройки клиентского Supabase находятся в `.env.production`: только публичный URL и publishable key. Секретные серверные ключи в клиентскую сборку не добавляются.
-- После push в `main` Pages собирает новую версию. Если проверки не пройдут, остаётся предыдущая публикация. Логи доступны в Cloudflare Workers & Pages → nook-milliardarmedia → Deployments.
+- После push в `main` GitHub Actions проверяет проект и вызывает deploy hook ветки `main`. Pages собирает новую версию. Если проверки не пройдут, остаётся предыдущая публикация. Логи доступны в Cloudflare Workers & Pages → nook-milliardarmedia → Deployments.
+- Hook `GitHub main after checks` хранится только в GitHub Actions secret `CLOUDFLARE_PAGES_DEPLOY_HOOK`. Он запускает сборку одного проекта из `main`; общий API-токен Cloudflare не используется. Для ротации создайте новый hook в Settings → Builds и замените secret, затем удалите старый hook.
+- Автоматический запуск через native Git integration отключён: публикацию запускает CI после проверок. Это также исключает двойные сборки, если права GitHub-приложения Cloudflare изменятся.
 
 Внешний backend остаётся в существующем Supabase-проекте. SQL-миграции не запускаются автоматически при сборке фронтенда. Миграции до `20261103101602_extend_watch_player` уже применены.
 
