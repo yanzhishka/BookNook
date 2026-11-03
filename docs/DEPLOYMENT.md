@@ -6,6 +6,7 @@
 
 - Проект: `nook-milliardarmedia`.
 - Технический адрес для проверки независимо от основного домена: https://nook-milliardarmedia.pages.dev.
+- Перенаправление `www` → основной домен настроено в зоне Cloudflare правилом `Nook canonical domain` (301, с сохранением пути и query string). Pages `_redirects` не поддерживает домен в исходном адресе.
 - Репозиторий: `yanzhishka/BookNook`, production-ветка `main`.
 - Команда сборки: `npm test && npm run build`.
 - Результат: `dist`, Node.js — из `.node-version`.
