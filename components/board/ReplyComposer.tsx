@@ -1,81 +1,92 @@
-import React from 'react';
-import { Camera, Loader2, Send, X } from 'lucide-react';
-import styles from './ReplyComposer.module.css';
-
-interface ReplyComposerProps {
-  fileInputRef: React.RefObject<HTMLInputElement>;
+import type { ChangeEvent, RefObject } from "react";
+import { Camera, Loader2, Send, X } from "lucide-react";
+import styles from "./ReplyComposer.module.css";
+interface Props {
+  fileInputRef: RefObject<HTMLInputElement>;
   image: string | null;
   isReplying: boolean;
+  uploading: boolean;
+  loading: boolean;
   value: string;
+  allowImages: boolean;
+  isGuest: boolean;
+  onRequireLogin?: () => void;
   onClearImage: () => void;
-  onImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onImageUpload: (e: ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
-  onValueChange: (value: string) => void;
+  onValueChange: (v: string) => void;
 }
-
-export const ReplyComposer: React.FC<ReplyComposerProps> = ({
-  fileInputRef,
-  image,
-  isReplying,
-  value,
-  onClearImage,
-  onImageUpload,
-  onSubmit,
-  onValueChange,
-}) => {
-  return (
-    <div className={styles.composer}>
-      <div className={styles.editor}>
-        <textarea
-          value={value}
-          onChange={(event) => onValueChange(event.target.value)}
-          placeholder="Напишите ответ..."
-          className={styles.textarea}
-        />
-
-        {image && (
-          <div className={styles.preview}>
-            <img src={image} className={styles.previewImage} alt="" />
-            <button
-              type="button"
-              onClick={onClearImage}
-              className={styles.clearPreviewButton}
-              aria-label="Удалить изображение"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        )}
-
-        <div className={styles.actions}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className={styles.fileInput}
-            accept="image/*"
-            onChange={onImageUpload}
-          />
-
+export const ReplyComposer = (p: Props) =>
+  p.isGuest ? (
+    <div className={styles.guest}>
+      <p>Войдите, чтобы ответить</p>
+      <button onClick={p.onRequireLogin}>Войти</button>
+    </div>
+  ) : (
+    <form
+      className={styles.composer}
+      onSubmit={(e) => {
+        e.preventDefault();
+        p.onSubmit();
+      }}
+    >
+      <label className="sr-only" htmlFor="grid-reply">
+        Ваш ответ
+      </label>
+      <textarea
+        id="grid-reply"
+        value={p.value}
+        disabled={p.isReplying}
+        maxLength={p.allowImages ? 20000 : 2000}
+        onChange={(e) => p.onValueChange(e.target.value)}
+        placeholder="Ваш ответ"
+      />
+      {p.image && (
+        <div className={styles.preview}>
+          <img src={p.image} alt="Прикреплённое изображение" />
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={styles.attachButton}
-            aria-label="Прикрепить изображение"
+            onClick={p.onClearImage}
+            disabled={p.isReplying}
+            aria-label="Удалить изображение"
           >
-            <Camera size={20} />
-          </button>
-
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={!value.trim() || isReplying}
-            className={styles.submitButton}
-          >
-            {isReplying ? <Loader2 size={16} className={styles.spinner} /> : <Send size={16} />}
-            <span>Отправить</span>
+            <X size={18} />
           </button>
         </div>
+      )}
+      <div className={styles.actions}>
+        {p.allowImages && (
+          <>
+            <input
+              ref={p.fileInputRef}
+              type="file"
+              hidden
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={p.onImageUpload}
+            />
+            <button
+              type="button"
+              disabled={p.isReplying || p.uploading}
+              onClick={() => p.fileInputRef.current?.click()}
+              aria-label="Прикрепить изображение"
+              className={styles.attach}
+            >
+              <Camera size={18} />
+            </button>
+          </>
+        )}
+        <button
+          className={styles.submit}
+          type="submit"
+          disabled={!p.value.trim() || p.isReplying || p.loading || p.uploading}
+        >
+          {p.isReplying || p.uploading ? (
+            <Loader2 size={16} className={styles.spinner} />
+          ) : (
+            <Send size={16} />
+          )}
+          Ответить
+        </button>
       </div>
-    </div>
+    </form>
   );
-};

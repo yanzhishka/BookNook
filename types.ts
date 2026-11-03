@@ -1,4 +1,4 @@
-
+import type { EpubDocument } from './services/epub/document';
 export interface Annotation {
   id: string;
   quote: string;
@@ -37,11 +37,23 @@ export interface Book {
   isLendable?: boolean;
   annotations?: Annotation[];
   content?: string;
+  document?: EpubDocument;
+  hasContent?: boolean;
+  annotationCount?: number;
   currentPage?: number;
+  readingOffset?: number;
   totalPages?: number;
   tags?: string[];
   collectionId?: string;
 }
+
+// Shelf state never owns document text, illustrations or note bodies.
+export type BookSummary = Omit<Book, 'content' | 'document' | 'annotations'> & {
+  hasContent: boolean;
+  annotationCount: number;
+};
+
+export type BookContent = Pick<Book, 'content' | 'document'>;
 
 export interface User {
   id: string;
@@ -84,6 +96,19 @@ export interface ThreadReply {
   content: string;
   imageUrl?: string;
   timestamp: string;
+}
+
+export type CommunityKind = 'discussion' | 'quote' | 'review';
+export type CommunitySource = 'thread' | 'post';
+export interface CommunityTopic extends Thread {
+  source: CommunitySource;
+  kind: CommunityKind;
+  authorAvatar?: string;
+  createdAt: string;
+  lastActivityAt: string;
+  likesCount: number;
+  likedByMe: boolean;
+  book: Pick<Book, 'title' | 'author' | 'coverUrl'> | null;
 }
 
 export interface Activity {

@@ -1,0 +1,136 @@
+.dashboard {
+  width: 100%;
+  min-width: 0;
+  max-width: 1280px;
+  margin-inline: auto;
+  container-type: inline-size;
+}
+
+.dashboard > * + * {
+  margin-top: clamp(2rem, 4cqi, 4rem);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+}
+
+.intro,
+.bookInfo {
+  min-width: 0;
+}
+
+.greeting {
+  font-size: clamp(1.25rem, 3cqi, 1.75rem);
+  overflow-wrap: anywhere;
+}
+
+.levelCard {
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+  min-width: 0;
+  align-items: center;
+  gap: clamp(1rem, 3cqi, 2rem);
+  padding: clamp(1.25rem, 3cqi, 2rem);
+}
+
+.readingGrid,
+.quickGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.featured,
+.statsCard,
+.communityCard {
+  min-width: 0;
+  padding: clamp(1.25rem, 3cqi, 3rem);
+}
+
+.featuredInner {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+}
+
+.cover {
+  position: relative;
+  width: min(100%, 12rem);
+  margin-inline: auto;
+}
+
+.sideStats {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.sideStats > div {
+  min-width: 0;
+  padding: clamp(1.5rem, 3cqi, 2rem);
+}
+
+.sectionHeader {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionTitle {
+  font-size: clamp(1.125rem, 2cqi, 1.375rem);
+}
+
+.communityGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1rem;
+}
+
+.communityGrid > :only-child {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 40rem) {
+  .sideStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .featuredInner {
+    grid-template-columns: 10rem minmax(0, 1fr);
+  }
+
+  .featuredInner > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (min-width: 58rem) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+
+  .quickGrid {
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+  }
+}
+
+@container (min-width: 64rem) {
+  .readingGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .sideStats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

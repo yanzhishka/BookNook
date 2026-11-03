@@ -5,6 +5,8 @@ import { User } from '../../types';
 import { classNames } from '../../utils/classNames';
 import { NavigationItem } from './types';
 import styles from './DesktopSidebar.module.css';
+import type { Product } from '../../services/ecosystem';
+import { ProductSwitcher } from './ProductSwitcher';
 
 interface DesktopSidebarProps {
   activeTab: string;
@@ -12,11 +14,12 @@ interface DesktopSidebarProps {
   isGuest?: boolean;
   navigationItems: NavigationItem[];
   user: User;
-  zenMode?: boolean;
   onLoginClick?: () => void;
   onLogout: () => void;
   onTabChange: (tab: string) => void;
   setTheme: (theme: Theme) => void;
+  product: Product;
+  onProductChange: (product: Product) => void;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
@@ -25,30 +28,17 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   isGuest,
   navigationItems,
   user,
-  zenMode,
   onLoginClick,
   onLogout,
   onTabChange,
   setTheme,
+  product,
+  onProductChange,
 }) => {
   return (
-    <aside
-      className={classNames(
-        styles.sidebar,
-        zenMode ? styles.sidebarHidden : styles.sidebarVisible,
-      )}
-    >
+    <aside className={styles.sidebar}>
       <header className={styles.header}>
-        <h1 className={styles.title}>
-          <button
-            type="button"
-            className={styles.brandButton}
-            onClick={() => onTabChange('home')}
-          >
-            <span className={styles.brandMark}>B</span>
-            <span>B.NOOK</span>
-          </button>
-        </h1>
+        <ProductSwitcher product={product} onChange={onProductChange} />
       </header>
 
       <nav className={styles.navigation} aria-label="Основная навигация">

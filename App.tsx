@@ -3,13 +3,17 @@ import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { CustomCursor } from './components/CustomCursor';
 import { LoginPrompt } from './components/LoginPrompt';
-import { User, Book } from './types';
+import { ErrorNotice } from './components/ErrorNotice';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { User, BookSummary } from './types';
 import { db } from './services/db';
+import type { TopicIdentity } from './services/community';
 import { establishSessionFromAuthUrl, MOBILE_AUTH_CALLBACK } from './services/supabase';
-import { Loader2, ZapOff, Zap, WifiOff } from 'lucide-react';
+import { Loader2, WifiOff } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { initialDestination, type Product } from './services/ecosystem';
 
 // На нативной платформе (Android/iOS) управление тапами — кастомный курсор не нужен.
 const isNativePlatform = Capacitor.isNativePlatform();
@@ -17,10 +21,10 @@ const accountDeletionRequested = new URLSearchParams(window.location.search)
   .get('accountDeletion') === '1';
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
-const Feed = lazy(() => import('./components/Feed').then(module => ({ default: module.Feed })));
 const Library = lazy(() => import('./components/Library').then(module => ({ default: module.Library })));
 const Profile = lazy(() => import('./components/Profile').then(module => ({ default: module.Profile })));
 const Board = lazy(() => import('./components/Board').then(module => ({ default: module.Board })));
+const WatchPage = lazy(() => import('./components/watch/WatchPage').then(module => ({ default: module.WatchPage })));
 
 const GUEST_USER: User = {
   id: 'guest',
@@ -38,13 +42,21 @@ const GUEST_USER: User = {
 
 const TAB_STORAGE_KEY = 'bnook_active_tab';
 const THEME_STORAGE_KEY = 'bnook_theme';
+const PRODUCT_STORAGE_KEY = 'bnook_active_product';
+const readDestination = () => initialDestination(window.location.search, localStorage.getItem(PRODUCT_STORAGE_KEY), localStorage.getItem(TAB_STORAGE_KEY));
+const writeDestination = (product: Product, roomId: string | null, push = false) => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('app', product);
+  if (roomId) url.searchParams.set('room', roomId); else url.searchParams.delete('room');
+  if (push) window.history.pushState(null, '', url); else window.history.replaceState(null, '', url);
+};
 
 export type Theme = 'light' | 'dark';
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center h-full min-h-[400px] animate-fade-in">
     <Loader2 className="animate-spin text-stone-300 dark:text-stone-700 mb-4" size={32} />
-    <p className="text-stone-400 text-xs font-black uppercase tracking-widest">Листаем страницы...</p>
+    <p className="text-stone-400 text-xs font-black uppercase tracking-widest">Открываем…</p>
   </div>
 );
 
@@ -52,26 +64,33 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
-  const [zenMode, setZenMode] = useState(false);
   
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem(TAB_STORAGE_KEY) || 'home';
-  });
+  const [product, setProduct] = useState<Product>(() => readDestination().product);
+  const [roomId, setRoomId] = useState<string | null>(() => readDestination().roomId);
+  const [activeTab, setActiveTab] = useState(() => readDestination().tab);
   
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
-    if (savedTheme) return savedTheme;
+    if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   
   const [user, setUser] = useState<User | null>(null);
-  const [books, setBooks] = useState<Book[]>([]);
+  const [books, setBooks] = useState<BookSummary[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [pendingBookId, setPendingBookId] = useState<string | null>(null);
+  const [pendingTopic,setPendingTopic]=useState<TopicIdentity|null>(null);
+  const consumePendingTopic=useCallback(()=>setPendingTopic(null),[]);
+  const openCommunityTopic=useCallback((topic:TopicIdentity)=>{setPendingTopic({source:topic.source,id:topic.id});setProduct('books');setRoomId(null);writeDestination('books',null);setActiveTab('board');},[]);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [authLinkError, setAuthLinkError] = useState<string | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
+
+  const handleUserUpdate = useCallback((updatedUser: User) => {
+    setUser(current => current?.id === updatedUser.id ? updatedUser : current);
+  }, []);
 
   // Индикатор отсутствия сети
   useEffect(() => {
@@ -90,8 +109,12 @@ const App: React.FC = () => {
     if (!isNativePlatform) return;
     const sub = CapacitorApp.addListener('backButton', () => {
       const currentTab = localStorage.getItem(TAB_STORAGE_KEY) || 'home';
-      if (currentTab !== 'home') {
-        setActiveTab('home');
+      const destination = readDestination();
+      const home = destination.product === 'watch' ? 'watch-home' : 'home';
+      if (currentTab !== home || destination.roomId) {
+        setActiveTab(home);
+        setRoomId(null);
+        writeDestination(destination.product, null);
         setViewingProfileId(null);
       } else {
         CapacitorApp.minimizeApp();
@@ -108,6 +131,26 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(TAB_STORAGE_KEY, activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem(PRODUCT_STORAGE_KEY, product);
+    document.title = product === 'watch' ? 'W.Nook — смотрим вместе' : 'B.Nook — читай, отмечай, делись';
+  }, [product]);
+  useEffect(() => {
+    const restore = () => { const next = readDestination(); setProduct(next.product); setRoomId(next.roomId); setActiveTab(next.tab); };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
+
+  const handleProductChange = useCallback((next: Product) => {
+    setProduct(next); setRoomId(null); setViewingProfileId(null);
+    setActiveTab(next === 'watch' ? 'watch-home' : isGuest ? 'board' : 'home');
+    writeDestination(next, null);
+  }, [isGuest]);
+  const handleWatchRoom = useCallback((id: string | null) => {
+    setProduct('watch'); setRoomId(id); setActiveTab('watch-home'); setViewingProfileId(null);
+    writeDestination('watch', id, true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +197,7 @@ const App: React.FC = () => {
         await applyCurrentSession();
       } catch (error) {
         console.error('Session init failed', error);
+        if (!cancelled) setAuthLinkError('Не удалось загрузить аккаунт. Проверьте соединение и попробуйте войти снова.');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -165,7 +209,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleLogin = useCallback((u: User, b: Book[]) => {
+  const handleLogin = useCallback((u: User, b: BookSummary[]) => {
     setUser(u); setBooks(b);
     setIsAuthenticated(true); setIsGuest(false);
     if (accountDeletionRequested) setActiveTab('profile');
@@ -174,59 +218,70 @@ const App: React.FC = () => {
   const handleGuestLogin = useCallback(() => {
     setUser(GUEST_USER); setBooks([]);
     setIsAuthenticated(true); setIsGuest(true);
-    setActiveTab('feed'); 
-  }, []);
+    setActiveTab(product === 'watch' ? 'watch-home' : 'board');
+  }, [product]);
 
   const handleLogout = useCallback(async () => {
-    if (!isGuest) await db.logout();
+    setShowLoginPrompt(false);
+    setAppError(null);
+    try {
+      if (!isGuest) await db.logout();
+    } catch {
+      setAppError('Не удалось выйти из аккаунта. Проверьте соединение и попробуйте снова.');
+      return;
+    }
     setIsAuthenticated(false); setUser(null); setIsGuest(false);
     setBooks([]); 
-    setActiveTab('home');
+    setActiveTab(product === 'watch' ? 'watch-home' : 'home');
     setViewingProfileId(null);
+    setPendingTopic(null);
     localStorage.removeItem(TAB_STORAGE_KEY);
-  }, [isGuest]);
+  }, [isGuest, product]);
 
   const handleAccountDeleted = useCallback(() => {
     setIsAuthenticated(false);
     setUser(null);
     setIsGuest(false);
     setBooks([]);
-    setActiveTab('home');
+    setActiveTab(product === 'watch' ? 'watch-home' : 'home');
+    setRoomId(null); writeDestination(product, null);
     setViewingProfileId(null);
+    setPendingTopic(null);
     localStorage.removeItem(TAB_STORAGE_KEY);
-  }, []);
+  }, [product]);
 
   const handleTabChange = useCallback((tab: string) => {
-    if (isGuest && (tab !== 'feed' && tab !== 'board')) {
+    const target=tab==='feed'?'board':tab;
+    if (isGuest && target !== 'board' && !target.startsWith('watch-')) {
       setShowLoginPrompt(true);
     } else {
-      setActiveTab(tab);
-      if (tab !== 'profile') setViewingProfileId(null);
+      setActiveTab(target);
+      setViewingProfileId(null);
+      setRoomId(null);
+      const next = target.startsWith('watch-') ? 'watch' : target === 'profile' ? product : 'books';
+      setProduct(next); writeDestination(next, null);
     }
-  }, [isGuest]);
+  }, [isGuest, product]);
 
   const handleViewProfile = useCallback((userId: string) => {
+    setProduct('books'); setRoomId(null); writeDestination('books', null);
     setViewingProfileId(userId);
     setActiveTab('profile');
   }, []);
 
   const handleContinueReading = useCallback((bookId: string) => {
+    setProduct('books'); setRoomId(null); writeDestination('books', null);
     setPendingBookId(bookId);
     setActiveTab('library');
   }, []);
 
-  const awardXp = useCallback((amount: number) => {
-    if (!user || isGuest) return;
-    let newXp = (user.xp || 0) + amount;
-    let newLevel = user.level || 1;
-    const threshold = 1000;
-    if (newXp >= threshold) {
-        newLevel += Math.floor(newXp / threshold);
-        newXp = newXp % threshold;
-    }
-    const updatedUser = { ...user, xp: newXp, level: newLevel };
-    setUser(updatedUser);
-  }, [user, isGuest]);
+  const authenticatedUserId = user?.id;
+  const refreshUserStats = useCallback(() => {
+    if (!authenticatedUserId || isGuest) return;
+    void db.getPublicProfile(authenticatedUserId).then(profile => {
+      setUser(current => current?.id === profile.id ? { ...current, ...profile, email: current.email } : current);
+    }).catch(error => console.error('Failed to refresh reading stats', error));
+  }, [authenticatedUserId, isGuest]);
 
   if (isLoading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-[#fcfaf7] dark:bg-stone-950">
@@ -242,34 +297,20 @@ const App: React.FC = () => {
 
   if (!isAuthenticated || !user) return (
     <div className={theme === 'dark' ? 'dark' : ''}>
-       {!isNativePlatform && <CustomCursor />}
+       {!isNativePlatform && !(product === 'watch' && roomId) && <CustomCursor />}
        {offlineBanner}
-       <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} initialError={authLinkError} />
+       <Auth onLogin={handleLogin} onGuestLogin={handleGuestLogin} initialError={authLinkError} product={product} onProductChange={handleProductChange} />
     </div>
   );
 
   return (
-    <div className={`${theme === 'dark' ? 'dark' : ''} ${zenMode ? 'zen-active' : ''}`}>
-        {!isNativePlatform && <CustomCursor />}
+    <div className={theme === 'dark' ? 'dark' : ''}>
+        {!isNativePlatform && !(product === 'watch' && roomId) && <CustomCursor />}
         {offlineBanner}
 
-        {/* Floating Zen Toggle - Displayed STRICTLY only on 'board' tab */}
-        {activeTab === 'board' && (
-          <button 
-            onClick={() => setZenMode(!zenMode)}
-            className={`
-              native-safe-top fixed top-10 right-10 z-[300] p-4 rounded-2xl backdrop-blur-xl border border-stone-100 dark:border-stone-800 shadow-2xl transition-all duration-500
-              ${zenMode 
-                ? 'bg-amber-500 text-white border-amber-400 rotate-12 scale-110' 
-                : 'bg-white/80 dark:bg-stone-900/80 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'}
-            `}
-            title={zenMode ? "Выйти из Дзен-режима" : "Активировать Дзен-режим"}
-          >
-            {zenMode ? <Zap size={20} /> : <ZapOff size={20} />}
-          </button>
-        )}
-
         <Layout 
+            product={product}
+            onProductChange={handleProductChange}
             activeTab={activeTab} 
             onTabChange={handleTabChange} 
             user={user} 
@@ -278,34 +319,26 @@ const App: React.FC = () => {
             onLogout={handleLogout}
             isGuest={isGuest}
             onLoginClick={() => setShowLoginPrompt(true)}
-            zenMode={zenMode}
         >
+            <AppErrorBoundary resetKey={`${product}:${activeTab}:${roomId || ''}:${viewingProfileId || ''}`} onBack={isGuest ? undefined : () => handleTabChange(product === 'watch' ? 'watch-home' : 'home')}>
             <Suspense fallback={<PageLoader />}>
+                {appError && <ErrorNotice message={appError} />}
                 {(() => {
                   switch (activeTab) {
-                    case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} onContinueReading={handleContinueReading} />;
-                    case 'feed': return <Feed user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onViewProfile={handleViewProfile} onUpdateUser={setUser} awardXp={awardXp} />;
-                    case 'board': return <Board user={user} onRequireLogin={() => setShowLoginPrompt(true)} onUpdateUser={setUser} />;
-                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={setUser} awardXp={awardXp} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
-                    case 'profile': return <Profile user={user} onUpdateUser={setUser} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} onAccountDeleted={handleAccountDeleted} />;
+                    case 'watch-home':
+                    case 'watch-rooms': return <WatchPage user={user} roomId={roomId} view={activeTab === 'watch-rooms' ? 'rooms' : 'home'} onRoomChange={handleWatchRoom} onRequireLogin={() => setShowLoginPrompt(true)} />;
+                    case 'home': return <Dashboard user={user} books={books} onNavigate={handleTabChange} onContinueReading={handleContinueReading} onOpenTopic={openCommunityTopic} />;
+                    case 'board': return <Board user={user} books={books} onRequireLogin={() => setShowLoginPrompt(true)} onUpdateUser={handleUserUpdate} onActivitySaved={refreshUserStats} onViewProfile={handleViewProfile} pendingTopic={pendingTopic} onConsumePendingTopic={consumePendingTopic} />;
+                    case 'library': return <Library books={books} setBooks={setBooks} user={user} onUpdateUser={handleUserUpdate} pendingBookId={pendingBookId} onConsumePendingBook={() => setPendingBookId(null)} />;
+                    case 'profile': return <Profile user={user} onUpdateUser={handleUserUpdate} books={books} viewingUserId={viewingProfileId || undefined} onNavigate={handleTabChange} onAccountDeleted={handleAccountDeleted} />;
                     default: return <Dashboard user={user} books={books} onNavigate={handleTabChange} />;
                   }
                 })()}
             </Suspense>
+            </AppErrorBoundary>
         </Layout>
-        <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleLogout} />
+        <LoginPrompt isOpen={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} onLogin={handleLogout} description={product === 'watch' ? 'Войдите в общий аккаунт, чтобы создавать комнаты и смотреть видео вместе в W.Nook.' : undefined} />
         
-        <style>{`
-          .zen-active main {
-            background: #fcfaf7 !important;
-          }
-          .dark.zen-active main {
-            background: #0c0a09 !important;
-          }
-          .zen-active .aurora-container {
-            display: none;
-          }
-        `}</style>
     </div>
   );
 };

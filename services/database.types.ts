@@ -6,6 +6,25 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type WatchRoomRow = {
+  id: string
+  owner_id: string
+  title: string
+  provider: string
+  media_url: string
+  video_id: string | null
+  position_seconds: number
+  playing: boolean
+  playback_rate: number
+  playback_at: string
+  version: number
+  members_version: number
+  last_client_id: string | null
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+}
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -14,6 +33,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      watch_queue_items: {
+        Row: { id: string; room_id: string; sort_order: number; title: string; provider: string; media_url: string; video_id: string | null }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      watch_rooms: {
+        Row: WatchRoomRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      watch_room_members: {
+        Row: { room_id: string; user_id: string; joined_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      access_requests: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          discord_name: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          discord_name: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          discord_name?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           book_id: string | null
@@ -141,10 +202,12 @@ export type Database = {
           cover_url: string | null
           created_at: string
           current_page: number
+          document: Json | null
           id: string
           is_lendable: boolean
           my_rating: number
           progress: number
+          reading_offset: number | null
           status: string
           title: string
           total_pages: number
@@ -156,10 +219,12 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           current_page?: number
+          document?: Json | null
           id?: string
           is_lendable?: boolean
           my_rating?: number
           progress?: number
+          reading_offset?: number | null
           status?: string
           title: string
           total_pages?: number
@@ -171,10 +236,12 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           current_page?: number
+          document?: Json | null
           id?: string
           is_lendable?: boolean
           my_rating?: number
           progress?: number
+          reading_offset?: number | null
           status?: string
           title?: string
           total_pages?: number
@@ -346,6 +413,96 @@ export type Database = {
           },
         ]
       }
+      staff_access: {
+        Row: {
+          active: boolean
+          approved_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          approved_at?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          approved_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_actions: {
+        Row: {
+          action_title: string
+          action_type: string
+          actor_name: string
+          actor_role: string
+          command_text: string | null
+          id: number
+          occurred_at: string
+          severity: string
+          target_name: string | null
+        }
+        Insert: {
+          action_title: string
+          action_type: string
+          actor_name: string
+          actor_role: string
+          command_text?: string | null
+          id?: number
+          occurred_at?: string
+          severity?: string
+          target_name?: string | null
+        }
+        Update: {
+          action_title?: string
+          action_type?: string
+          actor_name?: string
+          actor_role?: string
+          command_text?: string | null
+          id?: number
+          occurred_at?: string
+          severity?: string
+          target_name?: string | null
+        }
+        Relationships: []
+      }
+      thread_likes: {
+        Row: {
+          created_at: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_likes_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thread_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       thread_replies: {
         Row: {
           author_id: string | null
@@ -395,28 +552,37 @@ export type Database = {
         Row: {
           author_id: string | null
           author_name: string
+          book_id: string | null
+          book_snapshot: Json | null
           content: string
           created_at: string
           id: string
           image_url: string | null
+          kind: string
           title: string
         }
         Insert: {
           author_id?: string | null
           author_name: string
+          book_id?: string | null
+          book_snapshot?: Json | null
           content: string
           created_at?: string
           id?: string
           image_url?: string | null
+          kind?: string
           title: string
         }
         Update: {
           author_id?: string | null
           author_name?: string
+          book_id?: string | null
+          book_snapshot?: Json | null
           content?: string
           created_at?: string
           id?: string
           image_url?: string | null
+          kind?: string
           title?: string
         }
         Relationships: [
@@ -425,6 +591,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "threads_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
             referencedColumns: ["id"]
           },
         ]
@@ -464,10 +637,102 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      book_shelf: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          author: string | null
+          cover_url: string | null
+          progress: number
+          status: string
+          my_rating: number
+          is_lendable: boolean
+          current_page: number
+          reading_offset: number | null
+          total_pages: number
+          created_at: string
+          has_content: boolean
+          annotation_count: number
+        }
+        Relationships: []
+      }
+      community_topics: {
+        Row: {
+          author_avatar: string | null
+          author_id: string | null
+          author_name: string | null
+          book_snapshot: Json | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          image_url: string | null
+          kind: string | null
+          last_activity_at: string | null
+          liked_by_me: boolean | null
+          likes_count: number | null
+          replies_count: number | null
+          source: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      watch_player_command: {
+        Args: { p_room_id: string; p_version: number; p_action: string; p_rate?: number | null;
+          p_item_id?: string | null; p_direction?: number | null; p_title?: string | null;
+          p_provider?: string | null; p_video_id?: string | null; p_media_url?: string | null;
+          p_position?: number | null; p_playing?: boolean | null; p_client_id?: string | null }
+        Returns: Json
+      }
+      get_watch_room: { Args: { p_room_id: string }; Returns: Json }
+      create_watch_room: {
+        Args: { p_title: string; p_provider: string; p_video_id: string | null; p_media_url: string }
+        Returns: Json
+      }
+      join_watch_room: { Args: { p_room_id: string }; Returns: Json }
+      control_watch_room: {
+        Args: {
+          p_room_id: string; p_version: number; p_action: string
+          p_position?: number | null; p_playing?: boolean | null; p_provider?: string | null
+          p_video_id?: string | null; p_media_url?: string | null; p_client_id?: string | null
+        }
+        Returns: Json
+      }
+      search_community_topics: {
+        Args: {
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_scope?: string
+          p_sort?: string
+        }
+        Returns: {
+          author_avatar: string | null
+          author_id: string | null
+          author_name: string | null
+          book_snapshot: Json | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          image_url: string | null
+          kind: string | null
+          last_activity_at: string | null
+          liked_by_me: boolean | null
+          likes_count: number | null
+          replies_count: number | null
+          source: string | null
+          title: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "community_topics"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never
@@ -486,12 +751,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -515,11 +780,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -540,11 +805,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -565,11 +830,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -582,11 +847,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

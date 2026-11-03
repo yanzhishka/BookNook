@@ -2,8 +2,9 @@ import {
   Activity,
   Annotation,
   Book,
+  BookContent,
+  BookSummary,
   Comment,
-  Quote,
   Thread,
   ThreadReply,
   User,
@@ -13,11 +14,16 @@ import {
 import type { Json, Tables } from './database.types';
 import { Capacitor } from '@capacitor/core';
 import { MOBILE_AUTH_CALLBACK, supabase } from './supabase';
+import { BookContentCache } from './bookContentCache';
+import { bookSummary } from './books';
 
 const PUBLIC_PROFILE_COLUMNS = 'id,name,handle,avatar,banner_url,bio,location,joined_date,streak_days,role,xp,level,completed_count,terms_accepted_at';
+const BOOK_COLUMNS = 'id,title,author,cover_url,progress,status,my_rating,is_lendable,current_page,reading_offset,total_pages';
+const contentCache = new BookContentCache();
 
 type ProfileRecord = Partial<Tables<'profiles'>> & { id: string };
-type BookRecord = Tables<'books'>;
+type BookRecord = Pick<Tables<'books'>, 'id' | 'title' | 'author' | 'cover_url' | 'progress' | 'status' | 'my_rating' | 'is_lendable' | 'current_page' | 'reading_offset' | 'total_pages'> &
+  Partial<Pick<Tables<'books'>, 'content' | 'document'>> & { has_content?: boolean; annotation_count?: number };
 type QuoteRecord = Tables<'quotes'>;
 
 const formatDate = (value?: string) => {
@@ -55,30 +61,25 @@ const mapProfileToUser = (profile: ProfileRecord, email?: string): User => ({
   location: profile.location || undefined,
   joinedDate: profile.joined_date || undefined,
   booksReadThisYear: Number(profile.completed_count || 0),
+  totalBooksRead: Number(profile.completed_count || 0),
   streakDays: Number(profile.streak_days || 0),
-  totalReadingTime: 0,
   xp: Number(profile.xp || 0),
   level: Number(profile.level || 1),
   termsAcceptedAt: profile.terms_accepted_at || undefined,
 });
 
-const mapDbBookToBook = (book: BookRecord, allQuotes: any[] = []): Book => {
-  const annotations = allQuotes
-    .filter((quote) => quote.book_id === book.id || quote.bookId === book.id)
-    .map((quote) => {
-      const rawTimestamp = quote.timestamp || quote.created_at;
-      const timestamp = typeof rawTimestamp === 'number'
-        ? rawTimestamp
-        : new Date(rawTimestamp).getTime();
+const mapAnnotation = (quote: QuoteRecord): Annotation => ({
+  id: quote.id,
+  quote: quote.text,
+  comment: quote.comment || '',
+  color: quote.color || 'amber',
+  timestamp: Number(quote.timestamp || new Date(quote.created_at).getTime()),
+});
 
-      return {
-        id: quote.id,
-        quote: quote.text || quote.quote || '',
-        comment: quote.comment || '',
-        color: quote.color || 'amber',
-        timestamp: timestamp || Date.now(),
-      };
-    });
+const mapDbBookToBook = (book: BookRecord, allQuotes: QuoteRecord[] = []): Book => {
+  const annotations = allQuotes
+    .filter((quote) => quote.book_id === book.id)
+    .map(mapAnnotation);
 
   return {
     id: book.id,
@@ -90,20 +91,16 @@ const mapDbBookToBook = (book: BookRecord, allQuotes: any[] = []): Book => {
     myRating: Number(book.my_rating || 0),
     isLendable: Boolean(book.is_lendable),
     content: book.content || undefined,
+    document: book.document as unknown as Book['document'] || undefined,
+    hasContent: book.has_content ?? Boolean(book.content?.trim()),
+    annotationCount: book.annotation_count ?? annotations.length,
     currentPage: Number(book.current_page || 1),
+    readingOffset: book.reading_offset ?? undefined,
     totalPages: Number(book.total_pages || 1),
     annotations,
     tags: [],
   };
 };
-
-const mapQuote = (quote: QuoteRecord): Quote => ({
-  ...quote,
-  bookId: quote.book_id || undefined,
-  bookTitle: quote.book_title || '',
-  color: quote.color || 'amber',
-  timestamp: Number(quote.timestamp || new Date(quote.created_at).getTime()),
-});
 
 const isBookStatus = (value: unknown): value is Book['status'] =>
   value === 'reading' || value === 'completed' || value === 'want_to_read';
@@ -167,43 +164,78 @@ const unwrap = <T>(data: T | null, error: { message: string } | null): T => {
   return data as T;
 };
 
-const isPersistedId = (id?: string) => Boolean(id && id.length >= 20);
-
 export const db = {
-  async getSession(): Promise<{ user: User; books: Book[]; quotes: Quote[] } | null> {
+  async getPublicProfile(userId: string): Promise<User> {
+    const { data, error } = await supabase.from('profiles')
+      .select(PUBLIC_PROFILE_COLUMNS).eq('id', userId).single();
+    return mapProfileToUser(unwrap(data, error));
+  },
+
+  async getSession(): Promise<{ user: User; books: BookSummary[] } | null> {
     const { data: { user }, error } = await supabase.auth.getUser();
-    if (error?.name === 'AuthSessionMissingError') return null;
+    if (error?.name === 'AuthSessionMissingError') { contentCache.clear(); return null; }
     if (error) throw new Error(error.message);
-    if (!user) return null;
+    if (!user) { contentCache.clear(); return null; }
     return this.loadUserData(user.id, user.email);
   },
 
   async loadUserData(
     userId: string,
     email?: string,
-  ): Promise<{ user: User; books: Book[]; quotes: Quote[] }> {
+  ): Promise<{ user: User; books: BookSummary[] }> {
     if (!userId) throw new Error('User ID is required');
+    contentCache.forUser(userId);
 
-    const [profileRes, booksRes, quotesRes] = await Promise.all([
+    const [profileRes, books] = await Promise.all([
       supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).eq('id', userId).single(),
-      supabase.from('books').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
-      supabase.from('quotes').select('*').eq('user_id', userId),
+      this.getBookShelf(userId),
     ]);
 
     const profile = unwrap(profileRes.data, profileRes.error);
-    const books = unwrap(booksRes.data, booksRes.error) || [];
-    const quotes = unwrap(quotesRes.data, quotesRes.error) || [];
-
     const user = mapProfileToUser(profile, email);
-
-    return {
-      user,
-      books: books.map((book) => mapDbBookToBook(book, quotes)),
-      quotes: quotes.map(mapQuote),
-    };
+    return { user, books };
   },
 
-  async login(email: string, password: string) {
+  async getBookShelf(userId: string): Promise<BookSummary[]> {
+    if (!userId) throw new Error('User ID is required');
+    const books: BookSummary[] = [];
+    const size = 500;
+    for (let offset = 0; ; offset += size) {
+      const { data, error } = await supabase.from('book_shelf').select('*')
+        .eq('user_id', userId).order('created_at', { ascending: true }).order('id', { ascending: true })
+        .range(offset, offset + size - 1);
+      const rows = unwrap(data, error) || [];
+      books.push(...rows.map(row => bookSummary(mapDbBookToBook(row))));
+      if (rows.length < size) return books;
+    }
+  },
+
+  getBookContent(bookId: string, userId: string): Promise<BookContent> {
+    if (!bookId || !userId) throw new Error('Book and user IDs are required');
+    return contentCache.load(userId, bookId, async signal => {
+      const { data, error } = await supabase.from('books').select('content,document')
+        .eq('id', bookId).eq('user_id', userId).abortSignal(signal).single();
+      const row = unwrap(data, error);
+      return { content: row.content || undefined, document: row.document as unknown as Book['document'] || undefined };
+    });
+  },
+
+  async getBookAnnotations(bookId: string, userId: string): Promise<Annotation[]> {
+    if (!bookId || !userId) throw new Error('Book and user IDs are required');
+    const annotations: Annotation[] = [];
+    const size = 500;
+    for (let offset = 0; ; offset += size) {
+      const { data, error } = await supabase.from('quotes').select('*')
+        .eq('book_id', bookId).eq('user_id', userId)
+        .order('created_at', { ascending: true }).order('id', { ascending: true }).range(offset, offset + size - 1);
+      const rows = unwrap(data, error) || [];
+      annotations.push(...rows.map(mapAnnotation));
+      if (rows.length < size) return annotations;
+    }
+  },
+
+  async login(login: string, password: string) {
+    const email = login.trim() === '123' ? '123@booknook.local' : login.trim();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
     return this.loadUserData(data.user.id, data.user.email);
@@ -237,7 +269,9 @@ export const db = {
   },
 
   async logout() {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
+    contentCache.clear();
   },
 
   async deleteAccount() {
@@ -246,6 +280,7 @@ export const db = {
     });
     if (error) throw new Error(error.message);
 
+    contentCache.clear();
     await supabase.auth.signOut({ scope: 'local' });
   },
 
@@ -495,6 +530,7 @@ export const db = {
     const { data, error } = await supabase
       .from('profiles')
       .select(PUBLIC_PROFILE_COLUMNS)
+      .order('level', { ascending: false })
       .order('xp', { ascending: false })
       .limit(limit);
     if (error) throw new Error(error.message);
@@ -505,7 +541,8 @@ export const db = {
   async addBook(book: Book, userId: string) {
     const { data, error } = await supabase
       .from('books')
-      .insert({
+      .upsert({
+        id: book.id || crypto.randomUUID(),
         user_id: userId,
         title: book.title,
         author: book.author,
@@ -515,60 +552,41 @@ export const db = {
         my_rating: Number(book.myRating) || 0,
         is_lendable: Boolean(book.isLendable),
         content: book.content,
+        document: book.document as unknown as Json || null,
         current_page: Number(book.currentPage) || 1,
+        reading_offset: book.readingOffset ?? null,
         total_pages: Number(book.totalPages) || 1,
-      })
-      .select()
+      }, { onConflict: 'id' })
+      .select(BOOK_COLUMNS)
       .single();
     if (error) throw new Error(error.message);
 
-    let annotations = book.annotations || [];
-    if (annotations.length > 0) {
-      annotations = await this.syncAnnotations(data.id, userId, book.title, annotations);
-    }
-
-    return mapDbBookToBook(data, annotations);
+    contentCache.put(userId, data.id, { content: book.content, document: book.document });
+    return { ...book, ...mapDbBookToBook(data), content: book.content, document: book.document, hasContent: Boolean(book.content?.trim()) };
   },
 
-  async syncAnnotations(
+  async saveAnnotation(
     bookId: string,
     userId: string,
     bookTitle: string,
-    annotations: Annotation[],
-  ): Promise<any[]> {
-    const updated: any[] = [];
-
-    for (const annotation of annotations) {
-      const payload: any = {
+    annotation: Annotation,
+  ): Promise<Annotation> {
+    const { data, error } = await supabase.from('quotes').upsert({
+        id: annotation.id,
         user_id: userId,
         book_id: bookId,
         book_title: bookTitle,
-        text: annotation.quote,
-        comment: annotation.comment,
+        text: annotation.quote.trim(),
+        comment: annotation.comment.trim(),
         color: annotation.color,
         timestamp: Number(annotation.timestamp) || Date.now(),
-      };
-      if (isPersistedId(annotation.id)) payload.id = annotation.id;
-
-      try {
-        const query = isPersistedId(annotation.id)
-          ? supabase.from('quotes').upsert(payload)
-          : supabase.from('quotes').insert(payload);
-        const { data, error } = await query.select().single();
-        if (error) throw new Error(error.message);
-        updated.push({ ...annotation, id: data.id, book_id: bookId });
-      } catch (err) {
-        console.error('Failed to sync quote:', payload, err);
-        updated.push({ ...annotation, book_id: bookId });
-      }
-    }
-
-    return updated;
+      }, { onConflict: 'id' }).select().single();
+    return mapAnnotation(unwrap(data, error));
   },
 
-  async deleteAnnotation(annotationId: string) {
-    if (!isPersistedId(annotationId)) return;
-    const { error } = await supabase.from('quotes').delete().eq('id', annotationId);
+  async deleteAnnotation(annotationId: string, bookId: string, userId: string) {
+    const { error } = await supabase.from('quotes').delete()
+      .eq('id', annotationId).eq('book_id', bookId).eq('user_id', userId);
     if (error) throw new Error(error.message);
   },
 
@@ -582,23 +600,38 @@ export const db = {
         status: book.status,
         my_rating: Number(book.myRating) || 0,
         current_page: Number(book.currentPage) || 1,
+        reading_offset: book.readingOffset ?? null,
         total_pages: Number(book.totalPages) || 1,
       })
       .eq('id', book.id)
-      .select()
+      .eq('user_id', userId)
+      .select('id,progress,status,my_rating,current_page,total_pages,reading_offset')
       .single();
     if (error) throw new Error(error.message);
 
-    let annotations = book.annotations || [];
-    if (annotations.length > 0) {
-      annotations = await this.syncAnnotations(book.id, userId, book.title, annotations);
-    }
-
-    return mapDbBookToBook(data, annotations);
+    return { ...book, progress: data.progress, status: isBookStatus(data.status) ? data.status : book.status,
+      myRating: data.my_rating, currentPage: data.current_page, totalPages: data.total_pages, readingOffset: data.reading_offset ?? undefined };
   },
 
-  async deleteBook(id: string) {
-    const { error } = await supabase.from('books').delete().eq('id', id);
+  async replaceBookContent(book: Book, userId: string): Promise<Book> {
+    const { data, error } = await supabase.from('books').update({
+      title: book.title, author: book.author, cover_url: book.coverUrl,
+      content: book.content, document: book.document as unknown as Json || null,
+      current_page: book.currentPage || 1, total_pages: book.totalPages || 1,
+      reading_offset: book.readingOffset ?? null,
+      progress: book.progress, status: book.status,
+    }).eq('id', book.id).eq('user_id', userId).select(BOOK_COLUMNS).single();
     if (error) throw new Error(error.message);
+    contentCache.put(userId, book.id, { content: book.content, document: book.document });
+    return { ...book, ...mapDbBookToBook(data), content: book.content, document: book.document,
+      hasContent: Boolean(book.content?.trim()), annotations: book.annotations || [], annotationCount: book.annotations?.length ?? book.annotationCount ?? 0 };
+  },
+
+  async deleteBook(id: string, userId: string) {
+    const { data, error } = await supabase.from('books').delete()
+      .eq('id', id).eq('user_id', userId).select('id').single();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Книга не найдена');
+    contentCache.invalidate(userId, id);
   },
 };

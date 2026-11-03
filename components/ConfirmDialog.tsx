@@ -1,6 +1,8 @@
 
-import React from 'react';
+import { createPortal } from 'react-dom';
+import React, { useId } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useDialog } from '../utils/useDialog';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -21,9 +23,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   confirmLabel = 'Удалить',
   isConfirming = false,
 }) => {
+  const ref = useDialog<HTMLDivElement>(onCancel, isConfirming, false, isOpen);
+  const titleId = useId();
+  const messageId = useId();
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
       {/* Backdrop */}
       <button
@@ -34,16 +39,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       />
       
       {/* Dialog */}
-      <div role="alertdialog" aria-modal="true" className="bg-white dark:bg-stone-900 w-full max-w-sm p-8 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800 transform transition-all">
+      <div ref={ref} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId} aria-busy={isConfirming} className="bg-white dark:bg-stone-900 w-full max-h-[calc(100dvh-2rem)] overflow-y-auto max-w-sm p-8 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative z-10 animate-scale-in border border-stone-100 dark:border-stone-800 transform transition-all">
         <div className="w-16 h-16 rounded-3xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-6 text-red-500 animate-shake shadow-inner">
           <AlertTriangle size={32} />
         </div>
         
-        <h3 className="text-2xl font-serif font-black text-stone-800 dark:text-stone-100 text-center mb-2 tracking-tighter">
+        <h3 id={titleId} className="text-2xl font-serif font-black text-stone-800 dark:text-stone-100 text-center mb-2 tracking-tighter">
           {title}
         </h3>
         
-        <p className="text-stone-500 dark:text-stone-400 text-center text-sm mb-8 leading-relaxed font-medium">
+        <p id={messageId} className="text-stone-500 dark:text-stone-400 text-center text-sm mb-8 leading-relaxed font-medium">
           {message}
         </p>
         
@@ -64,6 +69,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

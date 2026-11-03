@@ -1,0 +1,22 @@
+.switcher { min-width:0; width:100%; }
+.trigger { display:flex; align-items:center; gap:.8rem; width:100%; border:0; padding:0; color:#1c1917; background:transparent; cursor:pointer; text-align:left; }
+.mark { display:grid; place-items:center; width:2.5rem; height:2.5rem; flex:none; border-radius:.85rem; background:#1c1917; color:#fff; font-family:Merriweather,serif; font-size:1.25rem; font-weight:900; transform:rotate(3deg); transition:transform .25s; }
+.trigger:hover .mark { transform:rotate(0); }
+.name { flex:1; min-width:0; font-family:Merriweather,serif; font-size:1.6rem; font-weight:900; letter-spacing:-.055em; white-space:nowrap; }
+.chevron,.chevronOpen { color:#a8a29e; transition:transform .25s; flex:none; }
+.chevronOpen { transform:rotate(180deg); }
+.reveal { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows .25s ease,opacity .2s; }
+.revealOpen { grid-template-rows:1fr; opacity:1; }
+.panel { overflow:hidden; min-height:0; display:flex; flex-direction:column; gap:.25rem; }
+.panel button { display:flex; align-items:center; gap:.75rem; width:100%; border:0; border-radius:1rem; padding:.5rem .75rem; text-align:left; color:#78716c; background:transparent; cursor:pointer; }
+.panel button:first-child { margin-top:1rem; }
+.panel button:hover,.panel button[aria-current] { background:rgba(168,162,158,.1); color:#1c1917; }
+.icon { display:grid; place-items:center; width:2.25rem; height:2.25rem; flex:none; border-radius:.75rem; background:rgba(168,162,158,.1); }
+.copy { flex:1; min-width:0; }
+.copy strong { font-size:.85rem; font-weight:650; }
+.check { color:#d97706; }
+.trigger:focus-visible,.panel button:focus-visible { outline:2px solid #d97706; outline-offset:4px; }
+:global(.dark) .trigger { color:#fafaf9; }
+:global(.dark) .mark { color:#1c1917; background:#fafaf9; }
+:global(.dark) .panel button:hover,:global(.dark) .panel button[aria-current] { color:#fafaf9; background:rgba(255,255,255,.06); }
+@media(max-width:1023px) { .name { font-size:1.3rem; } .mark { width:2.15rem; height:2.15rem; font-size:1.1rem; } }

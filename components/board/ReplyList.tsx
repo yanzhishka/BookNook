@@ -1,63 +1,64 @@
-import React from 'react';
-import { Loader2, MessageSquare } from 'lucide-react';
-import { ThreadReply, User } from '../../types';
-import { ThreadReplyItem } from './ThreadReplyItem';
-import styles from './ReplyList.module.css';
-
-interface ReplyListProps {
-  containerRef: React.RefObject<HTMLDivElement>;
+import type { RefObject } from "react";
+import type { ThreadReply, User } from "../../types";
+import { ThreadReplyItem } from "./ThreadReplyItem";
+import styles from "./ReplyList.module.css";
+interface Props {
+  containerRef: RefObject<HTMLDivElement>;
   isAdmin: boolean;
   loading: boolean;
   replies: ThreadReply[];
   user: User;
-  onDeleteReply: (replyId: string) => void;
+  error: string;
+  hasOlder: boolean;
+  loadingOlder: boolean;
+  onLoadOlder: () => void;
+  onRetry: () => void;
+  onDeleteReply: (id: string) => void;
   onModerateReply: (reply: ThreadReply) => void;
 }
-
-export const ReplyList: React.FC<ReplyListProps> = ({
-  containerRef,
-  isAdmin,
-  loading,
-  replies,
-  user,
-  onDeleteReply,
-  onModerateReply,
-}) => {
-  if (loading) {
-    return (
-      <div ref={containerRef} className={styles.replies}>
-        <div className={styles.state}>
-          <Loader2 size={40} className={styles.spinner} />
-          <p className={styles.stateText}>Загрузка ответов...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (replies.length === 0) {
-    return (
-      <div ref={containerRef} className={styles.replies}>
-        <div className={styles.emptyState}>
-          <MessageSquare size={64} className={styles.emptyIcon} />
-          <p className={styles.stateText}>Нет ответов. Начните беседу.</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className={styles.replies}>
-      {replies.map((reply, index) => (
-        <ThreadReplyItem
-          key={reply.id}
-          canDelete={isAdmin || user.id === reply.authorId}
-          delayIndex={Math.min(index, 24)}
-          reply={reply}
-          onDelete={() => onDeleteReply(reply.id)}
-          canModerate={user.id !== 'guest' && user.id !== reply.authorId}
-          onModerate={() => onModerateReply(reply)}
-        />
-      ))}
-    </div>
-  );
-};
+export const ReplyList = (p: Props) => (
+  <div ref={p.containerRef} className={styles.replies} aria-busy={p.loading}>
+    {p.loading ? (
+      <p role="status" className={styles.state}>
+        Загружаем ответы…
+      </p>
+    ) : (
+      <>
+        {p.error && (
+          <div className={styles.error} role="alert">
+            <p>{p.error}</p>
+            <button onClick={p.hasOlder ? p.onLoadOlder : p.onRetry}>
+              Повторить
+            </button>
+          </div>
+        )}
+        {p.hasOlder && !p.error && (
+          <button
+            className={styles.older}
+            disabled={p.loadingOlder}
+            onClick={p.onLoadOlder}
+          >
+            {p.loadingOlder ? "Загружаем…" : "Ранние ответы"}
+          </button>
+        )}
+        {!p.replies.length && !p.error ? (
+          <p className={styles.state}>Пока нет ответов — начните обсуждение</p>
+        ) : (
+          p.replies.map((reply, index) => (
+            <ThreadReplyItem
+              key={reply.id}
+              canDelete={p.isAdmin || p.user.id === reply.authorId}
+              delayIndex={Math.min(index, 24)}
+              reply={reply}
+              onDelete={() => p.onDeleteReply(reply.id)}
+              canModerate={
+                p.user.id !== "guest" && p.user.id !== reply.authorId
+              }
+              onModerate={() => p.onModerateReply(reply)}
+            />
+          ))
+        )}
+      </>
+    )}
+  </div>
+);

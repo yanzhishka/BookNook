@@ -16,7 +16,7 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="B.Nook — читай, отмечай, делись" />
-    <meta property="og:description" content="Личная библиотека, читалка с заметками, лента сообщества и книжные обсуждения." />
+    <meta property="og:description" content="Личная библиотека, читалка с заметками, книжное сообщество The Grid." />
     <meta property="og:image" content="/icon-512.png" />
     <meta name="twitter:card" content="summary" />
 
@@ -35,8 +35,6 @@
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
       }
-      /* Кастомный курсор только в вебе. На нативе (класс .capacitor) — обычное поведение тача. */
-      html:not(.capacitor) body { cursor: none !important; }
       h1, h2, h3, h4, .serif {
         font-family: 'Merriweather', serif;
         letter-spacing: -0.03em;
@@ -66,18 +64,6 @@
       .aurora-1 { top: -20%; left: -10%; background: radial-gradient(circle, #f59e0b 0%, transparent 70%); }
       .aurora-2 { bottom: -20%; right: -10%; background: radial-gradient(circle, #ec4899 0%, transparent 70%); animation-delay: -7s; }
       .aurora-3 { top: 30%; right: 15%; background: radial-gradient(circle, #3b82f6 0%, transparent 70%); animation-delay: -12s; }
-
-      .noise-overlay::before {
-        content: "";
-        position: fixed;
-        top: -150%; left: -150%; width: 400%; height: 400%;
-        background-image: url("https://grainy-gradients.vercel.app/noise.svg");
-        opacity: 0.05;
-        pointer-events: none;
-        z-index: 9999;
-        animation: grain 8s steps(10) infinite;
-      }
-      .dark .noise-overlay::before { opacity: 0.09; }
 
       .glass {
         background: rgba(255, 255, 255, 0.45);
@@ -130,7 +116,7 @@
       }
     </style>
 </head>
-  <body class="noise-overlay bg-[#fcfaf7] text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased selection:bg-amber-500/20">
+  <body class="bg-[#fcfaf7] text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased selection:bg-amber-500/20">
     <div class="aurora-container">
       <div class="aurora-blob aurora-1"></div>
       <div class="aurora-blob aurora-2"></div>

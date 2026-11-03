@@ -1,13 +1,14 @@
 
 import React from 'react';
-import { BookOpen, Home, LayoutGrid, Users } from 'lucide-react';
+import { BookOpen, Home, LayoutGrid, Play, DoorOpen } from 'lucide-react';
 import { User } from '../types';
 import { Theme } from '../App';
-import { classNames } from '../utils/classNames';
 import { DesktopSidebar } from './layout/DesktopSidebar';
 import { MobileNavigation } from './layout/MobileNavigation';
 import { NavigationItem } from './layout/types';
 import styles from './Layout.module.css';
+import type { Product } from '../services/ecosystem';
+import { ProductSwitcher } from './layout/ProductSwitcher';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,14 +20,14 @@ interface LayoutProps {
   onLogout: () => void;
   isGuest?: boolean;
   onLoginClick?: () => void;
-  zenMode?: boolean;
+  product: Product;
+  onProductChange: (product: Product) => void;
 }
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'home', label: 'Главная', icon: Home },
   { id: 'library', label: 'Библиотека', icon: BookOpen },
   { id: 'board', label: 'The Grid', icon: LayoutGrid },
-  { id: 'feed', label: 'Лента', icon: Users },
 ];
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -38,18 +39,25 @@ export const Layout: React.FC<LayoutProps> = ({
   setTheme,
   isGuest,
   onLoginClick,
-  zenMode,
   onLogout,
+  product,
+  onProductChange,
 }) => {
+  const items = product === 'watch' ? [
+    { id: 'watch-home', label: 'Просмотр', icon: Play },
+    { id: 'watch-rooms', label: 'Комнаты', icon: DoorOpen },
+  ] : NAVIGATION_ITEMS;
   return (
-    <div className={classNames(styles.layout, zenMode && styles.zenLayout)}>
+    <div className={styles.layout}>
+      <header className={styles.mobileHeader}><ProductSwitcher product={product} onChange={onProductChange} /></header>
       <DesktopSidebar
         activeTab={activeTab}
         currentTheme={currentTheme}
         isGuest={isGuest}
-        navigationItems={NAVIGATION_ITEMS}
+        navigationItems={items}
+        product={product}
+        onProductChange={onProductChange}
         user={user}
-        zenMode={zenMode}
         onLoginClick={onLoginClick}
         onLogout={onLogout}
         onTabChange={onTabChange}
@@ -58,14 +66,13 @@ export const Layout: React.FC<LayoutProps> = ({
 
       <MobileNavigation
         activeTab={activeTab}
-        navigationItems={NAVIGATION_ITEMS}
+        navigationItems={items}
         user={user}
-        zenMode={zenMode}
         onTabChange={onTabChange}
       />
 
-      <main className={classNames(styles.main, zenMode && styles.mainZen)}>
-        <div key={activeTab} className={styles.page}>
+      <main className={styles.main}>
+        <div key={`${product}:${activeTab}`} className={styles.page}>
           {children}
         </div>
       </main>

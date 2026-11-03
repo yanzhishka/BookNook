@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import './src/index.css';
 import { Capacitor } from '@capacitor/core';
+
+const App = lazy(() => import('./App'));
 
 // На нативной платформе помечаем <html>, чтобы отключить кастомный курсор (cursor: none).
 if (Capacitor.isNativePlatform()) {
@@ -17,6 +19,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-stone-500" role="status">Открываем…</div>}>
+        <App />
+      </Suspense>
+    </AppErrorBoundary>
   </React.StrictMode>
 );

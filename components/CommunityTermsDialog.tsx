@@ -1,11 +1,14 @@
+import { createPortal } from 'react-dom';
 import React from 'react';
 import { Loader2, ShieldCheck, X } from 'lucide-react';
+import { useDialog } from '../utils/useDialog';
 
 interface CommunityTermsDialogProps {
   isAccepting: boolean;
   isOpen: boolean;
   onAccept: () => void;
   onClose: () => void;
+  error?: string;
 }
 
 export const CommunityTermsDialog: React.FC<CommunityTermsDialogProps> = ({
@@ -13,14 +16,16 @@ export const CommunityTermsDialog: React.FC<CommunityTermsDialogProps> = ({
   isOpen,
   onAccept,
   onClose,
+  error,
 }) => {
+  const ref = useDialog(onClose, isAccepting, false, isOpen);
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4">
-      <button type="button" aria-label="Закрыть" className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <section role="dialog" aria-modal="true" aria-labelledby="community-terms-title" className="relative z-10 w-full max-w-lg rounded-[2.5rem] bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-8 shadow-2xl">
-        <button type="button" onClick={onClose} aria-label="Закрыть" className="absolute top-5 right-5 p-2 text-stone-400 hover:text-stone-800 dark:hover:text-stone-100"><X size={20} /></button>
+      <button type="button" aria-label="Закрыть" disabled={isAccepting} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="community-terms-title" aria-busy={isAccepting} className="relative z-10 w-full max-h-[calc(100dvh-2rem)] overflow-y-auto max-w-lg rounded-[2.5rem] bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-6 sm:p-8 shadow-2xl">
+        <button type="button" onClick={onClose} disabled={isAccepting} aria-label="Закрыть" className="absolute top-5 right-5 p-2 text-stone-400 hover:text-stone-800 dark:hover:text-stone-100"><X size={20} /></button>
         <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-amber-600 flex items-center justify-center mb-5"><ShieldCheck size={28} /></div>
         <h3 id="community-terms-title" className="text-2xl font-serif font-black text-stone-900 dark:text-stone-100 mb-3">Правила книжного сообщества</h3>
         <p className="text-sm leading-relaxed text-stone-500 dark:text-stone-400 mb-5">
@@ -40,7 +45,9 @@ export const CommunityTermsDialog: React.FC<CommunityTermsDialogProps> = ({
           {isAccepting && <Loader2 size={16} className="animate-spin" />}
           Принимаю правила
         </button>
+        {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 };

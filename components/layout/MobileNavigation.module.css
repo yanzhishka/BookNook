@@ -16,7 +16,6 @@
     transparent
   );
   pointer-events: none;
-  transition: transform 700ms ease-in-out, opacity 700ms ease-in-out;
 }
 
 :global(.dark) .mobileNavigation {
@@ -26,16 +25,6 @@
     rgba(12, 10, 9, 0.7),
     transparent
   );
-}
-
-.mobileNavigationVisible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.mobileNavigationHidden {
-  opacity: 0;
-  transform: translateY(100%);
 }
 
 .navigationBar {
@@ -115,7 +104,7 @@
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .mobileNavigation {
     display: none;
   }

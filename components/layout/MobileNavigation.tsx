@@ -8,7 +8,6 @@ interface MobileNavigationProps {
   activeTab: string;
   navigationItems: NavigationItem[];
   user: User;
-  zenMode?: boolean;
   onTabChange: (tab: string) => void;
 }
 
@@ -16,15 +15,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeTab,
   navigationItems,
   user,
-  zenMode,
   onTabChange,
 }) => {
   return (
     <nav
-      className={classNames(
-        styles.mobileNavigation,
-        zenMode ? styles.mobileNavigationHidden : styles.mobileNavigationVisible,
-      )}
+      className={styles.mobileNavigation}
       aria-label="Мобильная навигация"
     >
       <div className={styles.navigationBar}>

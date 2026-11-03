@@ -1,5 +1,6 @@
 // Supabase Edge Function: book-proxy
-// Прокси к Open Library (поиск) и Internet Archive (текст книги).
+// Поиск и загрузка текста из Wikisource; Open Library даёт дополнительные
+// карточки. Действия search/text оставлены для прежних клиентов.
 // Деплой:  supabase functions deploy book-proxy
 //
 // Вызывается с фронтенда через supabase.functions.invoke('book-proxy', { body })
@@ -7,6 +8,7 @@
 //   body = { action: 'text',   iaIds: ['...'] }
 
 import { isAuthenticatedRequest } from "../_shared/auth.ts";
+import { CatalogError, searchCatalog, loadCatalogText } from './catalog.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,6 +107,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action;
 
+    // Separate actions keep previously deployed clients compatible.
+    if (action === 'catalog_search') return json(200, await searchCatalog(body));
+    if (action === 'catalog_text') return json(200, await loadCatalogText(body));
+
     if (action === "search") {
       return json(200, await search(String(body.query || "")));
     }
@@ -121,6 +127,6 @@ Deno.serve(async (req) => {
 
     return json(400, { error: "Unknown action" });
   } catch (err) {
-    return json(500, { error: (err as Error).message });
+    return json(err instanceof CatalogError ? err.status : 500, { error: (err as Error).message });
   }
 });

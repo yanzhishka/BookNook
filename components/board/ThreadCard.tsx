@@ -1,102 +1,111 @@
-import React from 'react';
-import { Clock, Flame, MessageSquare, Trash2 } from 'lucide-react';
-import { Thread } from '../../types';
-import { classNames } from '../../utils/classNames';
-import { Identicon } from '../Identicon';
-import styles from './ThreadCard.module.css';
-
-interface ThreadCardProps {
+import { BookOpen, Heart, MessageSquare, Trash2 } from "lucide-react";
+import type { CommunityTopic } from "../../types";
+import { Identicon } from "../Identicon";
+import styles from "./ThreadCard.module.css";
+export const replyLabel = (n: number) =>
+  `${n} ${n % 10 === 1 && n % 100 !== 11 ? "ответ" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "ответа" : "ответов"}`;
+export const kindLabel = (kind: CommunityTopic["kind"]) =>
+  kind === "quote" ? "Цитата" : kind === "review" ? "Отзыв" : "Обсуждение";
+interface Props {
   canDelete: boolean;
-  thread: Thread;
+  thread: CommunityTopic;
+  likePending: boolean;
   onDelete: () => void;
   onOpen: () => void;
+  onLike: () => void;
+  onViewProfile?: (id: string) => void;
 }
-
-const getHeatClassName = (repliesCount: number) => {
-  if (repliesCount > 50) return styles.heatCritical;
-  if (repliesCount > 20) return styles.heatHot;
-  if (repliesCount > 5) return styles.heatWarm;
-  return styles.heatQuiet;
-};
-
-export const ThreadCard: React.FC<ThreadCardProps> = ({
+export const ThreadCard = ({
   canDelete,
   thread,
+  likePending,
   onDelete,
   onOpen,
-}) => {
-  const isHotThread = thread.repliesCount > 20;
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onOpen();
-    }
-  };
-
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={handleKeyDown}
-      className={classNames(styles.card, getHeatClassName(thread.repliesCount))}
-    >
-      <div className={styles.cardContent}>
-        <div className={styles.metaRow}>
-          <div className={styles.author}>
-            <Identicon seed={thread.authorId} size={36} />
-            <div>
-              <span className={styles.authorName}>{thread.authorName}</span>
-              <span className={styles.authorId}>ID: {thread.authorId?.slice(0, 6) || 'Anon'}</span>
-            </div>
-          </div>
-
-          <div className={styles.cardActions}>
-            <span className={styles.timestamp}>
-              <Clock size={10} />
-              {thread.timestamp}
-            </span>
-
-            {canDelete && (
-              <button
-                type="button"
-                aria-label="Удалить тред"
-                className={styles.deleteButton}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <h3 className={styles.threadTitle}>{thread.title}</h3>
-
-        {thread.imageUrl && (
-          <div className={styles.imageWrap}>
-            <img src={thread.imageUrl} className={styles.image} alt="" />
-          </div>
+  onLike,
+  onViewProfile,
+}: Props) => (
+  <article className={styles.card}>
+    <header className={styles.metaRow}>
+      <button
+        type="button"
+        className={styles.author}
+        disabled={!onViewProfile}
+        onClick={() => onViewProfile?.(thread.authorId)}
+      >
+        {thread.authorAvatar ? (
+          <img src={thread.authorAvatar} alt="" className={styles.avatar} />
+        ) : (
+          <Identicon seed={thread.authorId} size={32} />
         )}
-
-        <p className={styles.preview}>{thread.content}</p>
-
-        <div className={styles.footer}>
-          <div className={styles.replies}>
-            <span className={classNames(styles.repliesIcon, isHotThread && styles.repliesIconHot)}>
-              {isHotThread ? <Flame size={14} /> : <MessageSquare size={14} />}
-            </span>
-            <span className={styles.replyCount}>{thread.repliesCount}</span>
-          </div>
-
-          <button type="button" className={styles.openButton}>
-            Открыть тред
-          </button>
-        </div>
+        <span>{thread.authorName}</span>
+      </button>
+      <time dateTime={thread.createdAt}>{thread.timestamp}</time>
+      {canDelete && (
+        <button
+          type="button"
+          className={styles.deleteButton}
+          aria-label={`Удалить тему «${thread.title}»`}
+          onClick={onDelete}
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
+    </header>
+    <p className={styles.kind}>{kindLabel(thread.kind)}</p>
+    <h2 className={styles.threadTitle}>
+      <button type="button" onClick={onOpen}>
+        {thread.title}
+      </button>
+    </h2>
+    <p
+      className={`${styles.preview} ${thread.kind === "quote" ? styles.quote : ""}`}
+    >
+      {thread.content}
+    </p>
+    {thread.imageUrl && (
+      <button
+        type="button"
+        className={styles.imageWrap}
+        onClick={onOpen}
+        aria-label={`Открыть изображение темы «${thread.title}»`}
+      >
+        <img
+          src={thread.imageUrl}
+          className={styles.image}
+          alt=""
+          loading="lazy"
+        />
+      </button>
+    )}
+    {thread.book && (
+      <div className={styles.book}>
+        <BookOpen size={16} aria-hidden="true" />
+        <span>
+          <strong>{thread.book.title}</strong>
+          <span>{thread.book.author}</span>
+        </span>
       </div>
-    </article>
-  );
-};
+    )}
+    <footer className={styles.footer}>
+      <button
+        type="button"
+        aria-label={`Нравится: ${thread.title}`}
+        aria-pressed={thread.likedByMe}
+        disabled={likePending}
+        onClick={onLike}
+        className={thread.likedByMe ? styles.liked : ""}
+      >
+        <Heart size={18} fill={thread.likedByMe ? "currentColor" : "none"} />
+        <span>{thread.likesCount}</span>
+      </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Открыть тему «${thread.title}»`}
+      >
+        <MessageSquare size={18} />
+        <span>{replyLabel(thread.repliesCount)}</span>
+      </button>
+    </footer>
+  </article>
+);

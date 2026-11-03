@@ -1,16 +1,20 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, ArrowRight, Loader2, AlertCircle, User, CheckCircle } from 'lucide-react';
 import { db } from '../services/db';
-import { User as UserType, Book } from '../types';
+import { User as UserType, BookSummary } from '../types';
+import type { Product } from '../services/ecosystem';
+import { ProductSwitcher } from './layout/ProductSwitcher';
 
 interface AuthProps {
-  onLogin: (user: UserType, books: Book[]) => void;
+  onLogin: (user: UserType, books: BookSummary[]) => void;
   onGuestLogin: () => void;
   initialError?: string | null;
+  product?: Product;
+  onProductChange?: (product: Product) => void;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError }) => {
+export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError, product = 'books', onProductChange }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +25,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const submitLock = useRef(false);
 
   useEffect(() => {
     if (initialError) setError(initialError);
@@ -28,6 +33,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
     setError(null);
     setSuccessMessage(null);
 
@@ -47,12 +53,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
       return;
     }
 
+    submitLock.current = true;
     setLoading(true);
 
     try {
       if (isRegistering) {
         // 1. Try Register
-        await db.register(email, password, name, acceptedTerms);
+        await db.register(email.trim(), password, name.trim(), acceptedTerms);
         
         // 2. Try Auto-Login (works if Email Confirm is OFF)
         const session = await db.getSession();
@@ -75,6 +82,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
       const displayError = err?.message || 'Не удалось войти. Проверьте данные и подключение.';
       setError(displayError);
     } finally {
+      submitLock.current = false;
       setLoading(false);
     }
   };
@@ -87,20 +95,24 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
 
       <div className="w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-stone-100 dark:border-stone-800 p-8 relative z-10 animate-scale-in">
         <div className="text-center mb-8">
+          {onProductChange ? <div className="max-w-[240px] mx-auto text-left"><ProductSwitcher product={product} onChange={onProductChange} /><h1 className="sr-only">{product === 'watch' ? 'W.Nook' : 'B.Nook'}</h1></div> : <>
           <div className="w-16 h-16 bg-stone-900 dark:bg-stone-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
             <BookOpen size={32} className="text-white dark:text-stone-900" />
           </div>
 
           <h1 className="text-3xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-2">B.Nook</h1>
-          <p className="text-stone-500 dark:text-stone-400">Личная библиотека и место для чтения.</p>
+          </>}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} aria-busy={loading} className="space-y-4">
           {isRegistering && (
             <div className="space-y-1 animate-fade-in-up">
-              <label className="text-xs font-bold text-stone-400 uppercase ml-1">Имя</label>
+              <label htmlFor="auth-name" className="text-xs font-bold text-stone-400 uppercase ml-1">Имя</label>
               <input
+                id="auth-name"
                 type="text"
+                autoComplete="name"
+                disabled={loading}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-stone-500 transition-all text-stone-800 dark:text-stone-100"
@@ -110,13 +122,16 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-stone-400 uppercase ml-1">Email</label>
+            <label htmlFor="auth-login" className="text-xs font-bold text-stone-400 uppercase ml-1">{isRegistering ? 'Email' : 'Email или логин'}</label>
             <input
-              type="email"
+              id="auth-login"
+              type={isRegistering ? 'email' : 'text'}
+              autoComplete={isRegistering ? 'email' : 'username'}
+              disabled={loading}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl outline-none focus:ring-2 focus:ring-stone-500 transition-all text-stone-800 dark:text-stone-100"
-              placeholder="hello@example.com"
+              placeholder={isRegistering ? 'hello@example.com' : 'Email или логин'}
             />
           </div>
 
@@ -124,6 +139,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
             <label className="flex items-start gap-3 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 p-3 text-xs text-stone-500 dark:text-stone-400 leading-relaxed cursor-pointer">
               <input
                 type="checkbox"
+                disabled={loading}
                 checked={acceptedTerms}
                 onChange={(event) => setAcceptedTerms(event.target.checked)}
                 className="mt-0.5 accent-amber-500"
@@ -135,9 +151,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-stone-400 uppercase ml-1">Пароль</label>
+            <label htmlFor="auth-password" className="text-xs font-bold text-stone-400 uppercase ml-1">Пароль</label>
             <input
+              id="auth-password"
               type="password"
+              disabled={loading}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={isRegistering ? 8 : undefined}
@@ -148,14 +166,14 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
           </div>
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-center gap-2 animate-fade-in-up">
+            <div role="alert" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-center gap-2 animate-fade-in-up">
               <AlertCircle size={16} />
               {error}
             </div>
           )}
 
           {successMessage && (
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 p-3 rounded-lg text-sm flex items-center gap-2 animate-fade-in-up border border-emerald-100 dark:border-emerald-800">
+            <div role="status" className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 p-3 rounded-lg text-sm flex items-center gap-2 animate-fade-in-up border border-emerald-100 dark:border-emerald-800">
               <CheckCircle size={16} />
               {successMessage}
             </div>
@@ -179,8 +197,9 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
 
         <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
              <button 
+                disabled={loading}
                 onClick={onGuestLogin}
-                className="w-full py-3 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
              >
                  <User size={18} />
                  Продолжить как гость
@@ -189,12 +208,13 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onGuestLogin, initialError 
 
         <div className="mt-6 text-center">
           <button
+            disabled={loading}
             onClick={() => {
                 setIsRegistering(!isRegistering);
                 setError(null);
                 setSuccessMessage(null);
             }}
-            className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 text-sm font-medium transition-colors"
+            className="text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 text-sm font-medium transition-colors disabled:opacity-60"
           >
             {isRegistering
               ? 'Уже есть аккаунт? Войти'
