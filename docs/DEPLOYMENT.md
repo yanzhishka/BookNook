@@ -5,6 +5,7 @@
 ## Cloudflare Pages
 
 - Проект: `nook-milliardarmedia`.
+- Технический адрес для проверки независимо от основного домена: https://nook-milliardarmedia.pages.dev.
 - Репозиторий: `yanzhishka/BookNook`, production-ветка `main`.
 - Команда сборки: `npm test && npm run build`.
 - Результат: `dist`, Node.js — из `.node-version`.
